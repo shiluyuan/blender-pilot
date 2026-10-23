@@ -8,6 +8,7 @@ import {
   CodexRuntime,
   type CodexInput,
 } from "../../packages/runtime-adapters/codex.js";
+import { terminal } from "../../packages/contracts/index.js";
 import type {
   StartJob,
   PilotEvent,
@@ -43,7 +44,7 @@ export class Jobs {
     mutations: number;
     calls: number;
     report?: { captureId: string; passed: boolean; observations: string };
-    writing?: Promise<any>;
+    review?: { repairsLeft: number; allowWrite: boolean };
   };
   states = new Map<string, JobState>();
   events = new Map<string, PilotEvent[]>();
@@ -79,7 +80,10 @@ export class Jobs {
           });
       } catch {}
       this.events.set(state.id, ev);
-      state.seq = Math.max(state.seq, ...ev.map((e) => e.seq), 0);
+      state.seq = Math.max(
+        state.seq,
+        ev.reduce((max, e) => Math.max(max, e.seq), 0),
+      );
       if (["running", "queued", "cancelling"].includes(state.status)) {
         state.status = "interrupted";
         state.error = "执行服务重启，未自动重放场景修改";
@@ -102,16 +106,21 @@ export class Jobs {
       time: now(),
     };
     state.updatedAt = event.time;
-    (
-      this.events.get(state.id) || this.events.set(state.id, []).get(state.id)!
-    ).push(event);
+    const persistedState = { ...state };
     this.persistence = this.persistence.then(async () => {
       await appendFile(
         path.join(this.root, "jobs", state.id + ".ndjson"),
         JSON.stringify(event) + "\n",
         { mode: 0o600 },
       );
-      await atomicJson(path.join(this.root, "jobs", state.id + ".json"), state);
+      await atomicJson(
+        path.join(this.root, "jobs", state.id + ".json"),
+        persistedState,
+      );
+      (
+        this.events.get(state.id) ||
+        this.events.set(state.id, []).get(state.id)!
+      ).push(event);
     });
     await this.persistence;
     return event;
@@ -217,7 +226,10 @@ export class Jobs {
         },
       });
       a.runtime = runtime;
-      state.nativeThreadId = await runtime.start(a.input.nativeThreadId);
+      state.nativeThreadId = await runtime.start(
+        a.input.nativeThreadId,
+        a.abort.signal,
+      );
       await this.emit(state, "session.bound", {
         nativeThreadId: state.nativeThreadId,
       });
@@ -264,6 +276,7 @@ export class Jobs {
         }
       }
       await runtime.turn(input, a.abort.signal);
+      a.review = { repairsLeft: 2, allowWrite: true };
       // End-of-turn verification is enforced outside the model's self-reported completion.
       for (let round = 0; round < 3 && !a.abort.signal.aborted; round++) {
         if (a.report?.passed) {
@@ -273,6 +286,7 @@ export class Jobs {
           a.report = undefined;
         }
         if (a.captures.length >= 8) break;
+        a.review.allowWrite = round < 2;
         const final = await this.scene.serial(() => this.capture("final"));
         await runtime.turn(
           [
@@ -314,7 +328,7 @@ export class Jobs {
       state.error = redact(String(e), [a.input.settings.apiKey || ""]);
       state.verification = "unavailable";
     } finally {
-      a.runtime?.close();
+      await a.runtime?.close();
       await this.scene.idle();
       await this.emit(state, "run.status", {
         status: state.status,
@@ -324,9 +338,23 @@ export class Jobs {
       if (this.active === a) this.active = undefined;
     }
   }
+  get(id: string): JobState | undefined {
+    const state = this.states.get(id);
+    if (!state) return undefined;
+    // Do not publish completion before the final event is durable and the
+    // scene lock is released. Otherwise the gateway can stop polling early.
+    if (this.active?.state.id === id && terminal.has(state.status)) {
+      return {
+        ...state,
+        status: this.active.abort.signal.aborted ? "cancelling" : "running",
+      };
+    }
+    return { ...state };
+  }
   async cancel(id: string) {
     const a = this.active;
-    if (!a || a.state.id !== id) return this.states.get(id);
+    if (!a || a.state.id !== id || terminal.has(a.state.status))
+      return this.get(id);
     a.state.status = "cancelling";
     a.abort.abort();
     await this.emit(a.state, "run.status", { status: "cancelling" });
@@ -355,6 +383,14 @@ export class Jobs {
           image = r.image;
           result = { capture: cap };
         } else if (name === "report_verification") {
+          if (
+            typeof args.captureId !== "string" ||
+            typeof args.passed !== "boolean" ||
+            typeof args.observations !== "string" ||
+            args.observations.trim().length < 3 ||
+            args.observations.length > 4000
+          )
+            throw new Error("检查报告需要当前截图、明确结论和具体观察");
           const chosen = a.captures.find((c) => c.id === args.captureId);
           if (!chosen) throw new Error("未知截图，请先 capture");
           const current = await this.scene.info();
@@ -385,6 +421,11 @@ export class Jobs {
           await this.emit(a.state, "artifact.created", { artifact });
           result = artifact;
         } else if (name === "execute_blender_code" || name === "import_asset") {
+          if (a.review) {
+            if (!a.review.allowWrite || a.review.repairsLeft <= 0)
+              throw new Error("最终检查的修正预算已用完，请报告剩余差异");
+            a.review.repairsLeft--;
+          }
           if (a.captures.length >= 7)
             throw new Error("已保留最后一张截图额度，请结束修改并检查");
           const before = await this.scene.info();

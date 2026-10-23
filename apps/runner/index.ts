@@ -60,10 +60,10 @@ app.get("/health", async () => {
     error,
   };
 });
-app.get("/jobs", async () => [...jobs.states.values()]);
+app.get("/jobs", async () => [...jobs.states.keys()].map((id) => jobs.get(id)));
 app.get("/jobs/:id", async (req) => {
   const id = idSchema.parse((req.params as any).id);
-  const s = jobs.states.get(id);
+  const s = jobs.get(id);
   if (!s) throw new Error("任务不存在");
   return s;
 });

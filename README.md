@@ -6,6 +6,10 @@ Blender Pilot 是面向个人自托管的 Blender 工作台：原生 Blender 桌
 
 > 当前为 0.1.0 首版，面向 Linux x86_64、单用户、单个活动场景。模型需要支持 **Responses API、流式响应、工具调用和图片输入**。只有 Chat Completions 的接口不能直接接入。
 
+![真实 Blender 工作台](docs/screenshots/workbench-dark.png)
+
+**验收状态：** 网页与真实 Blender 操作已在开发云端实测；原生 Codex 完整对话链路仍因 `thread/start` 超时未通过，Docker 镜像启动尚未完成验证。当前应视为待完成整机验收的首版，不能承诺填写 Key 后立即可用。详见 [验证记录](docs/validation.md)。
+
 ## 快速部署
 
 服务器需要 Docker Engine 与 Docker Compose v2，至少预留 8 GB 内存、15 GB 可用磁盘；实际场景、贴图、快照和渲染需要更多资源。初次构建会下载 Blender 与运行依赖。

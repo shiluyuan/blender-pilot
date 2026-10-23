@@ -43,10 +43,33 @@ PILOT_PASSWORD=your-test-password npm run test:e2e
 
 容器中的模型请求需要访问测试主机：设置 `PILOT_FIXTURE_BIND=0.0.0.0`、`PILOT_FIXTURE_HOST=host.docker.internal`，并给 studio 添加 `extra_hosts: ["host.docker.internal:host-gateway"]`。不要对正在使用的实例运行此测试。
 
-## 首版验证记录
+## 首版验证记录（2026-10-23）
 
-开发云端已完成：类型检查/生产构建、5 项自动化测试、Blender 4.5.4 GUI 与 MCP 2.2.2 的真实操作、截图、导出、快照恢复和 RNA 查询。
+| 检查                      | 结果         | 范围                                                                                                       |
+| ------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------- |
+| TypeScript、正式构建      | 通过         | Web、网关、Runner 与适配层                                                                                 |
+| 10 项自动化测试           | 通过         | 加密、鉴权、上传、项目隔离、持久化、SSE 续传、重启中断、结束竞态、MCP 图像内容、Codex 协议夹具             |
+| Blender 4.5.4 + MCP 2.2.2 | 通过         | 真实 GUI、Python 修改、截图、RNA、GLB/glTF/blend 导出、快照恢复                                            |
+| 浏览器端实际工作台        | 通过         | 登录、真实 VNC、侧栏保持连接、明暗主题、截图引用、上传/引用、设置测试、恢复、下载、刷新和 1280px 布局      |
+| Compose 与启动脚本        | 通过静态检查 | Compose v2.39.4 config、GPU override 合并、shell 语法；不是镜像启动验证                                    |
+| 原生 Codex 0.164.0 全链路 | **未通过**   | `initialize` 成功，`thread/start` 在 45 秒超时。独立空工具诊断也复现；尚未确定根因，不能归因于缺少用户 Key |
+| Docker 整机启动           | **未完成**   | 开发云端没有 Docker daemon；GitHub Actions 两个 job 都在任何 step 前失败，无可读取的 job 日志              |
+| 用户模型真实推理/视觉质量 | **未测试**   | 未提供真实模型 Key，协议夹具不能代替模型效果验收                                                           |
+| NVIDIA / 大型生产场景     | **未测试**   | 无相应 GPU 与生产数据                                                                                      |
 
-Codex 原生端到端与 Docker 镜像启动结果以本仓库后续提交的记录和 CI 检查为准。开发云端没有 Docker daemon，不能把原生运行结果称作 Docker 运行成功。
+Actions 初次尝试：[Validate #1](https://github.com/shiluyuan/blender-pilot/actions/runs/39960711569)。不能将该状态称作 CI 通过；需要在可执行 Docker 作业的环境重新运行。
 
-尚无用户模型密钥，未执行付费模型的真实推理或视觉质量验收。NVIDIA GPU、复杂人物、大型生产场景和长期稳定性尚未验证。
+可独立排查原生 Codex 启动，不需要真实 Key、不执行模型推理：
+
+```bash
+npm run doctor:codex
+```
+
+只运行已验证的 Blender/桌面部分时，显式设置 `PILOT_SKIP_CODEX=true npm run verify:blender`。脚本会在结果中写入 `codex: not-tested`，不会冒充原生 Codex 验收成功。
+
+实测截图：
+
+- [深色工作台](screenshots/workbench-dark.png)
+- [浅色工作台](screenshots/workbench-light.png)
+
+下一步验收顺序：排除原生 Codex 启动超时 → 在标准 Docker Linux 主机运行 `test:e2e` → 配置真实多模态接口 → 完成一次有图片引用、场景修改、自动截图和视觉结论的真实任务。全部通过前，首版不标记为完整验收完成。

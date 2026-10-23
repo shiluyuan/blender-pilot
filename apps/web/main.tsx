@@ -229,6 +229,9 @@ function App() {
     >([]),
     [loading, setLoading] = useState(false),
     [renaming, setRenaming] = useState<Asset>();
+  const assetRequest = useRef(0);
+  const currentProject = useRef<string | undefined>(undefined);
+  currentProject.current = project?.id;
   const active = runs.find((r) => !terminal.has(r.status));
   const busy = !!active || !!health?.execution?.runId;
   const files = useRef<HTMLInputElement>(null),
@@ -268,9 +271,15 @@ function App() {
   }, []);
   const loadAssets = useCallback(async () => {
     if (!project) return;
+    const request = ++assetRequest.current;
     const r = await api(
       `/projects/${project.id}/assets?search=${encodeURIComponent(assetSearch)}&kind=${assetKind}&page=${assetPage}`,
     );
+    if (
+      request !== assetRequest.current ||
+      project.id !== currentProject.current
+    )
+      return;
     setAssets(r.items);
     setAssetTotal(r.total);
   }, [project?.id, assetSearch, assetKind, assetPage]);
@@ -1772,7 +1781,9 @@ function Settings({
     [busy, setBusy] = useState(false),
     [result, setResult] = useState("");
   useEffect(() => {
-    api("/settings").then((s) => setForm({ ...s, apiKey: "" }));
+    api("/settings")
+      .then((s) => setForm({ ...s, apiKey: "" }))
+      .catch((e) => notify(String(e)));
   }, []);
   const save = async () => {
     const r = await api("/settings", {

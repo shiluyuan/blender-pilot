@@ -103,11 +103,7 @@ try {
   launch("blender", process.env.BLENDER_BIN || "blender", [
     "--factory-startup",
     "-noaudio",
-    "--window-geometry",
-    "0",
-    "0",
-    "1440",
-    "900",
+    "--window-fullscreen",
     "--python",
     path.join(root, "deploy/bootstrap.py"),
   ]);
@@ -139,13 +135,31 @@ try {
   assert((await bridge.info()).objects.some((o) => o.name === "Smoke_Cube"));
   const cap = await bridge.capture("native-smoke", "native-test");
   assert((await sharp(cap.capture.path).metadata()).width! > 200);
+  assert.equal(
+    (await bridge.info()).revision,
+    cap.capture.sceneRevision,
+    "a capture stays current without scene changes",
+  );
+  const exported: Record<string, string> = {};
   for (const format of ["glb", "gltf", "blend"] as const) {
     const file = await bridge.export(format);
+    exported[format] = file;
     assert((await stat(file)).size > 100);
+    if (format === "gltf") {
+      const doc = JSON.parse(await readFile(file, "utf8"));
+      assert(doc.buffers.every((b: any) => b.uri.startsWith("data:")));
+    }
     console.log("PASS export", format);
   }
   await bridge.restore("native-smoke", snapshot.path);
   assert(!(await bridge.info()).objects.some((o) => o.name === "Smoke_Cube"));
+  const objectCount = (await bridge.info()).objects.length;
+  await bridge.import(exported.glb);
+  assert(
+    (await bridge.info()).objects.length > objectCount,
+    "GLB import modifies the real scene",
+  );
+  await bridge.restore("native-smoke", snapshot.path);
   const op = await bridge.queryApi("bpy.ops.mesh.primitive_cube_add");
   assert(op.properties.some((x: any) => x.name === "size"));
   await bridge.upstream.close();
@@ -194,108 +208,117 @@ try {
   const project = await api("/projects", { name: "光与几何 · 验证项目" });
   await api("/projects/" + project.id + "/activate", {});
   const session = await api("/projects/" + project.id + "/sessions", {});
-  const body = {
-    text: "添加一个绿色球体，保留原场景，并检查结果。",
-    assetIds: [],
-    clientRequestId: "fixture-turn-1",
-  };
-  const run = await api("/sessions/" + session.id + "/turns", body);
-  const duplicate = await api("/sessions/" + session.id + "/turns", body);
-  assert.equal(duplicate.id, run.id);
-  const finished = await waitFor(
-    async () => {
-      const runs = await api("/sessions/" + session.id + "/runs");
-      const r = runs.find((r: any) => r.id === run.id);
-      return ["succeeded", "failed", "cancelled", "interrupted"].includes(
-        r?.status,
-      )
-        ? r
-        : false;
-    },
-    "native Codex turn",
-    180000,
-  );
-  await writeFile(
-    path.join(dir, "fixture-requests.json"),
-    JSON.stringify(fixture.requests, null, 2),
-  );
-  console.log("Codex result", JSON.stringify(finished));
-  assert.equal(finished.status, "succeeded", finished.error);
-  const info = await api("/projects/" + project.id + "/scene");
-  assert(info.objects.some((o: any) => o.name === "Pilot_Verified_Sphere"));
-  const images = fixture.requests.reduce(
-    (n, b) => n + (JSON.stringify(b.input).match(/data:image\//g) || []).length,
-    0,
-  );
-  assert(images >= 2, "baseline and post-mutation image must reach provider");
-  const journal = await readFile(
-    path.join(dir, "jobs", run.id + ".ndjson"),
-    "utf8",
-  );
-  assert(journal.includes("scene.receipt"));
-  assert(journal.includes("verification"));
-  assert(!journal.includes("fixture-key-only"));
-  console.log(
-    "PASS native Codex app-server → MCP → real Blender → images in Responses input",
-  );
-  const bound = (await api("/projects/" + project.id + "/sessions"))[0]
-    .nativeThreadId;
-  assert(bound);
-  const run2 = await api("/sessions/" + session.id + "/turns", {
-    text: "确认当前场景。",
-    clientRequestId: "fixture-resume",
-    assetIds: [],
-  });
-  // The fixture's final-only response intentionally cannot assert verification.
-  await waitFor(
-    async () => {
-      const r = (await api("/sessions/" + session.id + "/runs")).find(
-        (r: any) => r.id === run2.id,
-      );
-      return ["succeeded", "failed", "interrupted"].includes(r?.status) && r;
-    },
-    "resume",
-    120000,
-  );
-  assert.equal(
-    (await api("/projects/" + project.id + "/sessions"))[0].nativeThreadId,
-    bound,
-  );
-  console.log(
-    "PASS native thread resume; missing visual report does not become success",
-  );
-  fixture.setHold(true);
-  const run3 = await api("/sessions/" + session.id + "/turns", {
-    text: "取消测试",
-    clientRequestId: "fixture-cancel",
-    assetIds: [],
-  });
-  const count = fixture.requests.length;
-  await waitFor(
-    async () => fixture!.requests.length > count,
-    "request started",
-  );
-  await api("/runs/" + run3.id + "/cancel", {});
-  const cancelled = await waitFor(
-    async () => {
-      const r = (await api("/sessions/" + session.id + "/runs")).find(
-        (r: any) => r.id === run3.id,
-      );
-      return r?.status === "cancelled" && r;
-    },
-    "cancel",
-    30000,
-  );
-  assert.equal(cancelled.status, "cancelled");
-  fixture.setHold(false);
-  console.log("PASS native turn interruption");
+  let images = 0;
+  const skipCodex = process.env.PILOT_SKIP_CODEX === "true";
+  if (!skipCodex) {
+    const body = {
+      text: "添加一个绿色球体，保留原场景，并检查结果。",
+      assetIds: [],
+      clientRequestId: "fixture-turn-1",
+    };
+    const run = await api("/sessions/" + session.id + "/turns", body);
+    const duplicate = await api("/sessions/" + session.id + "/turns", body);
+    assert.equal(duplicate.id, run.id);
+    const finished = await waitFor(
+      async () => {
+        const runs = await api("/sessions/" + session.id + "/runs");
+        const r = runs.find((r: any) => r.id === run.id);
+        return ["succeeded", "failed", "cancelled", "interrupted"].includes(
+          r?.status,
+        )
+          ? r
+          : false;
+      },
+      "native Codex turn",
+      180000,
+    );
+    await writeFile(
+      path.join(dir, "fixture-requests.json"),
+      JSON.stringify(fixture.requests, null, 2),
+    );
+    console.log("Codex result", JSON.stringify(finished));
+    assert.equal(finished.status, "succeeded", finished.error);
+    const info = await api("/projects/" + project.id + "/scene");
+    assert(info.objects.some((o: any) => o.name === "Pilot_Verified_Sphere"));
+    images = fixture.requests.reduce(
+      (n, b) =>
+        n + (JSON.stringify(b.input).match(/data:image\//g) || []).length,
+      0,
+    );
+    assert(images >= 2, "baseline and post-mutation image must reach provider");
+    const journal = await readFile(
+      path.join(dir, "jobs", run.id + ".ndjson"),
+      "utf8",
+    );
+    assert(journal.includes("scene.receipt"));
+    assert(journal.includes("verification"));
+    assert(!journal.includes("fixture-key-only"));
+    console.log(
+      "PASS native Codex app-server → MCP → real Blender → images in Responses input",
+    );
+    const bound = (await api("/projects/" + project.id + "/sessions"))[0]
+      .nativeThreadId;
+    assert(bound);
+    const run2 = await api("/sessions/" + session.id + "/turns", {
+      text: "确认当前场景。",
+      clientRequestId: "fixture-resume",
+      assetIds: [],
+    });
+    // The fixture's final-only response intentionally cannot assert verification.
+    await waitFor(
+      async () => {
+        const r = (await api("/sessions/" + session.id + "/runs")).find(
+          (r: any) => r.id === run2.id,
+        );
+        return ["succeeded", "failed", "interrupted"].includes(r?.status) && r;
+      },
+      "resume",
+      120000,
+    );
+    assert.equal(
+      (await api("/projects/" + project.id + "/sessions"))[0].nativeThreadId,
+      bound,
+    );
+    console.log(
+      "PASS native thread resume; missing visual report does not become success",
+    );
+    fixture.setHold(true);
+    const run3 = await api("/sessions/" + session.id + "/turns", {
+      text: "取消测试",
+      clientRequestId: "fixture-cancel",
+      assetIds: [],
+    });
+    const count = fixture.requests.length;
+    await waitFor(
+      async () => fixture!.requests.length > count,
+      "request started",
+    );
+    await api("/runs/" + run3.id + "/cancel", {});
+    const cancelled = await waitFor(
+      async () => {
+        const r = (await api("/sessions/" + session.id + "/runs")).find(
+          (r: any) => r.id === run3.id,
+        );
+        return r?.status === "cancelled" && r;
+      },
+      "cancel",
+      30000,
+    );
+    assert.equal(cancelled.status, "cancelled");
+    fixture.setHold(false);
+    console.log("PASS native turn interruption");
+  } else console.log("SKIP Codex: desktop/Blender-only validation requested");
   if (process.env.PILOT_BROWSER_BIN) {
     await waitFor(() => port(5900), "VNC", 20000);
     const { chromium } = await import("@playwright/test");
     browser = await chromium.launch({
       executablePath: process.env.PILOT_BROWSER_BIN,
       headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      args: [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        ...(process.env.PILOT_BROWSER_ARGS?.split(",") || []),
+      ],
     });
     const page = await browser.newPage({
       viewport: { width: 1600, height: 1000 },
@@ -312,6 +335,88 @@ try {
       .waitFor({ timeout: 30000 });
     await page.locator(".rfb-host canvas").waitFor();
     await page.screenshot({ path: path.join(dir, "workbench-dark.png") });
+    const canvas = await page.locator(".rfb-host canvas").elementHandle();
+    await page
+      .getByRole("button", { name: "收起助手", exact: true })
+      .first()
+      .click();
+    await page.getByRole("button", { name: "展开助手", exact: true }).click();
+    assert(
+      await canvas!.evaluate((el: Element) => el.isConnected),
+      "sidebar must not remount Blender",
+    );
+    await page.getByRole("button", { name: "切换主题" }).click();
+    await page.screenshot({ path: path.join(dir, "workbench-light.png") });
+    await page.getByRole("button", { name: "切换主题" }).click();
+    await page.getByRole("button", { name: "截图", exact: true }).click();
+    await page.locator(".attachments").getByText("当前场景截图").waitFor();
+    const reference = await sharp({
+      create: { width: 600, height: 400, channels: 3, background: "#7bb8a3" },
+    })
+      .png()
+      .toBuffer();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "场景参考.png",
+      mimeType: "image/png",
+      buffer: reference,
+    });
+    await page.getByRole("button", { name: "资源库", exact: true }).click();
+    await page
+      .locator(".asset-card")
+      .getByText("场景参考.png", { exact: true })
+      .waitFor();
+    await page.screenshot({ path: path.join(dir, "assets.png") });
+    await page
+      .locator(".asset-card")
+      .getByRole("button", { name: "引用", exact: true })
+      .click();
+    await page.locator(".attachments").getByText("场景参考.png").waitFor();
+    await page.getByRole("button", { name: "模型设置", exact: true }).click();
+    assert.equal(
+      await page.getByPlaceholder("已保存 · 留空保留现有 Key").inputValue(),
+      "",
+    );
+    await page
+      .getByRole("button", { name: "保存并测试连接", exact: true })
+      .click();
+    await page
+      .getByText(
+        "Responses API 连通。视觉与 Blender 工具能力请通过工作台真实任务验证。",
+        { exact: true },
+      )
+      .waitFor();
+    await page.screenshot({ path: path.join(dir, "settings.png") });
+    await page.getByRole("button", { name: "快照与恢复", exact: true }).click();
+    await page.getByRole("button", { name: "建立快照", exact: true }).click();
+    await page
+      .locator(".snapshot-row")
+      .getByText("手动保存点", { exact: true })
+      .waitFor();
+    page.once("dialog", (dialog: any) => dialog.accept());
+    await page
+      .locator(".snapshot-row")
+      .first()
+      .getByRole("button", { name: "恢复", exact: true })
+      .click();
+    await page.getByText("已恢复，并保留恢复前备份", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "工作台", exact: true }).click();
+    await page.getByRole("button", { name: "导出", exact: true }).click();
+    const downloaded = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "GLB 单文件模型，适合网页和游戏" })
+      .click();
+    assert((await downloaded).suggestedFilename().endsWith(".glb"));
+    await page.reload();
+    await page.getByText("Blender 实时视口", { exact: true }).waitFor();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    );
+    console.log(
+      "PASS sidebar continuity, light theme, screenshot reference, upload, asset reference, settings, snapshot restore, export, reload and 1280px layout",
+    );
     console.log(
       "PASS browser login + actual Blender over authenticated WebSocket",
     );
@@ -324,6 +429,7 @@ try {
     JSON.stringify(
       {
         passed: true,
+        codex: skipCodex ? "not-tested" : "passed",
         time: new Date().toISOString(),
         blender: before.version,
         model: "deterministic Responses fixture (not real inference)",
@@ -332,11 +438,15 @@ try {
           "native MCP",
           "snapshots",
           "GLB/glTF/blend exports",
-          "Codex tool calls",
-          "image input",
-          "idempotency",
-          "thread resume",
-          "cancel",
+          ...(skipCodex
+            ? []
+            : [
+                "Codex tool calls",
+                "image input",
+                "idempotency",
+                "thread resume",
+                "cancel",
+              ]),
           "browser VNC",
         ],
       },
@@ -344,7 +454,11 @@ try {
       2,
     ),
   );
-  console.log("ALL NATIVE CHECKS PASSED");
+  console.log(
+    skipCodex
+      ? "BLENDER / DESKTOP CHECKS PASSED; CODEX NOT TESTED"
+      : "ALL NATIVE CHECKS PASSED",
+  );
 } catch (e) {
   console.error(e);
   for (const f of logs) {

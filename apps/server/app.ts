@@ -90,6 +90,8 @@ export async function buildApp(options: AppOptions) {
             : error.message || "操作失败",
       }),
   );
+  const shutdownController = new AbortController();
+  const streams = new Set<import("node:http").ServerResponse>();
   const fail = (message: string, statusCode = 400) =>
     Object.assign(new Error(message), { statusCode });
   const runner = async (endpoint: string, body?: unknown) => {
@@ -100,7 +102,10 @@ export async function buildApp(options: AppOptions) {
         ...(body ? { "content-type": "application/json" } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(endpoint === "/health" ? 10000 : 180000),
+      signal: AbortSignal.any([
+        shutdownController.signal,
+        AbortSignal.timeout(endpoint === "/health" ? 10000 : 180000),
+      ]),
     });
     const json = (await res.json()) as any;
     if (!res.ok) throw fail(json.error || "执行服务请求失败", res.status);
@@ -513,6 +518,8 @@ export async function buildApp(options: AppOptions) {
     );
     if (!Number.isFinite(cursor)) cursor = 0;
     reply.hijack();
+    streams.add(reply.raw);
+    reply.raw.once("close", () => streams.delete(reply.raw));
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -744,18 +751,26 @@ export async function buildApp(options: AppOptions) {
   app.get("/api/projects/:id/assets", async (req) => {
     const p = await project((req.params as any).id),
       q = req.query as any;
-    let all = await store.list<Asset>("asset", p.id);
-    if (q.search)
-      all = all.filter((a) =>
-        (a.name + " " + a.tags.join(" "))
-          .toLowerCase()
-          .includes(String(q.search).toLowerCase()),
-      );
-    if (q.kind && q.kind !== "all") all = all.filter((a) => a.kind === q.kind);
-    const page = Math.max(0, Number(q.page) || 0);
+    const search = String(q.search || "")
+      .slice(0, 200)
+      .toLowerCase();
+    const kind = String(q.kind || "all");
+    const page = Math.min(100000, Math.max(0, Math.floor(Number(q.page) || 0)));
+    const where = `kind='asset' AND data->>'projectId'=$1
+      AND ($2='' OR position($2 in lower(coalesce(data->>'name','') || ' ' || coalesce(data->>'tags','') || ' ' || coalesce(data->>'folder',''))) > 0)
+      AND ($3='all' OR data->>'kind'=$3)`;
+    const values = [p.id, search, kind];
+    const count = await store.db.query<{ count: number }>(
+      `SELECT count(*)::int as count FROM records WHERE ${where}`,
+      values,
+    );
+    const rows = await store.db.query<{ data: Asset }>(
+      `SELECT data FROM records WHERE ${where} ORDER BY data->>'createdAt' DESC LIMIT 60 OFFSET $4`,
+      [...values, page * 60],
+    );
     return {
-      items: all.slice(page * 60, page * 60 + 60),
-      total: all.length,
+      items: rows.rows.map((r) => r.data),
+      total: count.rows[0].count,
       page,
     };
   });
@@ -932,6 +947,14 @@ export async function buildApp(options: AppOptions) {
       return reply.sendFile("index.html");
     });
   }
+  app.addHook("preClose", async () => {
+    if (poll) clearInterval(poll);
+    shutdownController.abort();
+    for (const stream of streams) stream.end();
+    for (const client of ws.clients) client.terminate();
+    await operation.catch(() => {});
+    while (syncing) await new Promise<void>((resolve) => setImmediate(resolve));
+  });
   app.addHook("onClose", async () => {
     if (poll) clearInterval(poll);
     ws.close();

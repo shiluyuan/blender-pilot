@@ -22,8 +22,10 @@ export class CodexRuntime {
     reject: (e: Error) => void;
   };
   private turnId?: string;
+  private acceptingTurn = false;
   threadId?: string;
-  private stopped = false;
+  private closing?: Promise<void>;
+  private diagnosticTail = "";
   constructor(
     private options: {
       home: string;
@@ -36,17 +38,19 @@ export class CodexRuntime {
       onEvent: (method: string, params: any) => void;
     },
   ) {}
-  async start(nativeThreadId?: string) {
+  async start(nativeThreadId?: string, signal?: AbortSignal) {
+    signal?.throwIfAborted();
     const o = this.options;
     await mkdir(o.home, { recursive: true, mode: 0o700 });
     const q = (s: string) => JSON.stringify(s);
     await writeFile(
       path.join(o.home, "config.toml"),
-      `model = ${q(o.settings.model)}\nmodel_provider = "pilot"\napproval_policy = "never"\nsandbox_mode = "read-only"\nweb_search = "disabled"\n[features]\nshell_tool = false\nshell_snapshot = false\nplugins = false\nremote_plugin = false\ncode_mode_host = false\ndaemon_auto_start = false\napps = false\nmulti_agent = false\ncomputer_use = false\nbrowser_use = false\nimage_generation = false\nview_image = false\nskill_search = false\nhooks = false\nworkspace_dependencies = false\n[model_providers.pilot]\nname = "Blender Pilot Provider"\nbase_url = ${q(o.settings.baseUrl.replace(/\/$/, ""))}\nenv_key = "PILOT_MODEL_KEY"\nwire_api = "responses"\nrequest_max_retries = 1\nstream_max_retries = 1\n[mcp_servers.blender]\ncommand = ${q(o.proxyCommand)}\nargs = [${o.proxyArgs.map(q).join(",")}]\nrequired = true\nstartup_timeout_sec = 30\ntool_timeout_sec = 180\n[mcp_servers.blender.env]\nPILOT_RUNNER_URL = ${q(o.runnerUrl)}\nPILOT_RUN_TOKEN = ${q(o.runToken)}\n`,
+      `model = ${q(o.settings.model)}\nmodel_provider = "pilot"\napproval_policy = "never"\nsandbox_mode = "read-only"\nweb_search = "disabled"\n[features]\nshell_tool = false\nshell_snapshot = false\nplugins = false\nremote_plugin = false\ncode_mode_host = false\ndaemon_auto_start = false\napps = false\nmulti_agent = false\ncomputer_use = false\nbrowser_use = false\nimage_generation = false\nview_image = false\nskill_search = false\nhooks = false\nworkspace_dependencies = false\n[model_providers.pilot]\nname = "Blender Pilot Provider"\nbase_url = ${q(o.settings.baseUrl.replace(/\/$/, ""))}\nenv_key = "PILOT_MODEL_KEY"\nwire_api = "responses"\nrequest_max_retries = 1\nstream_max_retries = 1\n[mcp_servers.blender]\ncommand = ${q(o.proxyCommand)}\nargs = [${o.proxyArgs.map(q).join(",")}]\nrequired = true\nstartup_timeout_sec = 30\ntool_timeout_sec = 180\ndefault_tools_approval_mode = "prompt"\n[mcp_servers.blender.env]\nPILOT_RUNNER_URL = ${q(o.runnerUrl)}\nPILOT_RUN_TOKEN = ${q(o.runToken)}\n${["get_scene_info", "execute_blender_code", "capture", "query_blender_api", "import_asset", "save_scene", "export_scene", "report_verification"].map((name) => `[mcp_servers.blender.tools.${name}]\napproval_mode = "approve"\n`).join("")}`,
       { mode: 0o600 },
     );
     this.proc = spawn(process.env.CODEX_BIN || "codex", ["app-server"], {
       cwd: o.cwd,
+      detached: process.platform !== "win32",
       env: {
         PATH: process.env.PATH,
         HOME: o.home,
@@ -61,12 +65,17 @@ export class CodexRuntime {
       stdio: "pipe",
     });
     this.proc.on("error", (e) => this.fail(e));
+    this.proc.stdin.on("error", (e) => this.fail(e));
     this.proc.on("exit", (code, signal) =>
-      this.fail(new Error(`Codex 进程结束 (${code ?? signal})`)),
+      this.fail(
+        new Error(`Codex 进程结束 (${code ?? signal}) ${this.diagnosticTail}`),
+      ),
     );
-    let tail = "";
     this.proc.stderr.on("data", (chunk: Buffer) => {
-      tail = (tail + chunk.toString()).slice(-2000);
+      this.diagnosticTail = redact(
+        (this.diagnosticTail + chunk.toString()).slice(-2000),
+        [o.settings.apiKey || ""],
+      );
       o.onEvent("diagnostic", {
         message: redact(chunk.toString(), [o.settings.apiKey || ""]),
       });
@@ -78,28 +87,39 @@ export class CodexRuntime {
         this.fail(new Error("Codex 返回了无效协议消息"));
       }
     });
-    await this.request("initialize", {
-      clientInfo: {
-        name: "blender_pilot",
-        version: "0.1.0",
-        title: "Blender Pilot",
-      },
-    });
-    this.send({ method: "initialized", params: {} });
-    const params = {
-      model: o.settings.model,
-      modelProvider: "pilot",
-      cwd: o.cwd,
-      approvalPolicy: "never",
-      sandbox: "read-only",
-      developerInstructions: instructions,
+    const abortStart = () => {
+      void this.close();
     };
-    const r = await this.request(
-      nativeThreadId ? "thread/resume" : "thread/start",
-      nativeThreadId ? { ...params, threadId: nativeThreadId } : params,
-    );
-    this.threadId = r.thread.id;
-    return this.threadId!;
+    signal?.addEventListener("abort", abortStart, { once: true });
+    try {
+      await this.request("initialize", {
+        clientInfo: {
+          name: "blender_pilot",
+          version: "0.1.0",
+          title: "Blender Pilot",
+        },
+        capabilities: { experimentalApi: true },
+      });
+      this.send({ method: "initialized", params: {} });
+      const params = {
+        model: o.settings.model,
+        modelProvider: "pilot",
+        cwd: o.cwd,
+        approvalPolicy: "never",
+        sandbox: "read-only",
+        baseInstructions: instructions,
+      };
+      const r = await this.request(
+        nativeThreadId ? "thread/resume" : "thread/start",
+        nativeThreadId ? { ...params, threadId: nativeThreadId } : params,
+      );
+      if (r.model && r.model !== o.settings.model)
+        throw new Error("Codex 选择的模型与配置不一致");
+      this.threadId = r.thread.id;
+      return this.threadId!;
+    } finally {
+      signal?.removeEventListener("abort", abortStart);
+    }
   }
   private send(v: unknown) {
     if (!this.proc || this.proc.stdin.destroyed)
@@ -152,6 +172,15 @@ export class CodexRuntime {
       }
       return;
     }
+    if (!this.acceptingTurn) return;
+    if (
+      msg.params?.threadId &&
+      this.threadId &&
+      msg.params.threadId !== this.threadId
+    )
+      return;
+    const eventTurn = msg.params?.turnId || msg.params?.turn?.id;
+    if (this.turnId && eventTurn && eventTurn !== this.turnId) return;
     if (msg.method === "turn/started") this.turnId = msg.params?.turn?.id;
     if (msg.method === "turn/completed") {
       this.turnId = undefined;
@@ -163,17 +192,24 @@ export class CodexRuntime {
   }
   async turn(input: CodexInput[], signal: AbortSignal) {
     if (signal.aborted) throw new Error("任务已取消");
+    this.acceptingTurn = true;
+    this.turnId = undefined;
     const done = new Promise<any>((resolve, reject) => {
       this.completion = { resolve, reject };
     });
     // A failed start must not leave an unhandled completion rejection.
     void done.catch(() => {});
+    let cancelTimeout: NodeJS.Timeout | undefined;
     const abort = () => {
       void this.interrupt().catch(() => {});
+      cancelTimeout ??= setTimeout(() => {
+        this.fail(new Error("任务已取消，Codex 未及时响应停止请求"));
+        void this.close();
+      }, 10000);
     };
     signal.addEventListener("abort", abort, { once: true });
     const timeout = setTimeout(() => {
-      void this.interrupt();
+      void this.interrupt().catch(() => {});
       this.completion?.reject(new Error("模型运行超过 15 分钟，已请求停止"));
       this.completion = undefined;
     }, 15 * 60_000);
@@ -190,7 +226,9 @@ export class CodexRuntime {
         throw new Error(turn.error?.message || "模型执行失败");
       return turn;
     } finally {
+      this.acceptingTurn = false;
       clearTimeout(timeout);
+      clearTimeout(cancelTimeout);
       signal.removeEventListener("abort", abort);
     }
   }
@@ -211,14 +249,35 @@ export class CodexRuntime {
     this.completion?.reject(error);
     this.completion = undefined;
   }
-  close() {
-    this.stopped = true;
-    this.proc?.stdin.end();
-    this.proc?.kill("SIGTERM");
-    const proc = this.proc;
-    setTimeout(() => {
-      if (proc?.exitCode === null) proc.kill("SIGKILL");
-    }, 3000).unref();
+  close(): Promise<void> {
+    if (this.closing) return this.closing;
+    this.closing = new Promise<void>((resolve) => {
+      const proc = this.proc;
+      if (!proc || proc.exitCode !== null) {
+        resolve();
+        return;
+      }
+      const kill = (signal: NodeJS.Signals) => {
+        try {
+          if (process.platform !== "win32" && proc.pid)
+            process.kill(-proc.pid, signal);
+          else proc.kill(signal);
+        } catch {
+          /* Already exited. */
+        }
+      };
+      const forced = setTimeout(() => {
+        kill("SIGKILL");
+        resolve();
+      }, 3000);
+      proc.once("exit", () => {
+        clearTimeout(forced);
+        resolve();
+      });
+      proc.stdin.end();
+      kill("SIGTERM");
+    });
+    return this.closing;
   }
 }
 export const instructions = `You are Blender Pilot, an assistant operating the user's LIVE Blender scene. Reply in the user's language, usually Chinese.
