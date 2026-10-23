@@ -27,6 +27,8 @@
 
 Python 执行异常可能发生在部分修改之后，因此操作失败也会尝试回读、截图；不自动重复执行不确定是否完成的写入。恢复使用完整 `.blend` 快照，不冒充 Blender 跨文件、跨操作符的原子 Undo。
 
+Codex 使用应用自己的 Blender 指令，不自动扫描项目说明文件和宿主机 Skills；隔离这些无关发现流程解决了开发云端的 `thread/start` 阻塞。保留 Codex 内置 Code Mode host，让使用 `exec` 编排 MCP 的模型正常调用工具；这不启用 shell，也不改变只读文件沙箱。MCP 仍只连接当前任务授权的 Blender 门面。
+
 ## 自动截图与视觉判断
 
 截图来自 Blender MCP 的 `look`，经过 JPEG 尺寸/体积限制后保存到项目。MCP 工具结果直接包含 `image` 内容；基线/最终检查图通过 Codex `localImage` 进入模型上下文。前端展示截图不等于模型看到了截图，因此集成测试检查实际 Responses 请求中的图片内容。

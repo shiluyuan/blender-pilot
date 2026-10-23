@@ -45,7 +45,54 @@ export class CodexRuntime {
     const q = (s: string) => JSON.stringify(s);
     await writeFile(
       path.join(o.home, "config.toml"),
-      `model = ${q(o.settings.model)}\nmodel_provider = "pilot"\napproval_policy = "never"\nsandbox_mode = "read-only"\nweb_search = "disabled"\n[features]\nshell_tool = false\nshell_snapshot = false\nplugins = false\nremote_plugin = false\ncode_mode_host = false\ndaemon_auto_start = false\napps = false\nmulti_agent = false\ncomputer_use = false\nbrowser_use = false\nimage_generation = false\nview_image = false\nskill_search = false\nhooks = false\nworkspace_dependencies = false\n[model_providers.pilot]\nname = "Blender Pilot Provider"\nbase_url = ${q(o.settings.baseUrl.replace(/\/$/, ""))}\nenv_key = "PILOT_MODEL_KEY"\nwire_api = "responses"\nrequest_max_retries = 1\nstream_max_retries = 1\n[mcp_servers.blender]\ncommand = ${q(o.proxyCommand)}\nargs = [${o.proxyArgs.map(q).join(",")}]\nrequired = true\nstartup_timeout_sec = 30\ntool_timeout_sec = 180\ndefault_tools_approval_mode = "prompt"\n[mcp_servers.blender.env]\nPILOT_RUNNER_URL = ${q(o.runnerUrl)}\nPILOT_RUN_TOKEN = ${q(o.runToken)}\n${["get_scene_info", "execute_blender_code", "capture", "query_blender_api", "import_asset", "save_scene", "export_scene", "report_verification"].map((name) => `[mcp_servers.blender.tools.${name}]\napproval_mode = "approve"\n`).join("")}`,
+      `model = ${q(o.settings.model)}
+model_provider = "pilot"
+approval_policy = "never"
+sandbox_mode = "read-only"
+web_search = "disabled"
+project_doc_max_bytes = 0
+[analytics]
+enabled = false
+[feedback]
+enabled = false
+[features]
+shell_tool = false
+shell_snapshot = false
+plugins = false
+remote_plugin = false
+code_mode_host = true
+daemon_auto_start = false
+apps = false
+multi_agent = false
+computer_use = false
+browser_use = false
+image_generation = false
+view_image = false
+skill_search = false
+skip_host_skill_discovery = true
+api_key_model_discovery = false
+hooks = false
+workspace_dependencies = false
+[model_providers.pilot]
+name = "Blender Pilot Provider"
+base_url = ${q(o.settings.baseUrl.replace(/\/$/, ""))}
+env_key = "PILOT_MODEL_KEY"
+wire_api = "responses"
+requires_openai_auth = false
+supports_websockets = false
+request_max_retries = 1
+stream_max_retries = 1
+[mcp_servers.blender]
+command = ${q(o.proxyCommand)}
+args = [${o.proxyArgs.map(q).join(",")}]
+required = true
+startup_timeout_sec = 30
+tool_timeout_sec = 180
+default_tools_approval_mode = "prompt"
+[mcp_servers.blender.env]
+PILOT_RUNNER_URL = ${q(o.runnerUrl)}
+PILOT_RUN_TOKEN = ${q(o.runToken)}
+${["get_scene_info", "execute_blender_code", "capture", "query_blender_api", "import_asset", "save_scene", "export_scene", "report_verification"].map((name) => `[mcp_servers.blender.tools.${name}]\napproval_mode = "approve"\n`).join("")}`,
       { mode: 0o600 },
     );
     this.proc = spawn(process.env.CODEX_BIN || "codex", ["app-server"], {
@@ -92,6 +139,10 @@ export class CodexRuntime {
     };
     signal?.addEventListener("abort", abortStart, { once: true });
     try {
+      if (signal?.aborted) {
+        await this.close();
+        signal.throwIfAborted();
+      }
       await this.request("initialize", {
         clientInfo: {
           name: "blender_pilot",

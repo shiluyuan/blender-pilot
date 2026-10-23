@@ -11,8 +11,22 @@ import assert from "node:assert/strict";
 import sharp from "sharp";
 import { SceneBridge } from "../packages/blender-bridge/scene.js";
 import { responsesFixture } from "../tests/fixtures/responses.js";
+import { modelSettingsSchema } from "../packages/contracts/index.js";
+import { verifyRealModel } from "./real-model-checks.js";
+const configPath = process.env.PILOT_MODEL_CONFIG_FILE;
+const liveSettings = configPath
+  ? modelSettingsSchema.parse(JSON.parse(await readFile(configPath, "utf8")))
+  : undefined;
+if (
+  liveSettings &&
+  (!liveSettings.apiKey || process.env.PILOT_SKIP_CODEX === "true")
+)
+  throw new Error("Live acceptance requires a real key and cannot skip Codex");
 const root = process.cwd(),
-  dir = path.resolve(process.env.PILOT_TEST_DATA || ".data/integration");
+  dir = path.resolve(
+    process.env.PILOT_TEST_DATA ||
+      (liveSettings ? ".data/live-integration" : ".data/integration"),
+  );
 await mkdir(dir, { recursive: true });
 const children: ChildProcess[] = [];
 const logs: string[] = [];
@@ -179,11 +193,27 @@ try {
   );
   const base = "http://127.0.0.1:18090";
   let cookie = "";
-  async function api(route: string, body?: any, method?: string) {
+  async function api(
+    route: string,
+    body?: any,
+    method?: string,
+    extraHeaders: Record<string, string> = {},
+  ) {
+    const binary = Buffer.isBuffer(body);
     const r = await fetch(base + "/api" + route, {
       method: method || (body ? "POST" : "GET"),
-      headers: { "content-type": "application/json", cookie },
-      body: body ? JSON.stringify(body) : undefined,
+      headers: {
+        "content-type": binary
+          ? "application/octet-stream"
+          : "application/json",
+        cookie,
+        ...extraHeaders,
+      },
+      body: body
+        ? binary
+          ? new Uint8Array(body)
+          : JSON.stringify(body)
+        : undefined,
     });
     if (route === "/auth/login")
       cookie = r.headers.get("set-cookie")!.split(";")[0];
@@ -193,11 +223,11 @@ try {
     return j;
   }
   await api("/auth/login", { password: env.PILOT_PASSWORD });
-  fixture = await responsesFixture();
+  if (!liveSettings) fixture = await responsesFixture();
   await api(
     "/settings",
-    {
-      baseUrl: fixture.url,
+    liveSettings || {
+      baseUrl: fixture!.url,
       apiKey: "fixture-key-only",
       model: "gpt-5.1-codex",
       effort: "low",
@@ -205,12 +235,59 @@ try {
     "PUT",
   );
   assert((await api("/settings/test", {})).ok);
-  const project = await api("/projects", { name: "光与几何 · 验证项目" });
+  const reuseLiveResult = process.env.PILOT_REUSE_LIVE_RESULT === "true";
+  if (reuseLiveResult && !liveSettings)
+    throw new Error("Reusing live results requires live model configuration");
+  const previousLive = reuseLiveResult
+    ? JSON.parse(
+        await readFile(path.join(dir, "live-model-result.json"), "utf8"),
+      )
+    : undefined;
+  const previousState = previousLive
+    ? JSON.parse(
+        await readFile(
+          path.join(dir, "jobs", previousLive.runIds[0] + ".json"),
+          "utf8",
+        ),
+      )
+    : undefined;
+  if (previousLive) assert.equal(previousLive.passed, true);
+  const project = previousState
+    ? (await api("/projects")).find(
+        (p: any) => p.id === previousState.projectId,
+      )
+    : await api("/projects", { name: "光与几何 · 验证项目" });
+  assert(project, "previous live project must still exist");
   await api("/projects/" + project.id + "/activate", {});
-  const session = await api("/projects/" + project.id + "/sessions", {});
+  const session = previousState
+    ? (await api(`/projects/${project.id}/sessions`)).find(
+        (s: any) => s.id === previousState.sessionId,
+      )
+    : await api("/projects/" + project.id + "/sessions", {});
+  assert(session, "previous live session must still exist");
   let images = 0;
+  let liveReport: Awaited<ReturnType<typeof verifyRealModel>> | undefined;
   const skipCodex = process.env.PILOT_SKIP_CODEX === "true";
-  if (!skipCodex) {
+  if (previousLive) {
+    assert.equal(session.nativeThreadId, previousLive.nativeThreadId);
+    const persistedRuns = await api(`/sessions/${session.id}/runs`);
+    for (const id of previousLive.runIds) {
+      const run = persistedRuns.find((r: any) => r.id === id);
+      assert(run && ["succeeded", "cancelled"].includes(run.status));
+    }
+    liveReport = previousLive;
+    console.log(
+      "REUSE previously passed live-model assertions; rerun browser checks after service restart",
+    );
+  } else if (liveSettings) {
+    liveReport = await verifyRealModel({
+      api,
+      projectId: project.id,
+      sessionId: session.id,
+      dir,
+      secret: liveSettings.apiKey!,
+    });
+  } else if (!skipCodex && fixture) {
     const body = {
       text: "添加一个绿色球体，保留原场景，并检查结果。",
       assetIds: [],
@@ -334,6 +411,65 @@ try {
       .getByText("Blender 实时视口", { exact: true })
       .waitFor({ timeout: 30000 });
     await page.locator(".rfb-host canvas").waitFor();
+    if (liveSettings) {
+      const beforeRuns = new Set(
+        (await api(`/sessions/${session.id}/runs`)).map((r: any) => r.id),
+      );
+      await page
+        .locator("textarea")
+        .fill(
+          "浏览器对话验收：保持场景不变，查看当前截图，简短描述两个新增物体的颜色与相对位置，并提交视觉检查结论。",
+        );
+      await page.getByRole("button", { name: "发送消息", exact: true }).click();
+      const browserRun = await waitFor(
+        async () => {
+          const run = (await api(`/sessions/${session.id}/runs`)).find(
+            (r: any) => !beforeRuns.has(r.id),
+          );
+          return (
+            ["succeeded", "failed", "interrupted", "cancelled"].includes(
+              run?.status,
+            ) && run
+          );
+        },
+        "browser real-model chat",
+        180000,
+      );
+      assert.equal(browserRun.status, "succeeded", browserRun.error);
+      assert.equal(browserRun.verification, "passed");
+      // The durable API state can lead SSE delivery by one browser tick.
+      // Verify the visible completion state before recording the screenshot.
+      await page
+        .getByRole("button", { name: "发送消息", exact: true })
+        .waitFor({ timeout: 10000 });
+      const browserJournal = await readFile(
+        path.join(dir, "jobs", browserRun.id + ".ndjson"),
+        "utf8",
+      );
+      assert(!browserJournal.includes(liveSettings.apiKey!));
+      const browserEvents = browserJournal
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      liveReport!.runIds.push(browserRun.id);
+      liveReport!.captures += browserEvents.filter(
+        (e) => e.type === "capture.created",
+      ).length;
+      liveReport!.toolCalls += browserEvents.filter(
+        (e) => e.type === "tool.started",
+      ).length;
+      liveReport!.visualReports.push(
+        browserEvents
+          .filter((e) => e.type === "verification" && e.payload.passed)
+          .at(-1).payload,
+      );
+      liveReport!.checks.push(
+        "browser composer → real model → screenshot report → streamed completion",
+      );
+      console.log(
+        "PASS browser conversation with the real model and screenshot verification",
+      );
+    }
     await page.screenshot({ path: path.join(dir, "workbench-dark.png") });
     const canvas = await page.locator(".rfb-host canvas").elementHandle();
     await page
@@ -368,6 +504,7 @@ try {
     await page.screenshot({ path: path.join(dir, "assets.png") });
     await page
       .locator(".asset-card")
+      .filter({ hasText: "场景参考.png" })
       .getByRole("button", { name: "引用", exact: true })
       .click();
     await page.locator(".attachments").getByText("场景参考.png").waitFor();
@@ -432,8 +569,14 @@ try {
         codex: skipCodex ? "not-tested" : "passed",
         time: new Date().toISOString(),
         blender: before.version,
-        model: "deterministic Responses fixture (not real inference)",
-        imageInputs: images,
+        model:
+          liveSettings?.model ||
+          "deterministic Responses fixture (not real inference)",
+        provider: liveSettings?.baseUrl,
+        mode: liveSettings ? "live-model" : "protocol-fixture",
+        reusedLiveChecks: reuseLiveResult,
+        imageInputs: liveSettings ? undefined : images,
+        live: liveReport,
         checks: [
           "native MCP",
           "snapshots",
@@ -454,6 +597,11 @@ try {
       2,
     ),
   );
+  if (liveReport)
+    await writeFile(
+      path.join(dir, "live-model-result.json"),
+      JSON.stringify(liveReport, null, 2),
+    );
   console.log(
     skipCodex
       ? "BLENDER / DESKTOP CHECKS PASSED; CODEX NOT TESTED"

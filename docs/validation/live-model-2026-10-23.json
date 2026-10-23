@@ -1,0 +1,88 @@
+{
+  "passed": true,
+  "codex": "passed",
+  "time": "2026-10-23T14:26:02.782Z",
+  "blender": "4.5.4 LTS",
+  "model": "gpt-5.6-luna",
+  "provider": "https://coding.smartpaipai.com",
+  "mode": "live-model",
+  "reusedLiveChecks": true,
+  "live": {
+    "passed": true,
+    "runIds": [
+      "ff0da9a2-3464-423d-82f6-321e3956cfab",
+      "252eca2c-3107-4ad7-8ded-bd3b57092bcc",
+      "deb32cd7-5c4a-41c7-b178-d6c8bee3b566",
+      "e7b77a90-a618-4737-a2f5-511b5f89259b",
+      "b20c003f-47ce-4c18-ba34-c8095f4a3b46"
+    ],
+    "nativeThreadId": "01a1691f-8b53-7460-b2e5-f2430f6657b5",
+    "referenceGroundTruth": {
+      "left": "#e12628",
+      "right": "#264fe0"
+    },
+    "blenderReadback": [
+      {
+        "name": "Live_Reference_Sphere",
+        "location": [-3, 0, 2],
+        "dimensions": [2.0000014305114746, 2.000002145767212, 2],
+        "color": [
+          0.8899999856948853, 0.00800000037997961, 0.012000000104308128, 1
+        ]
+      },
+      {
+        "name": "Live_Reference_Cube",
+        "location": [3, 0, 1],
+        "dimensions": [2, 2, 2],
+        "color": [
+          0.054999999701976776, 0.1899999976158142, 0.8199999928474426, 1
+        ]
+      }
+    ],
+    "captures": 11,
+    "toolCalls": 15,
+    "visualReports": [
+      {
+        "captureId": "ad6a0624-ffc7-4c83-8f29-85d1830a41a0",
+        "passed": true,
+        "observations": "当前截图清楚显示三个网格物体：左侧为红色 UV 球体 Live_Reference_Sphere，中间为默认白色 Cube，右侧为蓝色立方体 Live_Reference_Cube。两种新材质在材质预览视口中可见，球体与立方体均未被遮挡；默认 Camera 和 Light 仍在场景中。"
+      },
+      {
+        "captureId": "af130a1e-b400-44e8-a93e-b70d579d2421",
+        "passed": true,
+        "observations": "最新截图中红色 Live_Reference_Sphere 已清楚可见并位于默认立方体上方，实际位置为 (-3, 0, 2)，尺寸与材质保持不变。中间默认 Cube 与右侧蓝色 Live_Reference_Cube 的位置、尺寸和材质未改变，三者均清晰可见。"
+      },
+      {
+        "captureId": "947eb9de-b38e-463e-a256-fd1ae7da7025",
+        "passed": true,
+        "observations": "最新截图显示两个新增物体均清晰可见：红色 Live_Reference_Sphere 位于 (-3, 0, 2)，尺寸约 2 x 2 x 2，材质为 Live_Reference_Red；蓝色 Live_Reference_Cube 位于 (3, 0, 1)，尺寸为 2 x 2 x 2，材质为 Live_Reference_Blue。场景未修改。"
+      },
+      {
+        "captureId": "90a1c33a-d08b-4fb3-b917-219978a3b03c",
+        "passed": true,
+        "observations": "最新截图显示红色球体位于左侧并在两个立方体上方；蓝色新增立方体位于右前方，默认白色立方体位于其左后方。两个新增物体颜色和相对位置清晰可辨，场景未修改。"
+      }
+    ],
+    "checks": [
+      "reference-image colors independently verified in real Blender materials",
+      "mutation receipts",
+      "current screenshot visual report",
+      "request idempotency",
+      "native process restart and conversation resume",
+      "interruption during real streamed model output",
+      "successful continuation after cancellation",
+      "browser composer → real model → screenshot report → streamed completion"
+    ]
+  },
+  "checks": [
+    "native MCP",
+    "snapshots",
+    "GLB/glTF/blend exports",
+    "Codex tool calls",
+    "image input",
+    "idempotency",
+    "thread resume",
+    "cancel",
+    "browser VNC"
+  ]
+}

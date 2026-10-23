@@ -211,9 +211,11 @@ export async function buildApp(options: AppOptions) {
         },
         body: JSON.stringify({
           model: s.model,
-          input: "Reply with OK.",
+          instructions: "This is a connection test. Reply briefly.",
+          input: [{ role: "user", content: "Reply with OK." }],
+          store: false,
           stream: true,
-          max_output_tokens: 128,
+          reasoning: { effort: s.effort },
         }),
         signal: AbortSignal.timeout(45000),
       });

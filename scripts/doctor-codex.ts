@@ -1,10 +1,11 @@
 /** Credential-free startup diagnostic. Does not perform inference or edit a scene. */
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { CodexRuntime } from "../packages/runtime-adapters/codex.js";
-const home = await mkdtemp(path.join(os.tmpdir(), "pilot-codex-doctor-"));
+const diagnosticRoot = path.resolve(".data");
+await mkdir(diagnosticRoot, { recursive: true, mode: 0o700 });
+const home = await mkdtemp(path.join(diagnosticRoot, "codex-doctor-"));
 const gateway = createServer((_req, res) => {
   res.setHeader("content-type", "application/json");
   res.end(JSON.stringify({ tools: [] }));
@@ -24,7 +25,7 @@ const runtime = new CodexRuntime({
   proxyCommand: process.execPath,
   proxyArgs: [
     "--import",
-    "tsx",
+    import.meta.resolve("tsx"),
     path.resolve("packages/blender-bridge/mcp-proxy.ts"),
   ],
   runnerUrl: url,

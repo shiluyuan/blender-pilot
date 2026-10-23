@@ -8,7 +8,7 @@ Blender Pilot 是面向个人自托管的 Blender 工作台：原生 Blender 桌
 
 ![真实 Blender 工作台](docs/screenshots/workbench-dark.png)
 
-**验收状态：** 网页与真实 Blender 操作已在开发云端实测；原生 Codex 完整对话链路仍因 `thread/start` 超时未通过，Docker 镜像启动尚未完成验证。当前应视为待完成整机验收的首版，不能承诺填写 Key 后立即可用。详见 [验证记录](docs/validation.md)。
+**验收状态：** 已使用真实 `gpt-5.6-luna` 接口通过「参考图 → Codex → Blender MCP → 场景修改 → 自动截图 → 视觉检查」验收，并通过续聊、取消、取消后继续和浏览器对话测试。Docker 镜像的整机启动仍未完成验证。详见 [验证记录](docs/validation.md)。
 
 ## 快速部署
 

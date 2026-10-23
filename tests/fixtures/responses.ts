@@ -40,10 +40,16 @@ export async function responsesFixture(host = "127.0.0.1") {
     };
     emit("response.created", { response: base });
     const tools = body.tools || [];
+    // Native Codex 0.164 groups MCP functions under Responses namespaces.
+    const functions = tools.flatMap((tool: any) =>
+      tool.type === "namespace"
+        ? (tool.tools || []).map((fn: any) => ({ ...fn, namespace: tool.name }))
+        : [tool],
+    );
     const name = (suffix: string) =>
-      tools.find((x: any) => x.name?.endsWith(suffix))?.name;
+      functions.find((x: any) => x.name?.endsWith(suffix))?.name;
     let item: any;
-    if (!Array.isArray(body.input)) {
+    if (!Array.isArray(body.input) || tools.length === 0) {
       item = {
         id: mid,
         type: "message",
@@ -116,15 +122,28 @@ export async function responsesFixture(host = "127.0.0.1") {
     }
     if (item.type === "function_call")
       Object.assign(item, {
+        namespace: functions.find((fn: any) => fn.name === item.name)
+          ?.namespace,
         id: "fc_" + randomUUID(),
         call_id: "call_" + randomUUID(),
         status: "completed",
       });
-    if (item.type === "function_call" && !item.name)
-      throw new Error(
-        "Expected Blender tool missing: " +
-          JSON.stringify(tools.map((t: any) => t.name)),
-      );
+    if (item.type === "function_call" && !item.name) {
+      emit("response.failed", {
+        response: {
+          ...base,
+          status: "failed",
+          error: {
+            code: "fixture_tool_missing",
+            message:
+              "Expected Blender tool missing: " +
+              JSON.stringify(functions.map((t: any) => t.name)),
+          },
+        },
+      });
+      res.end();
+      return;
+    }
     emit("response.output_item.added", {
       output_index: 0,
       item:

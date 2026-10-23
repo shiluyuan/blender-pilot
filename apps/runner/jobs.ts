@@ -199,7 +199,11 @@ export class Jobs {
         runToken: a.token,
         proxyCommand: process.execPath,
         proxyArgs: dev
-          ? ["--import", "tsx", proxyPath.replace(/\.js$/, ".ts")]
+          ? [
+              "--import",
+              import.meta.resolve("tsx"),
+              proxyPath.replace(/\.js$/, ".ts"),
+            ]
           : [proxyPath],
         onEvent: (method, params) => {
           if (method === "diagnostic" && process.env.PILOT_DEBUG === "true")
