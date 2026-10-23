@@ -2548,3 +2548,7 @@ button svg {
     max-width: calc(100vw - 48px);
   }
 }
+
+.metrics {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}

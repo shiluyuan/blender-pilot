@@ -53,6 +53,7 @@ import {
   Command,
   HardDrive,
   Server,
+  Database as DatabaseIcon,
   RefreshCw,
   SlidersHorizontal,
   ExternalLink,
@@ -1341,6 +1342,12 @@ function App() {
                     title="Codex 内核"
                     value={health?.versions?.codex || "—"}
                     detail={health?.model?.model || "尚未配置模型"}
+                  />
+                  <Metric
+                    icon={<DatabaseIcon size={20} />}
+                    title="数据库"
+                    value={health?.database?.ok ? "PostgreSQL" : "未连接"}
+                    detail={health?.database?.version || "检查数据库服务"}
                   />
                   <Metric
                     icon={<HardDrive size={20} />}

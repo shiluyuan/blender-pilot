@@ -17,6 +17,11 @@ await mkdir(dataRoot, { recursive: true });
 const token = process.env.PILOT_INTERNAL_TOKEN;
 if (!token || token.length < 24)
   throw new Error("PILOT_INTERNAL_TOKEN must contain at least 24 characters");
+import {
+  sharedDatabase,
+  closeSharedDatabase,
+} from "../../packages/storage/database.js";
+await sharedDatabase().init();
 const pool = new StudioPool(dataRoot);
 await pool.init();
 const app = Fastify({ bodyLimit: 3 * 1024 * 1024, logger: false });
@@ -216,6 +221,7 @@ console.log("Blender Pilot runner ready");
 const shutdown = async () => {
   for (const client of ws.clients) client.terminate();
   await pool.shutdown();
+  await closeSharedDatabase();
   await app.close();
   process.exit(0);
 };

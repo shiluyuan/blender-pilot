@@ -1,8 +1,6 @@
 name: Validate
+# Manual only; cloud development checks do not depend on GitHub Actions.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,6 +8,17 @@ jobs:
   application:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18.6-bookworm
+        env:
+          POSTGRES_PASSWORD: disposable-test-password
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PILOT_TEST_DATABASE_URL: postgresql://postgres:disposable-test-password@127.0.0.1:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,16 +40,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Prepare isolated test configuration
         run: |
-          umask 077
-          echo "PILOT_PASSWORD=$(openssl rand -hex 16)" >> .env
-          echo "PILOT_INTERNAL_TOKEN=$(openssl rand -hex 32)" >> .env
+          ./docker-up.sh --configure-only --blender-version 5.2.3
           cat > compose.test.yaml <<'YAML'
           services:
             studio:
               extra_hosts:
                 - host.docker.internal:host-gateway
           YAML
-      - run: docker compose -f compose.yaml -f compose.test.yaml up -d --build --wait --wait-timeout 240
+      - run: docker compose --profile bundled-db -f compose.yaml -f compose.test.yaml up -d --build --wait --wait-timeout 240
       - name: Verify deployed binaries and browser
         run: |
           set -a
@@ -49,7 +56,7 @@ jobs:
           PILOT_FIXTURE_BIND=0.0.0.0 PILOT_FIXTURE_HOST=host.docker.internal npm run test:e2e
       - name: Logs
         if: always()
-        run: docker compose logs --no-color --tail=160
+        run: docker compose --profile bundled-db logs --no-color --tail=160
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -57,4 +64,4 @@ jobs:
           path: artifacts/
           if-no-files-found: ignore
       - if: always()
-        run: docker compose down -v
+        run: docker compose --profile bundled-db down

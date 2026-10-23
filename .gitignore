@@ -8,3 +8,7 @@ playwright-report/
 artifacts/
 __pycache__/
 *.pyc
+
+data/
+postgres-data/
+*.deb

@@ -22,8 +22,8 @@ EXPOSE 8090
 CMD ["node", "dist/server/apps/server/index.js"]
 
 FROM ubuntu:24.04 AS studio
-ARG BLENDER_VERSION=4.5.4
-ARG BLENDER_SHA256=2e6ef8e99fc36327270429ddc8e7bad2859dd878a5a137d2e0bf0f02f6792505
+ARG BLENDER_VERSION=5.2.3
+ARG BLENDER_SHA256=78486c018b4443efe5e75ab54c290ed8c15abafd249b862c2c9ce2530a918eec
 ENV DEBIAN_FRONTEND=noninteractive NODE_ENV=production PILOT_DATA=/data \
     DISPLAY=:99 HOME=/home/pilot XDG_RUNTIME_DIR=/tmp/pilot-runtime \
     PATH=/opt/mcp/bin:/opt/codex/node_modules/.bin:/opt/blender:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxinerama1 libdbus-1-3 libglib2.0-0 libfontconfig1 libfreetype6 libasound2t64 \
     fonts-dejavu-core fonts-noto-cjk tini gosu && rm -rf /var/lib/apt/lists/*
 RUN test "$(uname -m)" = x86_64 && \
-    curl -fL --retry 3 "https://download.blender.org/release/Blender4.5/blender-${BLENDER_VERSION}-linux-x64.tar.xz" -o /tmp/blender.tar.xz && \
+    curl -fL --retry 3 "https://download.blender.org/release/Blender${BLENDER_VERSION%.*}/blender-${BLENDER_VERSION}-linux-x64.tar.xz" -o /tmp/blender.tar.xz && \
     echo "${BLENDER_SHA256}  /tmp/blender.tar.xz" | sha256sum -c - && \
     mkdir /opt/blender && tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender && rm /tmp/blender.tar.xz
 COPY deploy/requirements.lock /tmp/requirements.lock

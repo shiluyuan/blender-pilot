@@ -1,3 +1,4 @@
+import "./database-env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
@@ -29,6 +30,12 @@ test("SSE streams persisted events and resumes without duplicate sequences", asy
       sessionId: "s",
       status: "running",
     };
+    await store.put("project", "p", { id: "p", name: "Event project" });
+    await store.put("session", "s", {
+      id: "s",
+      projectId: "p",
+      title: "Events",
+    });
     await store.put("run", run.id, run);
     await store.event({
       runId: run.id,

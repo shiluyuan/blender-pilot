@@ -1,14 +1,10 @@
 import { randomUUID, createHash } from "node:crypto";
-import { mkdir, readdir, readFile, copyFile, stat, rm } from "node:fs/promises";
+import { mkdir, copyFile, stat, rm } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import {
-  atomicJson,
-  existingSafePath,
-  now,
-  safePath,
-} from "../contracts/fs.js";
+import { existingSafePath, now, safePath } from "../contracts/fs.js";
+import { LibraryCatalog } from "../storage/library-catalog.js";
 import { idSchema } from "../contracts/index.js";
 export const categories = [
   "character",
@@ -60,21 +56,23 @@ export type LibraryAsset = z.infer<typeof libraryMetadataSchema> & {
   objectNames: string[];
 };
 export class AssetLibrary {
-  constructor(public dataRoot: string) {}
+  constructor(
+    public dataRoot: string,
+    public catalog = new LibraryCatalog(),
+  ) {}
   root(id?: string) {
     return id
       ? safePath(this.dataRoot, "library", idSchema.parse(id))
       : safePath(this.dataRoot, "library");
   }
   async get(id: string): Promise<LibraryAsset> {
-    const file = await existingSafePath(
-      this.root(id),
-      path.join(this.root(id), "asset.json"),
-    );
-    const asset = JSON.parse(await readFile(file, "utf8")) as LibraryAsset;
-    if (asset.id !== id) throw new Error("素材标识不匹配");
+    idSchema.parse(id);
+    const asset = await this.catalog.get(id);
+    if (!asset)
+      throw Object.assign(new Error("素材不存在"), { statusCode: 404 });
     return asset;
   }
+
   async file(id: string, preview = false) {
     const asset = await this.get(id);
     if (preview && !asset.previewPath) throw new Error("素材没有预览图");
@@ -91,39 +89,9 @@ export class AssetLibrary {
       page?: number;
     } = {},
   ) {
-    await mkdir(this.root(), { recursive: true });
-    const items: LibraryAsset[] = [];
-    for (const entry of await readdir(this.root(), { withFileTypes: true })) {
-      if (!entry.isDirectory() || !idSchema.safeParse(entry.name).success)
-        continue;
-      try {
-        items.push(await this.get(entry.name));
-      } catch {
-        /* Uncommitted/invalid entries are not published. */
-      }
-    }
-    const search = (query.search || "").toLocaleLowerCase().trim();
-    const filtered = items
-      .filter(
-        (a) =>
-          (!query.category ||
-            query.category === "all" ||
-            a.category === query.category) &&
-          (!query.favorite || a.favorite) &&
-          (!search ||
-            [a.name, a.description, ...a.tags]
-              .join(" ")
-              .toLocaleLowerCase()
-              .includes(search)),
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const page = Math.min(100000, Math.max(0, Math.floor(query.page || 0)));
-    return {
-      items: filtered.slice(page * 60, page * 60 + 60),
-      total: filtered.length,
-      page,
-    };
+    return this.catalog.list(query);
   }
+
   async update(id: string, input: unknown) {
     const patch = z
       .object({
@@ -145,9 +113,7 @@ export class AssetLibrary {
           .optional(),
       })
       .parse(input);
-    const asset = { ...(await this.get(id)), ...patch };
-    await atomicJson(path.join(this.root(id), "asset.json"), asset);
-    return asset;
+    return this.catalog.update(idSchema.parse(id), patch);
   }
   async publish(
     input: z.infer<typeof libraryMetadataSchema>,
@@ -193,7 +159,7 @@ export class AssetLibrary {
         source: source.source,
         objectNames: source.objectNames || [],
       };
-      await atomicJson(path.join(dir, "asset.json"), asset);
+      await this.catalog.create(asset);
       return asset;
     } catch (e) {
       await rm(dir, { recursive: true, force: true });

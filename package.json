@@ -12,13 +12,14 @@
     "start": "node dist/server/apps/server/index.js",
     "start:runner": "node dist/server/apps/runner/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx scripts/with-postgres.ts -- node --import tsx --test tests/*.test.ts",
     "test:e2e": "node --import tsx scripts/verify-deployment.ts",
-    "check": "npm run typecheck && npm test && npm run build",
-    "verify:blender": "node --import tsx scripts/verify-blender.ts",
+    "check": "npm run typecheck && npm test && npm run test:deploy && npm run build",
+    "verify:blender": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-blender.ts",
     "format": "prettier --write apps packages scripts tests docs README.md THIRD_PARTY_NOTICES.md compose*.yaml",
     "doctor:codex": "node --import tsx scripts/doctor-codex.ts",
-    "verify:workspaces": "node --import tsx scripts/verify-workspaces.ts"
+    "verify:workspaces": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-workspaces.ts",
+    "test:deploy": "python3 -m unittest discover -s tests -p 'test_*.py' -v"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.11",
@@ -28,6 +29,7 @@
     "@novnc/novnc": "1.7.0",
     "fastify": "5.12.7",
     "lucide-react": "1.61.0",
+    "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "sharp": "0.35.5",
@@ -35,9 +37,11 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite-socket": "0.2.14",
     "@openai/codex": "0.164.0",
     "@playwright/test": "1.51.1",
     "@types/node": "26.6.5",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/ws": "8.18.2",

@@ -15,6 +15,7 @@ export interface Studio {
   status: "starting" | "ready" | "failed" | "closing";
   error?: string;
   vncPort: number;
+  blenderVersion?: string;
 }
 const problem = (message: string, statusCode = 409) =>
   Object.assign(new Error(message), { statusCode });
@@ -53,6 +54,7 @@ export class StudioPool {
   status() {
     return [...this.studios.values()].map((s) => ({
       projectId: s.projectId,
+      blenderVersion: s.blenderVersion,
       status: s.status,
       error: s.error,
       runId: s.jobs.active?.state.id,
@@ -205,6 +207,7 @@ export class StudioPool {
         }
         await scene.init();
         await scene.activate(projectId);
+        studio.blenderVersion = (await scene.info()).version;
         studio.status = "ready";
         return studio;
       } catch (e) {

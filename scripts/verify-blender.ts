@@ -666,6 +666,10 @@ try {
           liveSettings?.model ||
           "deterministic Responses fixture (not real inference)",
         provider: liveSettings?.baseUrl,
+        databaseValidation:
+          process.env.PILOT_TEST_POSTGRES_MODE === "wasm-wire"
+            ? "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised"
+            : "PostgreSQL server",
         mode: liveSettings ? "live-model" : "protocol-fixture",
         reusedLiveChecks: reuseLiveResult,
         imageInputs: liveSettings ? undefined : images,

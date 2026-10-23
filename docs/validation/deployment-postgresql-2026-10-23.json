@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-23",
+  "passedWithinStatedScope": true,
+  "checks": {
+    "typescript": "passed",
+    "nodeTests": {
+      "passed": 15,
+      "failed": 0
+    },
+    "deploymentTests": {
+      "passed": 7,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "npmCiLockfileValidation": "passed",
+    "composeConfiguration": "passed (bundled, external and GPU variants)",
+    "shellSyntax": "passed",
+    "latestStableResolver": "official 5.2.3 + verified SHA256",
+    "deploymentSmoke": "actual smoke function passed against live gateway, MCP and Blender 5.2.3; not Docker containers"
+  },
+  "database": {
+    "production": "pg driver + PostgreSQL 18.6 image; no automatic embedded database fallback",
+    "cloudTest": "PostgreSQL 18.6 WASM engine via TCP PostgreSQL wire protocol; complete query cycles serialized in test-only adapter",
+    "nativePostgreSQLServerTested": false
+  },
+  "limitations": [
+    "Current cloud host has no runnable Docker daemon; Docker image build and full Compose startup not exercised.",
+    "Native PostgreSQL service and native multi-connection contention/durability need a standard Linux Docker host.",
+    "No NVIDIA or large production scene acceptance."
+  ],
+  "workspaces": {
+    "date": "2026-10-23T16:30:18.168Z",
+    "databaseValidation": "PostgreSQL WASM engine over TCP wire protocol; native PostgreSQL not exercised",
+    "mode": "real two-process Blender + native Codex protocol fixtures (not AI inference)",
+    "checks": [
+      "two live Blender processes, independent scenes, capacity refusal without eviction",
+      "external textured GLB uploaded directly to shared library; provenance, texture and independent cross-project copies",
+      "existing + external + newly created objects assembled, saved as reusable collection, imported in another project with textures and lineage",
+      "concurrent native Codex sessions: B finishes while A waits, project-scoped busy/close guard, separate scene and prompt, cancellation",
+      "browser: two live desktops, independent persistent drafts/references, library multiselect, direct external upload, batch import, collapsible assistant, dark/light and 1280px",
+      "save-and-close releases only its instance; reopen restores scene while other project stays live",
+      "injected Blender process failure is reported per project; B remains operational and failed A can be closed",
+      "gateway restart preserves authenticated session, projects, library and completed runs; real deployment smoke passes and database status is visible in console"
+    ],
+    "projects": [
+      "95bccc7d-3946-4aba-9fff-aec9a20b478b",
+      "f38f919d-73d6-41f5-b067-188edfa08cbf"
+    ],
+    "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/BoxTextured",
+    "textures": [
+      {
+        "name": "Image_0",
+        "size": [256, 256],
+        "packed": true
+      }
+    ],
+    "composite": {
+      "id": "bc459ab8-1a06-4336-857c-460d64932e12",
+      "sourceAssetIds": [
+        "12f62732-d8c4-4b36-b3f5-8be975a45dd3",
+        "8214d92a-dff0-4e8e-9e9b-2d718225a475"
+      ],
+      "objectCount": 4
+    },
+    "screenshots": [
+      "workspaces-dark.png",
+      "workspaces-light.png",
+      "library-dark.png",
+      "library-light.png",
+      "workspaces-1280.png",
+      "console.png",
+      "settings.png",
+      "snapshots.png"
+    ]
+  },
+  "liveModel": {
+    "passed": true,
+    "codex": "passed",
+    "time": "2026-10-23T16:28:44.654Z",
+    "blender": "5.2.3 LTS",
+    "model": "gpt-5.6-luna",
+    "provider": "https://coding.smartpaipai.com",
+    "mode": "live-model",
+    "reusedLiveChecks": false,
+    "live": {
+      "passed": true,
+      "runIds": [
+        "0c2f28ba-ee05-4d84-acb4-07afe5fe7b28",
+        "3cba6fc1-6b5a-4481-a304-376576944548",
+        "a2dea570-6cb0-4f86-a635-ef5d45ccbc07",
+        "47680a58-a2aa-4d66-bc88-d74b14679afa",
+        "f0e42fa5-2d74-4687-8319-2cc938275467"
+      ],
+      "nativeThreadId": "01a16993-579f-7d62-bf12-944581e2b397",
+      "referenceGroundTruth": {
+        "left": "#264fe0",
+        "right": "#e12628"
+      },
+      "blenderReadback": [
+        {
+          "name": "Live_Reference_Sphere",
+          "location": [-3, 0, 2],
+          "dimensions": [2.0000014305114746, 2.000002145767212, 2],
+          "color": [
+            0.10999999940395355, 0.23999999463558197, 0.8600000143051147, 1
+          ]
+        },
+        {
+          "name": "Live_Reference_Cube",
+          "location": [3, 0, 1],
+          "dimensions": [2, 2, 2],
+          "color": [
+            0.8999999761581421, 0.029999999329447746, 0.03999999910593033, 1
+          ]
+        }
+      ],
+      "captures": 11,
+      "toolCalls": 15,
+      "visualReports": [
+        {
+          "captureId": "4e893746-1135-4c66-96f3-aed2439eb26a",
+          "passed": true,
+          "observations": "当前视口为材质预览/正视角，画面中可见默认 Cube 以及两个新增物体：左侧是位于 (-3, 0, 1)、半径 1 的蓝色 UV 球体 Live_Reference_Sphere；右侧是位于 (3, 0, 1)、边长 2 的红色立方体 Live_Reference_Cube。默认 Cube 保留在中央，Camera 和 Light 也保留；参考图片未导入场景。"
+        },
+        {
+          "captureId": "75fbd193-36bc-4db1-82c6-613b4261ae67",
+          "passed": true,
+          "observations": "最新视口截图显示蓝色 Live_Reference_Sphere 已位于 (-3, 0, 2)，仍为半径 1 且清晰可见；默认 Cube 仍在 (0, 0, 0)，红色 Live_Reference_Cube 仍在 (3, 0, 1)。截图中材质颜色保持不变，其他对象的位置、尺寸与材质未被修改。"
+        },
+        {
+          "captureId": "952d74fa-5413-4e83-90fc-5d495c3a947f",
+          "passed": true,
+          "observations": "当前截图显示两个新增物体均清晰可见：蓝色 Live_Reference_Sphere 位于 (-3, 0, 2)，材质为 Live_Reference_Blue；红色 Live_Reference_Cube 位于 (3, 0, 1)，材质为 Live_Reference_Red。场景未执行任何修改。"
+        },
+        {
+          "captureId": "f95c11f8-c282-43d9-844d-7241e5f03ca0",
+          "passed": true,
+          "observations": "当前截图确认：蓝色 Live_Reference_Sphere 位于画面左侧且高于中心，红色 Live_Reference_Cube 位于画面右侧、较低位置；两者颜色与相对左右/上下位置清晰可辨。场景保持不变。"
+        }
+      ],
+      "checks": [
+        "reference-image colors independently verified in real Blender materials",
+        "mutation receipts",
+        "current screenshot visual report",
+        "request idempotency",
+        "native process restart and conversation resume",
+        "interruption during real streamed model output",
+        "successful continuation after cancellation",
+        "browser composer → real model → screenshot report → streamed completion"
+      ]
+    },
+    "library": {
+      "passed": true,
+      "blender": "5.2.3 LTS",
+      "checks": [
+        "selected hierarchy only",
+        "packed texture survives deletion of original",
+        "materials and transforms",
+        "source scene unchanged",
+        "cross-project append",
+        "repeated imports have independent meshes and materials",
+        "scene collection merge",
+        "category/tag search",
+        "favorite survives reload",
+        "empty selection rejected"
+      ],
+      "assetIds": [
+        "d38306a3-13cd-45e2-a7f5-9b78070a1646",
+        "4e34cd8d-8f13-4d85-8fa6-02036cf45667"
+      ]
+    },
+    "checks": [
+      "native MCP",
+      "snapshots",
+      "GLB/glTF/blend exports",
+      "Codex tool calls",
+      "image input",
+      "idempotency",
+      "thread resume",
+      "cancel",
+      "browser VNC"
+    ],
+    "databaseValidation": "PostgreSQL 18.6 WASM engine via TCP PostgreSQL wire protocol; complete query cycles serialized in test-only adapter"
+  }
+}

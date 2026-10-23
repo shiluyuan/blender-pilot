@@ -23,11 +23,20 @@ export class Vault {
     } catch (e: any) {
       if (e.code !== "ENOENT") throw e;
       this.key = randomBytes(32);
-      await writeFile(path.join(this.root, "vault.key"), this.key, {
-        mode: 0o600,
-        flag: "wx",
-      });
+      try {
+        await writeFile(path.join(this.root, "vault.key"), this.key, {
+          mode: 0o600,
+          flag: "wx",
+        });
+      } catch (error: any) {
+        if (error.code !== "EEXIST") throw error;
+        this.key = await readFile(path.join(this.root, "vault.key"));
+      }
     }
+    if (this.key.length !== 32)
+      throw new Error(
+        "Invalid vault key file; restore the original key from backup.",
+      );
   }
   encrypt(text: string) {
     const iv = randomBytes(12),

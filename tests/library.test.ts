@@ -1,3 +1,4 @@
+import "./database-env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm, symlink } from "node:fs/promises";

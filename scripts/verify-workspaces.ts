@@ -99,7 +99,7 @@ const pass = (s: string) => {
 };
 try {
   launch("runner", ["dist/server/apps/runner/index.js"]);
-  launch("app", ["dist/server/apps/server/index.js"]);
+  const appProcess = launch("app", ["dist/server/apps/server/index.js"]);
   await wait(async () => (await fetch(base + "/api/auth/status")).ok, "web");
   await api("/auth/login", { password: env.PILOT_PASSWORD });
   const [a, b, c] = await Promise.all(
@@ -463,11 +463,84 @@ try {
   pass(
     "injected Blender process failure is reported per project; B remains operational and failed A can be closed",
   );
+  appProcess.kill("SIGTERM");
+  await new Promise<void>((resolve) => {
+    if (appProcess.exitCode !== null || appProcess.signalCode !== null)
+      return resolve();
+    appProcess.once("exit", () => resolve());
+  });
+  launch("app-restarted", ["dist/server/apps/server/index.js"]);
+  await wait(
+    async () => (await fetch(base + "/api/ready")).ok,
+    "restarted gateway",
+  );
+  assert.equal((await api("/projects")).length, 3);
+  assert(
+    (
+      await api("/library?search=" + encodeURIComponent("阅读角组合"))
+    ).items.some((x: any) => x.id === composite.id),
+  );
+  assert.equal(
+    (await api(`/sessions/${sb.id}/runs`)).find((x: any) => x.id === rb.id)
+      .status,
+    "succeeded",
+  );
+  const smokeConfig = {
+    PILOT_BIND: "127.0.0.1",
+    PILOT_PORT: "18190",
+    PILOT_PASSWORD: env.PILOT_PASSWORD,
+    BLENDER_VERSION: (await info(b)).version.split(/\s+/)[0],
+  };
+  const smokeCode = await new Promise<number | null>((resolve) => {
+    const c = spawn(
+      "python3",
+      [
+        "-c",
+        "import json,os;from types import SimpleNamespace;from scripts.deploy import smoke;smoke(json.loads(os.environ['PILOT_DEPLOY_SMOKE_CONFIG']),SimpleNamespace(api_key_file=None))",
+      ],
+      {
+        env: { ...env, PILOT_DEPLOY_SMOKE_CONFIG: JSON.stringify(smokeConfig) },
+        stdio: "inherit",
+      },
+    );
+    c.once("exit", resolve);
+    c.once("error", () => resolve(1));
+  });
+  assert.equal(
+    smokeCode,
+    0,
+    "the real docker-up deployment smoke function succeeds against the running gateway/Blender",
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "运行控制台", exact: true }).click();
+  await page.getByText("PostgreSQL", { exact: true }).waitFor();
+  await page.screenshot({
+    path: path.join(dir, "console.png"),
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "模型设置", exact: true }).click();
+  await page.screenshot({
+    path: path.join(dir, "settings.png"),
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "快照与恢复", exact: true }).click();
+  await page.locator(".snapshot-row").first().waitFor();
+  await page.screenshot({
+    path: path.join(dir, "snapshots.png"),
+    animations: "disabled",
+  });
+  pass(
+    "gateway restart preserves authenticated session, projects, library and completed runs; real deployment smoke passes and database status is visible in console",
+  );
   await writeFile(
     path.join(dir, "result.json"),
     JSON.stringify(
       {
         date: new Date().toISOString(),
+        databaseValidation:
+          process.env.PILOT_TEST_POSTGRES_MODE === "wasm-wire"
+            ? "PostgreSQL WASM engine over TCP wire protocol; native PostgreSQL not exercised"
+            : "PostgreSQL server",
         mode: "real two-process Blender + native Codex protocol fixtures (not AI inference)",
         checks,
         projects: [a.id, b.id],
@@ -484,6 +557,9 @@ try {
           "library-dark.png",
           "library-light.png",
           "workspaces-1280.png",
+          "console.png",
+          "settings.png",
+          "snapshots.png",
         ],
       },
       null,

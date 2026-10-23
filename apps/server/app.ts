@@ -24,6 +24,7 @@ import {
   libraryMetadataSchema,
   saveLibrarySchema,
 } from "../../packages/blender-bridge/library.js";
+import { LibraryCatalog } from "../../packages/storage/library-catalog.js";
 import { Store } from "./db.js";
 import { Vault, validPassword } from "./security.js";
 import {
@@ -44,6 +45,8 @@ import {
 } from "../../packages/contracts/fs.js";
 export interface AppOptions {
   dataRoot: string;
+  databaseUrl?: string;
+  databaseSchema?: string;
   password: string;
   internalToken: string;
   runnerUrl: string;
@@ -55,8 +58,26 @@ export async function buildApp(options: AppOptions) {
   if (options.password.length < 12)
     throw new Error("PILOT_PASSWORD must contain at least 12 characters");
   await mkdir(options.dataRoot, { recursive: true });
-  const store = new Store(options.dataRoot);
+  const store = new Store(options.dataRoot, {
+    url: options.databaseUrl,
+    schema: options.databaseSchema,
+  });
   await store.init();
+  try {
+    await stat(path.join(options.dataRoot, "database", "PG_VERSION"));
+    const imported = await store.db.query(
+      `SELECT source FROM ${store.db.table("migration_imports")} WHERE source='legacy-v1'`,
+    );
+    if (!imported.rowCount) {
+      await store.db.close();
+      throw new Error(
+        "发现旧版 PGlite 数据，请运行 docker-up.sh 完成数据库迁移后启动。",
+      );
+    }
+  } catch (e: any) {
+    if (e.code !== "ENOENT") throw e;
+  }
+
   const vault = new Vault(path.join(options.dataRoot, "config"));
   await vault.init();
   const app = Fastify({ logger: false, bodyLimit: 5 * 1024 * 1024 });
@@ -83,18 +104,44 @@ export async function buildApp(options: AppOptions) {
       if (originHost !== req.headers.host)
         return reply.code(403).send({ error: "跨来源请求被拒绝" });
     }
-    if (req.url === "/api/auth/login" || req.url === "/api/auth/status") return;
+    if (
+      req.url === "/api/auth/login" ||
+      req.url === "/api/auth/status" ||
+      req.url === "/api/ready"
+    )
+      return;
     if (!vault.valid(req.cookies.pilot_session))
       return reply.code(401).send({ error: "请先登录" });
   });
   app.setErrorHandler((error: any, _req, reply) =>
     reply
-      .code(error instanceof z.ZodError ? 400 : error.statusCode || 500)
+      .code(
+        error instanceof z.ZodError
+          ? 400
+          : error.statusCode ||
+              (error.code === "23505"
+                ? 409
+                : error.code === "23503"
+                  ? 400
+                  : ["ECONNREFUSED", "ECONNRESET", "57P01", "57P03"].includes(
+                        error.code,
+                      )
+                    ? 503
+                    : 500),
+      )
       .send({
         error:
           error instanceof z.ZodError
             ? error.issues.map((x: any) => x.message).join("；")
-            : error.message || "操作失败",
+            : error.code === "23505"
+              ? "该项目已有活动任务或记录重复，请刷新后重试"
+              : error.code === "23503"
+                ? "关联记录不存在或不属于当前项目"
+                : ["ECONNREFUSED", "ECONNRESET", "57P01", "57P03"].includes(
+                      error.code,
+                    )
+                  ? "数据库暂时不可用，请稍后重试"
+                  : error.message || "操作失败",
       }),
   );
   const shutdownController = new AbortController();
@@ -183,6 +230,16 @@ export async function buildApp(options: AppOptions) {
     if (runs.some((r) => r.projectId === projectId && !terminal.has(r.status)))
       throw fail("已有任务正在运行，请先停止或等待完成", 409);
   };
+  app.get("/api/ready", async (_req, reply) => {
+    try {
+      await store.db.health();
+      return { ok: true };
+    } catch {
+      return reply
+        .code(503)
+        .send({ ok: false, error: "PostgreSQL unavailable" });
+    }
+  });
   app.get("/api/auth/status", async (req) => ({
     authenticated: vault.valid(req.cookies.pilot_session),
   }));
@@ -295,17 +352,32 @@ export async function buildApp(options: AppOptions) {
     const disk = await statfs(options.dataRoot);
     return {
       app: true,
+      database: await store.db
+        .health()
+        .catch(() => ({
+          ok: false,
+          engine: "PostgreSQL",
+          error: "数据库暂时不可用",
+        })),
       execution,
       storage: {
         free: Number(disk.bavail) * Number(disk.bsize),
         total: Number(disk.blocks) * Number(disk.bsize),
       },
-      model: await publicModel(),
+      model: await publicModel().catch(() => ({
+        baseUrl: "",
+        model: "",
+        hasKey: false,
+      })),
       versions: {
         app: "0.1.0",
         codex: "0.164.0",
         mcp: "2.2.2",
-        blender: "4.5.4",
+        blender:
+          process.env.BLENDER_VERSION ||
+          execution?.studios?.find((s: any) => s.blenderVersion)
+            ?.blenderVersion ||
+          "按项目启动时检测",
       },
     };
   });
@@ -479,7 +551,7 @@ export async function buildApp(options: AppOptions) {
         .parse(req.body);
       const prior = (
         await store.db.query<{ run_id: string }>(
-          "SELECT run_id FROM requests WHERE key=$1",
+          `SELECT run_id FROM ${store.db.table("requests")} WHERE key=$1`,
           [sid + ":" + body.clientRequestId],
         )
       ).rows[0];
@@ -520,17 +592,11 @@ export async function buildApp(options: AppOptions) {
         createdAt: now(),
         updatedAt: now(),
       };
-      await store.db.transaction(async (tx) => {
-        await tx.query("INSERT INTO requests VALUES($1,$2)", [
-          sid + ":" + body.clientRequestId,
-          run.id,
-        ]);
-        await tx.query("INSERT INTO records VALUES($1,$2,$3)", [
-          "run",
-          run.id,
-          JSON.stringify(run),
-        ]);
-      });
+      const accepted = await store.createRun(
+        run,
+        sid + ":" + body.clientRequestId,
+      );
+      if (accepted.id !== run.id) return accepted;
       if (session.title === "新对话") {
         session.title = body.text.slice(0, 28);
         await store.put("session", sid, session);
@@ -707,6 +773,20 @@ export async function buildApp(options: AppOptions) {
         return u.destination === "library"
           ? library.get(u.assetId)
           : store.get("asset", u.assetId);
+      if (u.destination === "library") {
+        const recovered = await library.catalog.get(id);
+        if (recovered) {
+          u.completed = true;
+          u.assetId = id;
+          await store.put("upload", id, u);
+          await unlink(u.path).catch(() => {});
+          await rm(safePath(options.dataRoot, "uploads", id), {
+            recursive: true,
+            force: true,
+          }).catch(() => {});
+          return recovered;
+        }
+      }
       if ((await stat(u.path)).size !== u.size) throw fail("文件尚未上传完整");
       const hash = createHash("sha256");
       for await (const chunk of createReadStream(u.path)) hash.update(chunk);
@@ -718,10 +798,10 @@ export async function buildApp(options: AppOptions) {
               (a) => a.sha256 === sha256,
             );
       if (existing) {
-        await unlink(u.path);
         u.completed = true;
         u.assetId = existing.id;
         await store.put("upload", id, u);
+        await unlink(u.path).catch(() => {});
         return existing;
       }
       const ext = path.extname(u.name).toLowerCase();
@@ -738,7 +818,7 @@ export async function buildApp(options: AppOptions) {
             ".bin": "application/octet-stream",
           } as Record<string, string>
         )[ext] || "application/octet-stream";
-      const assetId = randomUUID();
+      const assetId = id;
       const directory =
         u.destination === "library"
           ? safePath(options.dataRoot, "uploads", id)
@@ -779,8 +859,7 @@ export async function buildApp(options: AppOptions) {
         await f.close();
         if (b.toString() !== "glTF") throw fail("GLB 文件头无效");
       }
-      if (u.destination === "library") await copyFile(u.path, file);
-      else await rename(u.path, file);
+      await copyFile(u.path, file);
       const asset: Asset = {
         id: assetId,
         projectId: u.projectId,
@@ -804,19 +883,22 @@ export async function buildApp(options: AppOptions) {
           libraryMetadataSchema.parse(
             u.library || { name: u.name, category: "other" },
           ),
-          { file, preview: previewPath, mime, source: "upload" },
+          { id, file, preview: previewPath, mime, source: "upload" },
         );
         u.completed = true;
         u.assetId = result.id;
         await store.put("upload", id, u);
-        await rm(directory, { recursive: true, force: true });
-        await unlink(u.path);
+        await rm(directory, { recursive: true, force: true }).catch(() => {});
+        await unlink(u.path).catch(() => {});
         return result;
       }
-      await store.put("asset", asset.id, asset);
       u.completed = true;
       u.assetId = asset.id;
-      await store.put("upload", id, u);
+      await store.db.transaction(async (tx) => {
+        await store.put("asset", asset.id, asset, tx);
+        await store.put("upload", id, u, tx);
+      });
+      await unlink(u.path).catch(() => {});
       return asset;
     })();
     uploads.set(id, job);
@@ -826,7 +908,10 @@ export async function buildApp(options: AppOptions) {
       uploads.delete(id);
     }
   });
-  const library = new AssetLibrary(options.dataRoot);
+  const library = new AssetLibrary(
+    options.dataRoot,
+    new LibraryCatalog(store.db),
+  );
   app.get("/api/library", async (req) => {
     const q = z
       .object({
@@ -913,16 +998,16 @@ export async function buildApp(options: AppOptions) {
       .toLowerCase();
     const kind = String(q.kind || "all");
     const page = Math.min(100000, Math.max(0, Math.floor(Number(q.page) || 0)));
-    const where = `kind='asset' AND data->>'projectId'=$1
+    const where = `project_id=$1
       AND ($2='' OR position($2 in lower(coalesce(data->>'name','') || ' ' || coalesce(data->>'tags','') || ' ' || coalesce(data->>'folder',''))) > 0)
       AND ($3='all' OR data->>'kind'=$3)`;
     const values = [p.id, search, kind];
     const count = await store.db.query<{ count: number }>(
-      `SELECT count(*)::int as count FROM records WHERE ${where}`,
+      `SELECT count(*)::int as count FROM ${store.db.table("assets")} WHERE ${where}`,
       values,
     );
     const rows = await store.db.query<{ data: Asset }>(
-      `SELECT data FROM records WHERE ${where} ORDER BY data->>'createdAt' DESC LIMIT 60 OFFSET $4`,
+      `SELECT data FROM ${store.db.table("assets")} WHERE ${where} ORDER BY created_at DESC,id LIMIT 60 OFFSET $4`,
       [...values, page * 60],
     );
     return {
@@ -1016,28 +1101,41 @@ export async function buildApp(options: AppOptions) {
           `/jobs/${run.id}/events?after=${known.at(-1)?.seq || 0}`,
         );
         for (const e of events) {
-          await store.event(e);
-          if (e.type === "capture.created")
-            await store.put("capture", e.payload.capture.id, e.payload.capture);
-          if (e.type === "snapshot.created")
-            await store.put(
-              "snapshot",
-              e.payload.snapshot.id,
-              e.payload.snapshot,
-            );
-          if (e.type === "artifact.created")
-            await store.put(
-              "artifact",
-              e.payload.artifact.id,
-              e.payload.artifact,
-            );
-          if (e.type === "session.bound") {
-            const session = await store.get<Session>("session", run.sessionId);
-            if (session) {
-              session.nativeThreadId = e.payload.nativeThreadId;
-              await store.put("session", session.id, session);
+          await store.db.transaction(async (tx) => {
+            await store.event(e, tx);
+            if (e.type === "capture.created")
+              await store.put(
+                "capture",
+                e.payload.capture.id,
+                e.payload.capture,
+                tx,
+              );
+            if (e.type === "snapshot.created")
+              await store.put(
+                "snapshot",
+                e.payload.snapshot.id,
+                e.payload.snapshot,
+                tx,
+              );
+            if (e.type === "artifact.created")
+              await store.put(
+                "artifact",
+                e.payload.artifact.id,
+                e.payload.artifact,
+                tx,
+              );
+            if (e.type === "session.bound") {
+              const session = await store.get<Session>(
+                "session",
+                run.sessionId,
+                tx,
+              );
+              if (session) {
+                session.nativeThreadId = e.payload.nativeThreadId;
+                await store.put("session", session.id, session, tx);
+              }
             }
-          }
+          });
         }
         Object.assign(run, {
           status: remote.status,

@@ -4,15 +4,16 @@
 
 应用维护工作台体验和执行可靠性：用户会话、资源、事件、场景锁、截图预算、快照、状态展示。Codex 维护模型推理、原生会话和工具循环；上游 MCP 维护与 Blender 的命令通道。三个版本分别固定，升级不需要重写整个产品。
 
-| 目录                        | 职责                                                    |
-| --------------------------- | ------------------------------------------------------- |
-| `apps/web`                  | React 工作台、资源库、设置与原生 noVNC 视口             |
-| `apps/server`               | Fastify 网关、单写者 PGlite、鉴权、上传、SSE 与桌面代理 |
-| `apps/runner`               | 每项目桌面池、任务调度、取消、截图/验证、持久日志       |
-| `packages/runtime-adapters` | Codex app-server 协议转换；未来 Claude 独立接入         |
-| `packages/blender-bridge`   | 上游 MCP client、供 Codex 使用的工具门面、场景生命周期  |
-| `packages/contracts`        | 前后端事件、实体类型、路径和配置校验                    |
-| `deploy`                    | 固定版本镜像、桌面启动、上游 addon 加载                 |
+| 目录                        | 职责                                                      |
+| --------------------------- | --------------------------------------------------------- |
+| `apps/web`                  | React 工作台、资源库、设置与原生 noVNC 视口               |
+| `apps/server`               | Fastify 网关、PostgreSQL 实体、鉴权、上传、SSE 与桌面代理 |
+| `apps/runner`               | 每项目桌面池、任务调度、取消、截图/验证、持久日志         |
+| `packages/runtime-adapters` | Codex app-server 协议转换；未来 Claude 独立接入           |
+| `packages/blender-bridge`   | 上游 MCP client、供 Codex 使用的工具门面、场景生命周期    |
+| `packages/storage`          | pg 连接池、版本化 PostgreSQL 表结构与素材目录             |
+| `packages/contracts`        | 前后端事件、实体类型、路径和配置校验                      |
+| `deploy`                    | 固定版本镜像、桌面启动、上游 addon 加载                   |
 
 ## 每项目实例池
 
@@ -49,7 +50,7 @@ Codex 使用应用自己的 Blender 指令，不自动扫描项目说明文件�
 
 ## 事件与状态
 
-`PilotEvent` 包含 `schemaVersion=1`、runId、递增 seq、type、payload 和 time。Runner 先写 NDJSON 与状态文件，网关再同步到 PGlite；前端只依赖应用事件，不依赖 Codex 的内部对象直接渲染。
+`PilotEvent` 包含 `schemaVersion=1`、runId、递增 seq、type、payload 和 time。Runner 先写 NDJSON 与状态文件，网关在事务中同步到 PostgreSQL；前端只依赖应用事件，不依赖 Codex 的内部对象直接渲染。
 
 主要事件：`run.status`、`session.bound`、`message.delta`、`message.completed`、`tool.started/completed/failed`、`scene.receipt`、`capture.created`、`verification`、`snapshot.created`、`artifact.created`。
 
@@ -61,7 +62,7 @@ Codex 使用应用自己的 Blender 指令，不自动扫描项目说明文件�
 
 ```text
 /data/
-  database/                  PGlite（只有 Web 进程打开）
+  database/                  仅旧版迁移源，在线业务表位于 PostgreSQL
   config/vault.key            AES-GCM 主密钥，0600
   projects/<projectId>/
     scene.blend              当前保存场景
@@ -71,18 +72,18 @@ Codex 使用应用自己的 Blender 指令，不自动扫描项目说明文件�
     captures/                截图
     snapshots/               恢复文件
     exports/                 导出文件
-  library/<assetId>/         全局素材文件、预览、原子 JSON 元数据
+  library/<assetId>/         全局素材内容文件与预览（元数据在 PostgreSQL）
   uploads/                   未完成分块上传
   runtime/<sessionId>/       Codex 原生会话与配置
   jobs/                      Runner 状态与 NDJSON
   scene.json                 仅旧版外置桌面验收兼容模式使用
 ```
 
-备份整个 volume，不只备份数据库。Codex 会话、模型输出及图片路径属于用户数据。不要上传到公开诊断日志。
+备份 PostgreSQL 与整个文件目录。Codex 会话、模型输出及图片路径属于用户数据。不要上传到公开诊断日志。
 
 ## 跨项目素材
 
-`AssetLibrary` 使用共享卷中按 UUID 分目录的不可变内容文件与原子 JSON 元数据，避免 Runner 打开 PGlite。新条目只在内容和预览完成后发布。元数据更新由网关串行执行；Runner 只创建新 ID。旧项目资源归属校验保持不变，全局素材通过独立 API/MCP 工具访问。
+`AssetLibrary` 使用共享本地目录中的不可变内容文件和 PostgreSQL 元数据。新条目在文件、预览完成后提交数据库；列表、分类、标签与收藏查询数据库。Web 和 Runner 使用同一份素材目录，写入通过 SQL 事务与行锁保护。旧版 JSON 仅作迁移源，详见 [数据库设计](database.md)。
 
 `SceneBridge.saveLibraryAsset` 使用 Blender 原生集合写入；`importLibraryAsset` append 独立集合。MCP 门面增加 search/get/save/import 四个库工具，运行时白名单同步登记。导入使用既有场景变化回执、自动截图和最终视觉验证。列表不加载模型内容，图片按需获取。详见 [素材库设计与限制](asset-library.md)。
 
@@ -99,4 +100,4 @@ NoVNC 的只读是用户交互保护，不是恶意客户端隔离机制。只�
 - Blender：一起改版本和 SHA256；验证 RNA、导入导出、截图、文件加载后的 addon 存活。
 - UI：依赖应用事件，不追随上游协议字段直接改组件。
 
-升级前停机备份，使用测试 volume 验证旧项目能加载。PGlite 或 Blender 文件格式升级不承诺原地降级，回滚应使用升级前的整卷备份。
+升级前停机备份，使用测试 volume 验证旧项目能加载。PostgreSQL 或 Blender 文件格式升级不承诺原地降级，回滚应使用升级前的整卷备份。
