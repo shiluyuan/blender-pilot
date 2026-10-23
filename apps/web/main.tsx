@@ -67,6 +67,7 @@ import type {
 } from "../../packages/contracts/index";
 import { terminal } from "../../packages/contracts/index";
 import { api, post, fileUrl, bytes, date, upload } from "./api";
+import { LibraryPanel } from "./LibraryPanel";
 import { Viewport } from "./Viewport";
 import "@fontsource-variable/dm-sans";
 import "./styles.css";
@@ -494,6 +495,7 @@ function App() {
   if (!auth) return <Login onLogin={() => setAuth(true)} />;
   const nav = [
     ["studio", "工作台", Box],
+    ["library", "素材库", Layers3],
     ["assets", "资源库", FolderOpen],
     ["history", "快照与恢复", Clock3],
     ["console", "运行控制台", Activity],
@@ -691,6 +693,22 @@ function App() {
                 </div>
               )}
             </div>
+            {page === "library" && (
+              <LibraryPanel
+                projectId={project?.id}
+                busy={busy}
+                notify={notify}
+                onUse={(a) => {
+                  setDraft(
+                    (prev) =>
+                      `${prev}${prev ? "\n" : ""}使用素材库中的「${a.name}」（ID: ${a.id}），`,
+                  );
+                  setPage("studio");
+                  setPanel(true);
+                  draftRef.current?.focus();
+                }}
+              />
+            )}
             {page === "assets" && (
               <div className="page-content">
                 <PageHeading
@@ -830,6 +848,22 @@ function App() {
                         >
                           <Box size={13} />
                           导入
+                        </button>
+                        <button
+                          title="加入跨项目素材库"
+                          onClick={() =>
+                            void action(async () => {
+                              await post(`/assets/${a.id}/publish`, {
+                                name: a.name,
+                                category: "other",
+                                tags: a.tags,
+                                description: "",
+                              });
+                              setPage("library");
+                            }, "已加入素材库，可编辑分类和标签")
+                          }
+                        >
+                          入库
                         </button>
                         <button
                           className="icon"
@@ -1617,6 +1651,10 @@ function RunView({
     capture: "观察当前画面",
     query_blender_api: "查询 Blender API",
     import_asset: "导入资源",
+    search_library: "搜索素材库",
+    get_library_asset: "查看素材预览",
+    save_library_asset: "保存可复用素材",
+    import_library_asset: "复用素材",
     save_scene: "保存场景",
     export_scene: "导出场景",
     report_verification: "检查创作结果",

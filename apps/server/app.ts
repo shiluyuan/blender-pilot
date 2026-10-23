@@ -17,6 +17,11 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import sharp from "sharp";
+import {
+  AssetLibrary,
+  libraryMetadataSchema,
+  saveLibrarySchema,
+} from "../../packages/blender-bridge/library.js";
 import { Store } from "./db.js";
 import { Vault, validPassword } from "./security.js";
 import {
@@ -749,6 +754,85 @@ export async function buildApp(options: AppOptions) {
     } finally {
       uploads.delete(id);
     }
+  });
+  const library = new AssetLibrary(options.dataRoot);
+  app.get("/api/library", async (req) => {
+    const q = z
+      .object({
+        search: z.string().max(200).optional(),
+        category: z
+          .enum(["all", "character", "prop", "scene", "material", "other"])
+          .optional(),
+        favorite: z.enum(["true", "false"]).optional(),
+        page: z.coerce.number().int().min(0).max(100000).default(0),
+      })
+      .parse(req.query);
+    return library.list({ ...q, favorite: q.favorite === "true" });
+  });
+  app.patch("/api/library/:id", async (req) =>
+    exclusive(() =>
+      library.update(idSchema.parse((req.params as any).id), req.body),
+    ),
+  );
+  app.post("/api/projects/:id/library", async (req) =>
+    exclusive(async () => {
+      const p = await project((req.params as any).id);
+      const input = saveLibrarySchema.parse(req.body);
+      await ensureIdle();
+      return runner("/scene", {
+        projectId: p.id,
+        action: "library-save",
+        library: input,
+      });
+    }),
+  );
+  app.post("/api/library/:id/import", async (req) =>
+    exclusive(async () => {
+      const id = idSchema.parse((req.params as any).id);
+      await library.get(id);
+      const body = z.object({ projectId: idSchema }).parse(req.body);
+      await project(body.projectId);
+      await ensureIdle();
+      return runner("/scene", {
+        projectId: body.projectId,
+        action: "library-import",
+        assetId: id,
+      });
+    }),
+  );
+  app.post("/api/assets/:id/publish", async (req) =>
+    exclusive(async () => {
+      const asset = await store.get<Asset>(
+        "asset",
+        idSchema.parse((req.params as any).id),
+      );
+      if (!asset) throw fail("资源不存在", 404);
+      const input = libraryMetadataSchema.parse(req.body);
+      const root = safePath(options.dataRoot, "projects", asset.projectId);
+      return library.publish(input, {
+        projectId: asset.projectId,
+        file: await existingSafePath(root, asset.path),
+        preview: asset.previewPath
+          ? await existingSafePath(root, asset.previewPath)
+          : undefined,
+        mime: asset.mime,
+        source: "upload",
+      });
+    }),
+  );
+  app.get("/api/library/:id/file", async (req, reply) => {
+    const id = idSchema.parse((req.params as any).id),
+      q = req.query as any;
+    const asset = await library.get(id),
+      preview = q.preview === "true";
+    const file = await library.file(id, preview);
+    reply.type(preview ? "image/jpeg" : "application/octet-stream");
+    if (!preview)
+      reply.header(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(asset.name.endsWith(path.extname(file)) ? asset.name : asset.name + path.extname(file))}`,
+      );
+    return reply.send(createReadStream(file));
   });
   app.get("/api/projects/:id/assets", async (req) => {
     const p = await project((req.params as any).id),

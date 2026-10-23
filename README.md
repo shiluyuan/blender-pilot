@@ -8,7 +8,7 @@ Blender Pilot 是面向个人自托管的 Blender 工作台：原生 Blender 桌
 
 ![真实 Blender 工作台](docs/screenshots/workbench-dark.png)
 
-**验收状态：** 已使用真实 `gpt-5.6-luna` 接口通过「参考图 → Codex → Blender MCP → 场景修改 → 自动截图 → 视觉检查」验收，并通过续聊、取消、取消后继续和浏览器对话测试。Docker 镜像的整机启动仍未完成验证。详见 [验证记录](docs/validation.md)。
+**验收状态：** 已使用真实 `gpt-5.6-luna` 接口通过「参考图 → Codex → Blender MCP → 场景修改 → 自动截图 → 视觉检查」验收，并通过续聊、取消、取消后继续和浏览器对话测试。新增素材库已通过真实 Blender 跨项目复用、原生 Codex 协议及浏览器测试。Docker 镜像的整机启动仍未完成验证。详见 [验证记录](docs/validation.md)。
 
 ## 快速部署
 
@@ -52,6 +52,7 @@ AI 会读取场景、通过 MCP 执行 bpy 脚本，并收到实际截图。你�
 - **原生视口**：服务器 Blender GUI 通过鉴权后的 WebSocket 显示在中央，可直接键鼠操作。对话侧栏可收起、调宽，`Alt+J` 切换；深色/浅色主题。
 - **原生 Codex 会话**：app-server 协议、流式消息、工具卡、会话续接、取消任务、浏览器刷新后事件补发、请求幂等。
 - **视觉闭环**：操作前截图，每次场景写入后截图与对象回读，结束时要求模型提交当前截图的检查结论。截图以图片内容传给模型；失败或缺少视觉报告不会显示为验证成功。
+- **可复用素材库**：人物、物品、场景、材质分类；保存 Blender 选中对象或场景集合，附真实视图预览；跨项目独立副本导入、标签搜索、收藏、下载与对话查找/保存/复用。详见 [素材库指南](docs/asset-library.md)。
 - **资源库**：批量拖入/粘贴图片、分块断点续传、内容去重、缩略图、搜索、类型过滤、标签和分组信息、分页。引用与导入是两项独立操作。
 - **场景与文件**：项目切换、保存、操作前后快照、恢复前备份、GLB/内嵌 glTF/`.blend` 下载。支持导入 GLB、内嵌 glTF、FBX、OBJ、`.blend` 对象和图片数据块。
 - **控制台**：执行服务、Blender、存储和固定版本信息，真实工具事件与错误。
@@ -103,6 +104,7 @@ Vite 默认地址 http://localhost:5173，代理 `/api` 和 `/desktop`。Blender
 - [部署、HTTPS、备份与升级](docs/deployment.md)
 - [架构、维护边界与数据约定](docs/architecture.md)
 - [功能边界与使用说明](docs/product.md)
+- [素材库：人物、物品与场景复用](docs/asset-library.md)
 - [测试方法与实际验证记录](docs/validation.md)
 - [第三方项目与许可证说明](THIRD_PARTY_NOTICES.md)
 

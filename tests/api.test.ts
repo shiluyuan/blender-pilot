@@ -187,9 +187,82 @@ test("authenticated API: settings, project, resumable upload, isolation and pers
     });
     assert.equal(r.statusCode, 400);
     assert.match(r.body, /不属于/);
+    assert.equal((await app.inject({ url: "/api/library" })).statusCode, 401);
+    const published = await app.inject({
+      method: "POST",
+      url: `/api/assets/${asset.id}/publish`,
+      headers,
+      payload: {
+        name: "共享参考图",
+        category: "character",
+        tags: ["人物参考"],
+      },
+    });
+    assert.equal(published.statusCode, 200);
+    const shared = published.json();
+    assert.equal(
+      (
+        await app.inject({
+          url: "/api/library?category=character&search=人物",
+          headers,
+        })
+      ).json().items[0].id,
+      shared.id,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          url: `/api/library/${shared.id}/file?preview=true`,
+          headers,
+        })
+      ).headers["content-type"],
+      "image/jpeg",
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: `/api/library/${shared.id}`,
+          headers,
+          payload: { favorite: true },
+        })
+      ).statusCode,
+      200,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: `/api/library/${shared.id}`,
+          headers,
+          payload: { category: "unknown" },
+        })
+      ).statusCode,
+      400,
+    );
+    const sharedAfter = (
+      await app.inject({
+        url: "/api/library?category=character&search=人物",
+        headers,
+      })
+    ).json();
+    assert.equal(
+      sharedAfter.total,
+      1,
+      "favorite patch preserves classification and tags",
+    );
     await app.close();
     const reopened = await buildApp(options);
     assert.equal((await reopened.store.list("project")).length, 2);
+    assert.equal(
+      (
+        await reopened.app.inject({
+          url: "/api/library?favorite=true",
+          headers,
+        })
+      ).json().total,
+      1,
+    );
     assert.equal(
       (await reopened.store.get<any>("asset", asset.id)).name,
       "参考图.png",

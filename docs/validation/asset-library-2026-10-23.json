@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "codex": "passed",
+  "time": "2026-10-23T15:02:34.166Z",
+  "blender": "4.5.4 LTS",
+  "model": "deterministic Responses fixture (not real inference)",
+  "mode": "protocol-fixture",
+  "reusedLiveChecks": false,
+  "imageInputs": 19,
+  "library": {
+    "passed": true,
+    "blender": "4.5.4 LTS",
+    "checks": [
+      "selected hierarchy only",
+      "packed texture survives deletion of original",
+      "materials and transforms",
+      "source scene unchanged",
+      "cross-project append",
+      "repeated imports have independent meshes and materials",
+      "scene collection merge",
+      "category/tag search",
+      "favorite survives reload",
+      "empty selection rejected"
+    ],
+    "assetIds": [
+      "7138518e-bce9-4849-b020-7f293e9aa890",
+      "bdb3e287-685b-4042-ab62-78b90e5d7c87"
+    ]
+  },
+  "checks": [
+    "native MCP",
+    "snapshots",
+    "GLB/glTF/blend exports",
+    "Codex tool calls",
+    "image input",
+    "idempotency",
+    "thread resume",
+    "cancel",
+    "browser VNC",
+    "library browser categories, search, metadata edit, import, chat reference, scene save and reload",
+    "library dark/light themes and 1280px layout",
+    "11 automated tests and production build"
+  ]
+}

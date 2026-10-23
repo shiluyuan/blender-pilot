@@ -59,6 +59,7 @@ Codex 使用应用自己的 Blender 指令，不自动扫描项目说明文件�
     captures/                截图
     snapshots/               恢复文件
     exports/                 导出文件
+  library/<assetId>/         全局素材文件、预览、原子 JSON 元数据
   uploads/                   未完成分块上传
   runtime/<sessionId>/       Codex 原生会话与配置
   jobs/                      Runner 状态与 NDJSON
@@ -66,6 +67,12 @@ Codex 使用应用自己的 Blender 指令，不自动扫描项目说明文件�
 ```
 
 备份整个 volume，不只备份数据库。Codex 会话、模型输出及图片路径属于用户数据。不要上传到公开诊断日志。
+
+## 跨项目素材
+
+`AssetLibrary` 使用共享卷中按 UUID 分目录的不可变内容文件与原子 JSON 元数据，避免 Runner 打开 PGlite。新条目只在内容和预览完成后发布。元数据更新由网关串行执行；Runner 只创建新 ID。旧项目资源归属校验保持不变，全局素材通过独立 API/MCP 工具访问。
+
+`SceneBridge.saveLibraryAsset` 使用 Blender 原生集合写入；`importLibraryAsset` append 独立集合。MCP 门面增加 search/get/save/import 四个库工具，运行时白名单同步登记。导入使用既有场景变化回执、自动截图和最终视觉验证。列表不加载模型内容，图片按需获取。详见 [素材库设计与限制](asset-library.md)。
 
 ## 安全和限制
 

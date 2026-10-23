@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, writeFile, stat, readFile, rename } from "node:fs/promises";
+import { mkdir, writeFile, stat, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { AssetLibrary, saveLibrarySchema } from "./library.js";
 import { Upstream } from "./upstream.js";
 import {
   atomicJson,
@@ -262,6 +263,81 @@ export class SceneBridge {
         `with bpy.data.libraries.load(${f},link=False) as (source,target):\n    target.objects=source.objects\nfor obj in target.objects:\n    if obj is not None: bpy.context.collection.objects.link(obj)\nprint('Appended objects from Blender file')`,
       );
     throw new Error("不支持的导入格式");
+  }
+  async saveLibraryAsset(input: unknown) {
+    if (!this.activeProject) throw new Error("没有活动场景");
+    const options = saveLibrarySchema.parse(input);
+    const library = new AssetLibrary(this.dataRoot),
+      id = randomUUID();
+    const dir = library.root(id);
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, "asset.blend");
+    try {
+      const objects = await this.upstream.json(`import json
+assert bpy.context.mode == 'OBJECT', '请先切换到对象模式'
+names=json.loads(${py(JSON.stringify(options.objectNames || []))})
+if ${py(options.scope)} == 'scene':
+    chosen=set(bpy.context.scene.objects)
+elif names:
+    assert all(n in bpy.context.scene.objects for n in names), '指定对象不存在'
+    chosen={bpy.context.scene.objects[n] for n in names}
+else:
+    chosen=set(bpy.context.selected_objects)
+assert chosen, '请先选择需要保存的对象'
+# Preserve hierarchy, rigs and common modifier/constraint object dependencies.
+pending=list(chosen)
+while pending:
+    obj=pending.pop()
+    dependencies=list(obj.children)
+    if obj.parent: dependencies.append(obj.parent)
+    dependencies += [getattr(m,'object',None) for m in obj.modifiers]
+    dependencies += [getattr(c,'target',None) for c in obj.constraints]
+    for dep in dependencies:
+        if dep is not None and dep not in chosen:
+            chosen.add(dep)
+            pending.append(dep)
+bpy.ops.file.pack_all()
+collection=bpy.data.collections.new('PILOT_ASSET')
+try:
+    for obj in chosen: collection.objects.link(obj)
+    collection.asset_mark()
+    collection.asset_data.description=${py(options.description)}
+    bpy.data.libraries.write(${py(file)}, {collection}, path_remap='ABSOLUTE', fake_user=True, compress=True)
+    print('PILOT_JSON:'+json.dumps({'names':sorted(o.name for o in chosen)}))
+finally:
+    bpy.data.collections.remove(collection)`);
+      // A real viewport capture, explicitly labelled as the saved view in the UI.
+      const preview = await this.capture(this.activeProject, "library-preview");
+      return library.publish(options, {
+        id,
+        projectId: this.activeProject,
+        file,
+        preview: preview.capture.path,
+        mime: "application/x-blender",
+        source: "blender",
+        objectNames: objects.names,
+      });
+    } catch (e) {
+      await rm(dir, { recursive: true, force: true });
+      throw e;
+    }
+  }
+  async importLibraryAsset(id: string) {
+    const library = new AssetLibrary(this.dataRoot),
+      asset = await library.get(id);
+    const file = await library.file(id);
+    if (asset.source !== "blender") return this.import(file);
+    return this.upstream.json(`import json
+with bpy.data.libraries.load(${py(file)}, link=False) as (source,target):
+    target.collections=[n for n in source.collections if n.startswith('PILOT_ASSET')]
+assert target.collections, '素材集合缺失'
+names=[]
+for collection in target.collections:
+    if collection:
+        collection.name=${py(asset.name)}
+        bpy.context.scene.collection.children.link(collection)
+        names += [o.name for o in collection.all_objects]
+print('PILOT_JSON:'+json.dumps({'assetId':${py(id)},'objects':names,'mode':'independent-copy'}))`);
   }
   async queryApi(target: string) {
     if (!/^(bpy\.)?(types\.[A-Za-z_][\w]*|ops\.[a-z_]+\.[a-z_]+)$/.test(target))

@@ -76,6 +76,47 @@ export async function responsesFixture(host = "127.0.0.1") {
         };
         stage++;
       } else if (stage === 2) {
+        item = {
+          type: "function_call",
+          name: name("save_library_asset"),
+          arguments: JSON.stringify({
+            name: "协议保存球体",
+            category: "prop",
+            objectNames: ["Pilot_Verified_Sphere"],
+            tags: ["协议验收"],
+          }),
+        };
+        stage++;
+      } else if (stage === 3) {
+        item = {
+          type: "function_call",
+          name: name("search_library"),
+          arguments: JSON.stringify({ search: "协议保存球体" }),
+        };
+        stage++;
+      } else if (stage === 4 || stage === 5) {
+        let assetId = "";
+        const findAsset = (v: any) => {
+          if (typeof v === "string") {
+            try {
+              findAsset(JSON.parse(v));
+            } catch {}
+          } else if (Array.isArray(v)) v.forEach(findAsset);
+          else if (v && typeof v === "object") {
+            if (v.name === "协议保存球体" && v.id) assetId = v.id;
+            Object.values(v).forEach(findAsset);
+          }
+        };
+        findAsset(body.input);
+        item = {
+          type: "function_call",
+          name: name(
+            stage === 4 ? "get_library_asset" : "import_library_asset",
+          ),
+          arguments: JSON.stringify({ assetId }),
+        };
+        stage++;
+      } else if (stage === 6) {
         // Tool outputs can be encoded JSON strings in the Responses input.
         const ids = [
           ...all.matchAll(/(?:captureId|\\?"id\\?")[:=]\\?"([a-f\d-]{36})/g),

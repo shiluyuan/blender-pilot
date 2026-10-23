@@ -3,6 +3,7 @@ import { WebSocketServer } from "ws";
 import { connect } from "node:net";
 import { mkdir } from "node:fs/promises";
 import { SceneBridge } from "../../packages/blender-bridge/scene.js";
+import { saveLibrarySchema } from "../../packages/blender-bridge/library.js";
 import { Jobs, toolDefinitions } from "./jobs.js";
 import { equal } from "../server/security.js";
 import {
@@ -120,7 +121,11 @@ app.post("/scene", async (req) => {
         "restore",
         "export",
         "import",
+        "library-save",
+        "library-import",
       ]),
+      library: saveLibrarySchema.optional(),
+      assetId: idSchema.optional(),
       name: z.string().optional(),
       path: z.string().optional(),
       format: z.enum(["glb", "gltf", "blend"]).optional(),
@@ -148,6 +153,10 @@ app.post("/scene", async (req) => {
         );
       case "export":
         return { path: await scene.export(body.format || "glb") };
+      case "library-save":
+        return scene.saveLibraryAsset(saveLibrarySchema.parse(body.library));
+      case "library-import":
+        return scene.importLibraryAsset(idSchema.parse(body.assetId));
       case "import":
         return {
           result: await scene.import(

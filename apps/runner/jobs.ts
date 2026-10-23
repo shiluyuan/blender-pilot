@@ -1,3 +1,8 @@
+import { z } from "zod";
+import {
+  AssetLibrary,
+  saveLibrarySchema,
+} from "../../packages/blender-bridge/library.js";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { mkdir, readFile, readdir, appendFile } from "node:fs/promises";
@@ -379,7 +384,55 @@ export class Jobs {
         let image: any;
         let cap: Capture | undefined;
         if (name === "get_scene_info") result = await this.scene.info();
-        else if (name === "query_blender_api")
+        else if (name === "search_library") {
+          const query = z
+            .object({
+              search: z.string().max(200).optional(),
+              category: z
+                .enum([
+                  "all",
+                  "character",
+                  "prop",
+                  "scene",
+                  "material",
+                  "other",
+                ])
+                .optional(),
+              page: z.number().int().min(0).max(100000).optional(),
+            })
+            .parse(args);
+          const found = await new AssetLibrary(this.root).list(query);
+          result = {
+            ...found,
+            items: found.items.map(
+              ({ path, previewPath, ...metadata }) => metadata,
+            ),
+          };
+        } else if (name === "get_library_asset") {
+          const library = new AssetLibrary(this.root);
+          const asset = await library.get(String(args.assetId));
+          result = asset;
+          if (asset.previewPath) {
+            const preview = await sharp(await library.file(asset.id, true))
+              .resize({
+                width: 1280,
+                height: 1280,
+                fit: "inside",
+                withoutEnlargement: true,
+              })
+              .jpeg({ quality: 80 })
+              .toBuffer();
+            image = {
+              type: "image",
+              mimeType: "image/jpeg",
+              data: preview.toString("base64"),
+            };
+          }
+        } else if (name === "save_library_asset") {
+          result = await this.scene.saveLibraryAsset(
+            saveLibrarySchema.parse(args),
+          );
+        } else if (name === "query_blender_api")
           result = await this.scene.queryApi(String(args.target));
         else if (name === "capture") {
           const r = await this.capture("inspection");
@@ -424,7 +477,11 @@ export class Jobs {
           };
           await this.emit(a.state, "artifact.created", { artifact });
           result = artifact;
-        } else if (name === "execute_blender_code" || name === "import_asset") {
+        } else if (
+          name === "execute_blender_code" ||
+          name === "import_asset" ||
+          name === "import_library_asset"
+        ) {
           if (a.review) {
             if (!a.review.allowWrite || a.review.repairsLeft <= 0)
               throw new Error("最终检查的修正预算已用完，请报告剩余差异");
@@ -439,6 +496,10 @@ export class Jobs {
               if (typeof args.code !== "string" || args.code.length > 40000)
                 throw new Error("代码为空或超过长度限制");
               result = await this.scene.upstream.python(args.code);
+            } else if (name === "import_library_asset") {
+              result = await this.scene.importLibraryAsset(
+                String(args.assetId),
+              );
             } else {
               const asset = a.input.assets.find((x) => x.id === args.assetId);
               if (!asset) throw new Error("资源必须先引用到本轮对话");
@@ -482,6 +543,62 @@ export class Jobs {
   }
 }
 export const toolDefinitions = [
+  {
+    name: "get_library_asset",
+    description:
+      "Inspect a library asset and its saved-view preview image. This is a reference image, NOT a current scene capture and cannot be used for report_verification.",
+    inputSchema: {
+      type: "object",
+      properties: { assetId: { type: "string" } },
+      required: ["assetId"],
+    },
+  },
+  {
+    name: "search_library",
+    description:
+      "Search the reusable global Blender asset library by name, description, tags and category. Search before creating assets when the user requests reuse. Results contain asset IDs for import_library_asset. Page size 60.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        search: { type: "string" },
+        category: {
+          type: "string",
+          enum: ["all", "character", "prop", "scene", "material", "other"],
+        },
+        page: { type: "integer", minimum: 0 },
+      },
+    },
+  },
+  {
+    name: "save_library_asset",
+    description:
+      "Save selected or named objects (with hierarchy, materials and packable textures), or all scene objects, as a reusable .blend collection in the global library. Only when the user requests saving a reusable asset. Includes a real saved-view preview. Does not save scene render/world settings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        category: {
+          type: "string",
+          enum: ["character", "prop", "scene", "material", "other"],
+        },
+        description: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+        scope: { type: "string", enum: ["selection", "scene"] },
+        objectNames: { type: "array", items: { type: "string" } },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "import_library_asset",
+    description:
+      "Append a reusable library asset to the current project as an independent copy. Use an ID from search_library or the user. Returns actual object names, a change receipt and screenshot. Use bpy to place those objects. Never replaces the scene.",
+    inputSchema: {
+      type: "object",
+      properties: { assetId: { type: "string" } },
+      required: ["assetId"],
+    },
+  },
   {
     name: "get_scene_info",
     description:

@@ -12,6 +12,7 @@ import sharp from "sharp";
 import { SceneBridge } from "../packages/blender-bridge/scene.js";
 import { responsesFixture } from "../tests/fixtures/responses.js";
 import { modelSettingsSchema } from "../packages/contracts/index.js";
+import { verifyLibrary } from "./library-checks.js";
 import { verifyRealModel } from "./real-model-checks.js";
 const configPath = process.env.PILOT_MODEL_CONFIG_FILE;
 const liveSettings = configPath
@@ -176,6 +177,7 @@ try {
   await bridge.restore("native-smoke", snapshot.path);
   const op = await bridge.queryApi("bpy.ops.mesh.primitive_cube_add");
   assert(op.properties.some((x: any) => x.name === "size"));
+  const libraryReport = await verifyLibrary(bridge, dir);
   await bridge.upstream.close();
   bridge = undefined;
   console.log("PASS real MCP mutation, screenshot, snapshot, restore and RNA");
@@ -329,6 +331,27 @@ try {
     );
     assert(journal.includes("scene.receipt"));
     assert(journal.includes("verification"));
+    for (const tool of [
+      "save_library_asset",
+      "search_library",
+      "get_library_asset",
+      "import_library_asset",
+    ]) {
+      assert(
+        journal
+          .split("\n")
+          .filter(Boolean)
+          .map((x) => JSON.parse(x))
+          .some((e) => e.type === "tool.completed" && e.payload.name === tool),
+        `${tool} must complete through native Codex`,
+      );
+    }
+    assert(
+      info.objects.some((o: any) => o.name === "Pilot_Verified_Sphere.001"),
+    );
+    console.log(
+      "PASS native Codex library tools: save → search → preview → append",
+    );
     assert(!journal.includes("fixture-key-only"));
     console.log(
       "PASS native Codex app-server → MCP → real Blender → images in Responses input",
@@ -496,6 +519,76 @@ try {
       mimeType: "image/png",
       buffer: reference,
     });
+    await page.getByRole("button", { name: "素材库", exact: true }).click();
+    await page.getByRole("button", { name: "物品", exact: true }).click();
+    await page.getByText("木质座椅", { exact: true }).waitFor();
+    await page.getByLabel("搜索素材").fill("客厅");
+    await page.getByText("木质座椅", { exact: true }).waitFor();
+    await page.screenshot({
+      path: path.join(dir, "library-dark.png"),
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "切换主题" }).click();
+    await page.screenshot({
+      path: path.join(dir, "library-light.png"),
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "切换主题" }).click();
+    await page
+      .getByRole("button", { name: "编辑 木质座椅", exact: true })
+      .click();
+    await page.getByLabel("描述", { exact: true }).fill("浏览器编辑的复用素材");
+    await page.getByRole("button", { name: "保存素材", exact: true }).click();
+    await page.getByText("浏览器编辑的复用素材", { exact: true }).waitFor();
+    const libCard = page
+      .locator(".library-card")
+      .filter({ hasText: "木质座椅" });
+    await libCard.getByRole("button", { name: "导入", exact: true }).click();
+    await page
+      .getByText("已作为独立副本导入当前项目", { exact: true })
+      .waitFor();
+    await libCard
+      .getByRole("button", { name: "对话引用", exact: true })
+      .click();
+    assert(
+      (await page.locator("textarea").first().inputValue()).includes(
+        "木质座椅",
+      ),
+    );
+    await page.locator("textarea").first().fill("");
+    await page.getByRole("button", { name: "素材库", exact: true }).click();
+    await page
+      .getByRole("button", { name: "从 Blender 保存", exact: true })
+      .click();
+    await page.getByLabel("素材名称", { exact: true }).fill("浏览器保存场景");
+    await page.getByLabel("保存范围", { exact: true }).selectOption("scene");
+    await page.getByLabel("分类", { exact: true }).selectOption("scene");
+    await page.getByRole("button", { name: "保存素材", exact: true }).click();
+    await page.getByText("浏览器保存场景", { exact: true }).waitFor();
+    await page.reload();
+    await page.getByRole("button", { name: "素材库", exact: true }).click();
+    await page.getByText("浏览器保存场景", { exact: true }).waitFor();
+    await page.screenshot({
+      path: path.join(dir, "library-dark.png"),
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "切换主题" }).click();
+    await page.screenshot({
+      path: path.join(dir, "library-light.png"),
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "切换主题" }).click();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+      "Library fits 1280px",
+    );
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    console.log(
+      "PASS library browser categories, search, edit, import, chat reference, save and reload",
+    );
     await page.getByRole("button", { name: "资源库", exact: true }).click();
     await page
       .locator(".asset-card")
@@ -577,6 +670,7 @@ try {
         reusedLiveChecks: reuseLiveResult,
         imageInputs: liveSettings ? undefined : images,
         live: liveReport,
+        library: libraryReport,
         checks: [
           "native MCP",
           "snapshots",
@@ -608,6 +702,19 @@ try {
       : "ALL NATIVE CHECKS PASSED",
   );
 } catch (e) {
+  const failurePage = browser?.contexts()[0]?.pages()[0];
+  if (failurePage) {
+    await failurePage
+      .screenshot({ path: path.join(dir, "failure.png") })
+      .catch(() => {});
+    console.error(
+      "Visible dialogs:",
+      await failurePage
+        .locator("dialog")
+        .allTextContents()
+        .catch(() => []),
+    );
+  }
   console.error(e);
   for (const f of logs) {
     try {
