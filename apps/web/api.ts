@@ -42,10 +42,16 @@ export const date = (s: string) =>
   });
 export async function upload(
   file: File,
-  projectId: string,
+  projectId: string | undefined,
   progress: (n: number) => void,
+  library?: {
+    category: string;
+    sourceUrl?: string;
+    license?: string;
+    author?: string;
+  },
 ) {
-  const key = `pilot-upload:${projectId}:${file.name}:${file.size}:${file.lastModified}`;
+  const key = `pilot-upload:${library ? "library" : projectId}:${file.name}:${file.size}:${file.lastModified}`;
   let id = localStorage.getItem(key);
   let offset = 0;
   if (id) {
@@ -63,6 +69,8 @@ export async function upload(
   if (!id) {
     const state = await post("/uploads", {
       projectId,
+      destination: library ? "library" : "project",
+      library: library ? { name: file.name, ...library } : undefined,
       name: file.name,
       size: file.size,
     });

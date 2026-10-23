@@ -17,13 +17,13 @@
     "check": "npm run typecheck && npm test && npm run build",
     "verify:blender": "node --import tsx scripts/verify-blender.ts",
     "format": "prettier --write apps packages scripts tests docs README.md THIRD_PARTY_NOTICES.md compose*.yaml",
-    "doctor:codex": "node --import tsx scripts/doctor-codex.ts"
+    "doctor:codex": "node --import tsx scripts/doctor-codex.ts",
+    "verify:workspaces": "node --import tsx scripts/verify-workspaces.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.11",
     "@fastify/cookie": "11.1.3",
     "@fastify/static": "10.1.7",
-    "@fontsource-variable/dm-sans": "5.3.0",
     "@modelcontextprotocol/sdk": "1.32.1",
     "@novnc/novnc": "1.7.0",
     "fastify": "5.12.7",

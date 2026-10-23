@@ -81,6 +81,7 @@ export interface Run {
   projectId: string;
   prompt: string;
   assetIds: string[];
+  libraryAssetIds?: string[];
   status: RunStatus;
   verification: string;
   createdAt: string;
@@ -110,6 +111,7 @@ export interface StartJob {
   sessionId: string;
   prompt: string;
   assets: Array<Pick<Asset, "id" | "path" | "mime" | "name">>;
+  libraryAssets?: Array<{ id: string; name: string }>;
   nativeThreadId?: string;
   settings: ModelSettings;
 }

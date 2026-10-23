@@ -11,6 +11,7 @@ services:
     environment:
       PILOT_INTERNAL_TOKEN: ${PILOT_INTERNAL_TOKEN:?Run ./scripts/setup.sh first}
       PILOT_RESOLUTION: ${PILOT_RESOLUTION:-1440x900x24}
+      PILOT_MAX_STUDIOS: ${PILOT_MAX_STUDIOS:-3}
     volumes:
       - pilot-data:/data
     healthcheck:

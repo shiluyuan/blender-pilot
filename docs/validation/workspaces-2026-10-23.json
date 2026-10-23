@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-23T15:39:03.047Z",
+  "mode": "real two-process Blender + native Codex protocol fixtures (not AI inference)",
+  "checks": [
+    "two live Blender processes, independent scenes, capacity refusal without eviction",
+    "external textured GLB uploaded directly to shared library; provenance, texture and independent cross-project copies",
+    "existing + external + newly created objects assembled, saved as reusable collection, imported in another project with textures and lineage",
+    "concurrent native Codex sessions: B finishes while A waits, project-scoped busy/close guard, separate scene and prompt, cancellation",
+    "browser: two live desktops, independent persistent drafts/references, library multiselect, direct external upload, batch import, collapsible assistant, dark/light and 1280px",
+    "save-and-close releases only its instance; reopen restores scene while other project stays live",
+    "injected Blender process failure is reported per project; B remains operational and failed A can be closed"
+  ],
+  "projects": [
+    "f1a783b7-c0aa-43f7-a2f1-33a0d897a1f1",
+    "d2aa30d7-bde9-4f5c-838f-8cf88594ba4f"
+  ],
+  "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/BoxTextured",
+  "textures": [
+    {
+      "name": "Image_0",
+      "size": [256, 256],
+      "packed": true
+    }
+  ],
+  "composite": {
+    "id": "21a80449-7122-4043-a711-8f7c02be9b97",
+    "sourceAssetIds": [
+      "1019b1ba-a923-4bae-9fb1-3f25ae45e673",
+      "976ca1b1-bbb8-4ef4-803f-544155f9345c"
+    ],
+    "objectCount": 4
+  },
+  "screenshots": [
+    "workspaces-dark.png",
+    "workspaces-light.png",
+    "library-dark.png",
+    "library-light.png",
+    "workspaces-1280.png"
+  ]
+}

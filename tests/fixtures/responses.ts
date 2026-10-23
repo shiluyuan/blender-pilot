@@ -1,7 +1,10 @@
 /** Deterministic protocol fixture. This is NOT an AI model or a visual evaluator. */
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
-export async function responsesFixture(host = "127.0.0.1") {
+export async function responsesFixture(
+  host = "127.0.0.1",
+  options: { referenceAssetId?: string } = {},
+) {
   const requests: any[] = [];
   let stage = 0;
   let hold = false;
@@ -108,6 +111,7 @@ export async function responsesFixture(host = "127.0.0.1") {
           }
         };
         findAsset(body.input);
+        assetId = options.referenceAssetId || assetId;
         item = {
           type: "function_call",
           name: name(

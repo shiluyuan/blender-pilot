@@ -5,6 +5,8 @@ import { WebSocket, WebSocketServer } from "ws";
 import { randomUUID, createHash } from "node:crypto";
 import {
   mkdir,
+  rm,
+  copyFile,
   readFile,
   writeFile,
   stat,
@@ -142,15 +144,43 @@ export async function buildApp(options: AppOptions) {
       hasKey: !!s?.encryptedKey,
     };
   };
-  let operation: Promise<unknown> = Promise.resolve();
-  const exclusive = <T>(fn: () => Promise<T>) => {
-    const job = operation.catch(() => {}).then(fn);
-    operation = job;
-    return job;
+  const operations = new Map<string, Promise<unknown>>();
+  // Resolve the resource's owner before entering a per-project queue. Different
+  // projects never wait for another project's Blender startup/import/render.
+  const exclusive = async <T>(req: any, fn: () => Promise<T>): Promise<T> => {
+    const resource = req.url.split("?")[0].split("/")[2];
+    const id = (req.params as any)?.id;
+    let key = "global";
+    if (resource === "projects") key = idSchema.parse(id);
+    else if (
+      resource === "sessions" ||
+      resource === "snapshots" ||
+      resource === "assets"
+    ) {
+      const kind =
+        resource === "sessions"
+          ? "session"
+          : resource === "snapshots"
+            ? "snapshot"
+            : "asset";
+      key = (await store.get<any>(kind, idSchema.parse(id)))?.projectId || key;
+    } else if (resource === "library")
+      key = req.body?.projectId
+        ? idSchema.parse(req.body.projectId)
+        : "library:" + idSchema.parse(id);
+    const job = (operations.get(key) || Promise.resolve())
+      .catch(() => {})
+      .then(fn);
+    operations.set(key, job);
+    try {
+      return await job;
+    } finally {
+      if (operations.get(key) === job) operations.delete(key);
+    }
   };
-  const ensureIdle = async () => {
+  const ensureIdle = async (projectId: string) => {
     const runs = await store.list<Run>("run");
-    if (runs.some((r) => !terminal.has(r.status)))
+    if (runs.some((r) => r.projectId === projectId && !terminal.has(r.status)))
       throw fail("已有任务正在运行，请先停止或等待完成", 409);
   };
   app.get("/api/auth/status", async (req) => ({
@@ -307,8 +337,7 @@ export async function buildApp(options: AppOptions) {
     return p;
   });
   app.post("/api/projects/:id/activate", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const p = await project((req.params as any).id);
       const result = await runner("/scene", {
         projectId: p.id,
@@ -318,18 +347,25 @@ export async function buildApp(options: AppOptions) {
       return result;
     }),
   );
+  app.post("/api/projects/:id/close", async (req) =>
+    exclusive(req, async () => {
+      const p = await project((req.params as any).id);
+      await ensureIdle(p.id);
+      return runner(`/projects/${p.id}/close`, {});
+    }),
+  );
   app.get("/api/active", async () => store.get("config", "active"));
   app.get("/api/projects/:id/scene", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const p = await project((req.params as any).id);
+      await ensureIdle(p.id);
       return runner("/scene", { projectId: p.id, action: "info" });
     }),
   );
   app.post("/api/projects/:id/captures", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const p = await project((req.params as any).id);
+      await ensureIdle(p.id);
       const capture = await runner("/scene", {
         projectId: p.id,
         action: "capture",
@@ -342,9 +378,9 @@ export async function buildApp(options: AppOptions) {
     store.list("capture", (await project((req.params as any).id)).id),
   );
   app.post("/api/projects/:id/save", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const p = await project((req.params as any).id);
+      await ensureIdle(p.id);
       return runner("/scene", { projectId: p.id, action: "save" });
     }),
   );
@@ -352,9 +388,9 @@ export async function buildApp(options: AppOptions) {
     store.list("snapshot", (await project((req.params as any).id)).id),
   );
   app.post("/api/projects/:id/snapshots", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const p = await project((req.params as any).id);
+      await ensureIdle(p.id);
       const body = z
         .object({ name: z.string().max(100).default("手动快照") })
         .parse(req.body || {});
@@ -368,11 +404,11 @@ export async function buildApp(options: AppOptions) {
     }),
   );
   app.post("/api/snapshots/:id/restore", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const id = idSchema.parse((req.params as any).id);
       const s = await store.get<any>("snapshot", id);
       if (!s) throw fail("快照不存在", 404);
+      await ensureIdle(s.projectId);
       const before = await runner("/scene", {
         projectId: s.projectId,
         action: "restore",
@@ -383,9 +419,9 @@ export async function buildApp(options: AppOptions) {
     }),
   );
   app.post("/api/projects/:id/export", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const p = await project((req.params as any).id);
+      await ensureIdle(p.id);
       const { format } = z
         .object({ format: z.enum(["glb", "gltf", "blend"]) })
         .parse(req.body);
@@ -431,12 +467,13 @@ export async function buildApp(options: AppOptions) {
       .reverse();
   });
   app.post("/api/sessions/:id/turns", async (req) =>
-    exclusive(async () => {
+    exclusive(req, async () => {
       const sid = idSchema.parse((req.params as any).id);
       const body = z
         .object({
           text: z.string().trim().min(1).max(16000),
           assetIds: z.array(idSchema).max(12).default([]),
+          libraryAssetIds: z.array(idSchema).max(12).default([]),
           clientRequestId: idSchema,
         })
         .parse(req.body);
@@ -447,9 +484,9 @@ export async function buildApp(options: AppOptions) {
         )
       ).rows[0];
       if (prior) return store.get("run", prior.run_id);
-      await ensureIdle();
       const session = await store.get<Session>("session", sid);
       if (!session) throw fail("对话不存在", 404);
+      await ensureIdle(session.projectId);
       const settings = await model();
       const assets = [];
       for (const id of body.assetIds) {
@@ -465,12 +502,19 @@ export async function buildApp(options: AppOptions) {
           mime: asset.mime,
         });
       }
+      const libraryAssets = await Promise.all(
+        body.libraryAssetIds.map(async (id) => {
+          const a = await library.get(id);
+          return { id: a.id, name: a.name };
+        }),
+      );
       const run: Run = {
         id: randomUUID(),
         sessionId: sid,
         projectId: session.projectId,
         prompt: body.text,
         assetIds: body.assetIds,
+        libraryAssetIds: body.libraryAssetIds,
         status: "queued",
         verification: "pending",
         createdAt: now(),
@@ -498,6 +542,7 @@ export async function buildApp(options: AppOptions) {
           projectId: session.projectId,
           prompt: body.text,
           assets,
+          libraryAssets,
           nativeThreadId: session.nativeThreadId,
           settings,
         });
@@ -570,7 +615,9 @@ export async function buildApp(options: AppOptions) {
   app.post("/api/uploads", async (req) => {
     const b = z
       .object({
-        projectId: idSchema,
+        projectId: idSchema.optional(),
+        destination: z.enum(["project", "library"]).default("project"),
+        library: libraryMetadataSchema.optional(),
         name: z.string().min(1).max(200),
         size: z
           .number()
@@ -580,7 +627,7 @@ export async function buildApp(options: AppOptions) {
         folder: z.string().max(100).default(""),
       })
       .parse(req.body);
-    await project(b.projectId);
+    if (b.destination === "project") await project(idSchema.parse(b.projectId));
     const disk = await statfs(options.dataRoot);
     if (Number(disk.bavail) * Number(disk.bsize) < b.size + 256 * 1024 ** 2)
       throw fail("可用磁盘不足", 507);
@@ -656,14 +703,20 @@ export async function buildApp(options: AppOptions) {
     const job = (async () => {
       const u = await store.get<any>("upload", id);
       if (!u) throw fail("上传不存在", 404);
-      if (u.completed) return store.get("asset", u.assetId);
+      if (u.completed)
+        return u.destination === "library"
+          ? library.get(u.assetId)
+          : store.get("asset", u.assetId);
       if ((await stat(u.path)).size !== u.size) throw fail("文件尚未上传完整");
       const hash = createHash("sha256");
       for await (const chunk of createReadStream(u.path)) hash.update(chunk);
       const sha256 = hash.digest("hex");
-      const existing = (await store.list<Asset>("asset", u.projectId)).find(
-        (a) => a.sha256 === sha256,
-      );
+      const existing =
+        u.destination === "library"
+          ? undefined
+          : (await store.list<Asset>("asset", u.projectId)).find(
+              (a) => a.sha256 === sha256,
+            );
       if (existing) {
         await unlink(u.path);
         u.completed = true;
@@ -686,13 +739,16 @@ export async function buildApp(options: AppOptions) {
           } as Record<string, string>
         )[ext] || "application/octet-stream";
       const assetId = randomUUID();
-      const directory = safePath(
-        options.dataRoot,
-        "projects",
-        u.projectId,
-        "assets",
-        assetId,
-      );
+      const directory =
+        u.destination === "library"
+          ? safePath(options.dataRoot, "uploads", id)
+          : safePath(
+              options.dataRoot,
+              "projects",
+              u.projectId,
+              "assets",
+              assetId,
+            );
       await mkdir(directory, { recursive: true });
       const file = path.join(directory, "source" + ext);
       let previewPath: string | undefined;
@@ -723,7 +779,8 @@ export async function buildApp(options: AppOptions) {
         await f.close();
         if (b.toString() !== "glTF") throw fail("GLB 文件头无效");
       }
-      await rename(u.path, file);
+      if (u.destination === "library") await copyFile(u.path, file);
+      else await rename(u.path, file);
       const asset: Asset = {
         id: assetId,
         projectId: u.projectId,
@@ -742,6 +799,20 @@ export async function buildApp(options: AppOptions) {
         folder: u.folder,
         createdAt: now(),
       };
+      if (u.destination === "library") {
+        const result = await library.publish(
+          libraryMetadataSchema.parse(
+            u.library || { name: u.name, category: "other" },
+          ),
+          { file, preview: previewPath, mime, source: "upload" },
+        );
+        u.completed = true;
+        u.assetId = result.id;
+        await store.put("upload", id, u);
+        await rm(directory, { recursive: true, force: true });
+        await unlink(u.path);
+        return result;
+      }
       await store.put("asset", asset.id, asset);
       u.completed = true;
       u.assetId = asset.id;
@@ -770,15 +841,15 @@ export async function buildApp(options: AppOptions) {
     return library.list({ ...q, favorite: q.favorite === "true" });
   });
   app.patch("/api/library/:id", async (req) =>
-    exclusive(() =>
+    exclusive(req, () =>
       library.update(idSchema.parse((req.params as any).id), req.body),
     ),
   );
   app.post("/api/projects/:id/library", async (req) =>
-    exclusive(async () => {
+    exclusive(req, async () => {
       const p = await project((req.params as any).id);
       const input = saveLibrarySchema.parse(req.body);
-      await ensureIdle();
+      await ensureIdle(p.id);
       return runner("/scene", {
         projectId: p.id,
         action: "library-save",
@@ -787,12 +858,12 @@ export async function buildApp(options: AppOptions) {
     }),
   );
   app.post("/api/library/:id/import", async (req) =>
-    exclusive(async () => {
+    exclusive(req, async () => {
       const id = idSchema.parse((req.params as any).id);
       await library.get(id);
       const body = z.object({ projectId: idSchema }).parse(req.body);
       await project(body.projectId);
-      await ensureIdle();
+      await ensureIdle(body.projectId);
       return runner("/scene", {
         projectId: body.projectId,
         action: "library-import",
@@ -801,7 +872,7 @@ export async function buildApp(options: AppOptions) {
     }),
   );
   app.post("/api/assets/:id/publish", async (req) =>
-    exclusive(async () => {
+    exclusive(req, async () => {
       const asset = await store.get<Asset>(
         "asset",
         idSchema.parse((req.params as any).id),
@@ -876,13 +947,13 @@ export async function buildApp(options: AppOptions) {
     return asset;
   });
   app.post("/api/assets/:id/import", async (req) =>
-    exclusive(async () => {
-      await ensureIdle();
+    exclusive(req, async () => {
       const asset = await store.get<Asset>(
         "asset",
         idSchema.parse((req.params as any).id),
       );
       if (!asset) throw fail("资源不存在", 404);
+      await ensureIdle(asset.projectId);
       return runner("/scene", {
         projectId: asset.projectId,
         action: "import",
@@ -987,24 +1058,38 @@ export async function buildApp(options: AppOptions) {
       : setInterval(() => void sync().catch(() => {}), 800);
   poll?.unref();
   const ws = new WebSocketServer({ noServer: true });
-  app.server.on("upgrade", (req, socket, head) => {
+  app.server.on("upgrade", async (req, socket, head) => {
     const origin = req.headers.origin;
     let validOrigin = false;
     try {
       validOrigin = !!origin && new URL(origin).host === req.headers.host;
     } catch {}
     const cookies = app.parseCookie(req.headers.cookie || "");
+    const desktop = new URL(req.url || "/", "http://localhost");
+    const pid = desktop.searchParams.get("projectId") || "";
     if (
-      req.url !== "/desktop" ||
+      desktop.pathname !== "/desktop" ||
+      !idSchema.safeParse(pid).success ||
       !validOrigin ||
       !vault.valid(cookies.pilot_session)
     ) {
       socket.destroy();
       return;
     }
+    try {
+      if (!(await store.get("project", pid))) {
+        socket.destroy();
+        return;
+      }
+    } catch {
+      socket.destroy();
+      return;
+    }
     ws.handleUpgrade(req, socket, head, (client) => {
       const remote = new WebSocket(
-        options.runnerUrl.replace(/^http/, "ws") + "/vnc",
+        options.runnerUrl.replace(/^http/, "ws") +
+          "/vnc?projectId=" +
+          encodeURIComponent(pid),
         { headers: { authorization: `Bearer ${options.internalToken}` } },
       );
       const pending: Buffer[] = [];
@@ -1038,7 +1123,7 @@ export async function buildApp(options: AppOptions) {
     shutdownController.abort();
     for (const stream of streams) stream.end();
     for (const client of ws.clients) client.terminate();
-    await operation.catch(() => {});
+    await Promise.allSettled([...operations.values()]);
     while (syncing) await new Promise<void>((resolve) => setImmediate(resolve));
   });
   app.addHook("onClose", async () => {

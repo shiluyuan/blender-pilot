@@ -255,6 +255,8 @@ export class Jobs {
                 mime: x.mime,
               })),
             ) +
+            "\nExplicit reusable library references (inspect with get_library_asset, import with import_library_asset): " +
+            JSON.stringify(a.input.libraryAssets || []) +
             "\nAttached baseline capture: " +
             baseline.capture.id,
         },

@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 export class Upstream {
+  constructor(private environment: Record<string, string> = {}) {}
   private client?: Client;
   private connecting?: Promise<Client>;
   async connect() {
@@ -23,6 +24,7 @@ export class Upstream {
           DISABLE_TELEMETRY: "true",
           BLENDER_HOST: "127.0.0.1",
           BLENDER_PORT: process.env.BLENDER_PORT || "9876",
+          ...this.environment,
         },
         stderr: "pipe",
       });

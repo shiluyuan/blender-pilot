@@ -11,6 +11,8 @@ import {
   Layers3,
   FolderOpen,
   Settings2,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -69,7 +71,7 @@ import { terminal } from "../../packages/contracts/index";
 import { api, post, fileUrl, bytes, date, upload } from "./api";
 import { LibraryPanel } from "./LibraryPanel";
 import { Viewport } from "./Viewport";
-import "@fontsource-variable/dm-sans";
+
 import "./styles.css";
 const labels: Record<string, string> = {
   queued: "等待执行",
@@ -197,6 +199,11 @@ function App() {
   const [auth, setAuth] = useState<boolean | null>(null),
     [page, setPage] = useState("studio"),
     [projects, setProjects] = useState<Project[]>([]),
+    [openIds, setOpenIds] = useState<string[]>([]),
+    [opening, setOpening] = useState<string>(),
+    [sidebarOpen, setSidebarOpen] = useState(
+      localStorage.getItem("pilot-sidebar") !== "closed",
+    ),
     [project, setProject] = useState<Project>(),
     [sessions, setSessions] = useState<Session[]>([]),
     [session, setSession] = useState<Session>(),
@@ -231,10 +238,38 @@ function App() {
     [loading, setLoading] = useState(false),
     [renaming, setRenaming] = useState<Asset>();
   const assetRequest = useRef(0);
+  const projectRequest = useRef(0);
+  const workspaces = useRef<
+    Record<
+      string,
+      {
+        draft: string;
+        attachments: Array<{ id: string; name: string; kind: string }>;
+        sessionId?: string;
+      }
+    >
+  >({});
+  const currentDraft = useRef({ draft, attachments, sessionId: session?.id });
+  currentDraft.current = { draft, attachments, sessionId: session?.id };
+  useEffect(() => {
+    if (project) {
+      workspaces.current[project.id] = currentDraft.current;
+      localStorage.setItem(
+        "pilot-workspace:" + project.id,
+        JSON.stringify(currentDraft.current),
+      );
+    }
+  }, [draft, attachments, session?.id]);
+  useEffect(() => {
+    localStorage.setItem("pilot-sidebar", sidebarOpen ? "open" : "closed");
+  }, [sidebarOpen]);
   const currentProject = useRef<string | undefined>(undefined);
   currentProject.current = project?.id;
   const active = runs.find((r) => !terminal.has(r.status));
-  const busy = !!active || !!health?.execution?.runId;
+  const projectRun = health?.execution?.activeRuns?.find(
+    (r: any) => r.projectId === project?.id,
+  );
+  const busy = !!active || !!projectRun;
   const files = useRef<HTMLInputElement>(null),
     chatBottom = useRef<HTMLDivElement>(null),
     draftRef = useRef<HTMLTextAreaElement>(null),
@@ -285,7 +320,10 @@ function App() {
     setAssetTotal(r.total);
   }, [project?.id, assetSearch, assetKind, assetPage]);
   const loadSnapshots = useCallback(async () => {
-    if (project) setSnapshots(await api(`/projects/${project.id}/snapshots`));
+    if (project) {
+      const r = await api(`/projects/${project.id}/snapshots`);
+      if (currentProject.current === project.id) setSnapshots(r);
+    }
   }, [project?.id]);
   const loadRuns = useCallback(async () => {
     if (!session) return;
@@ -300,19 +338,60 @@ function App() {
     if (session) void loadRuns();
   }, [session?.id]);
   const chooseProject = async (p: Project, resumeSession?: string) => {
-    if (!resumeSession) await post(`/projects/${p.id}/activate`);
-    setProject(p);
-    localStorage.setItem("pilot-project", p.id);
-    setAttachments([]);
-    setAssetPage(0);
-    const ss = await api<Session[]>(`/projects/${p.id}/sessions`);
-    setSessions(ss);
-    if (ss.length) setSession(ss.find((s) => s.id === resumeSession) || ss[0]);
-    else {
-      const s = await post<Session>(`/projects/${p.id}/sessions`);
-      setSessions([s]);
-      setSession(s);
+    const request = ++projectRequest.current;
+    const previous = currentProject.current;
+    if (previous) workspaces.current[previous] = currentDraft.current;
+    setOpening(p.id);
+    try {
+      await post(`/projects/${p.id}/activate`);
+      setOpenIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));
+      let ss = await api<Session[]>(`/projects/${p.id}/sessions`);
+      if (!ss.length) ss = [await post<Session>(`/projects/${p.id}/sessions`)];
+      if (request !== projectRequest.current) return;
+      let cached = workspaces.current[p.id];
+      if (!cached) {
+        try {
+          cached = JSON.parse(
+            localStorage.getItem("pilot-workspace:" + p.id) || "null",
+          );
+        } catch {}
+      }
+      currentProject.current = p.id;
+      setOpenIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));
+      setProject(p);
+      setSessions(ss);
+      setSession(
+        ss.find((s) => s.id === (resumeSession || cached?.sessionId)) || ss[0],
+      );
+      setDraft(cached?.draft || "");
+      setAttachments(cached?.attachments || []);
+      setRuns([]);
+      setEvents({});
+      setAssetPage(0);
+      setSnapshots([]);
+      localStorage.setItem("pilot-project", p.id);
+      void loadHealth();
+    } finally {
+      if (request === projectRequest.current) setOpening(undefined);
     }
+  };
+  const closeProject = async (p: Project) => {
+    await post(`/projects/${p.id}/close`);
+    const remaining = openIds.filter((id) => id !== p.id);
+    setOpenIds(remaining);
+    if (currentProject.current === p.id) {
+      const next = projects.find((x) => x.id === remaining.at(-1));
+      if (next) await chooseProject(next);
+      else {
+        setProject(undefined);
+        setSession(undefined);
+        setRuns([]);
+        setDraft("");
+        setAttachments([]);
+        localStorage.removeItem("pilot-project");
+      }
+    }
+    void loadHealth();
   };
   useEffect(() => {
     if (!auth) return;
@@ -321,12 +400,25 @@ function App() {
         setProjects(ps);
         const status = await api("/health");
         setHealth(status);
-        const running = status.execution?.activeRun;
+        setOpenIds(
+          (status.execution?.studios || [])
+            .filter((s: any) => s.status === "ready")
+            .map((s: any) => s.projectId),
+        );
+        const running = status.execution?.activeRuns?.find(
+          (r: any) => r.projectId === localStorage.getItem("pilot-project"),
+        );
         const saved =
           running?.projectId || localStorage.getItem("pilot-project");
         if (ps.length)
           await chooseProject(
-            ps.find((p) => p.id === saved) || ps[0],
+            ps.find((p) => p.id === saved) ||
+              ps.find((p) =>
+                status.execution?.studios?.some(
+                  (s: any) => s.projectId === p.id && s.status === "ready",
+                ),
+              ) ||
+              ps[0],
             running?.sessionId,
           );
       })
@@ -342,6 +434,7 @@ function App() {
   useEffect(() => {
     if (!session) return;
     const sourceList: EventSource[] = [];
+    const boundSession = session.id;
     for (const run of runs) {
       if (
         events[run.id]?.some(
@@ -355,6 +448,7 @@ function App() {
       );
       sourceList.push(es);
       es.onmessage = (e) => {
+        if (sessionRef.current !== boundSession) return;
         const item = JSON.parse(e.data) as PilotEvent;
         setEvents((current) => {
           const prev = current[run.id] || [];
@@ -414,9 +508,19 @@ function App() {
     try {
       const run = await post<Run>(`/sessions/${session.id}/turns`, {
         text: draft,
-        assetIds: attachments.map((a) => a.id),
+        assetIds: attachments
+          .filter((a) => a.kind !== "library")
+          .map((a) => a.id),
+        libraryAssetIds: attachments
+          .filter((a) => a.kind === "library")
+          .map((a) => a.id),
         clientRequestId: crypto.randomUUID(),
       });
+      if (
+        currentProject.current !== project?.id ||
+        sessionRef.current !== session.id
+      )
+        return;
       setRuns((current) => [...current, run]);
       setSessions(await api<Session[]>(`/projects/${project!.id}/sessions`));
       setDraft("");
@@ -433,7 +537,7 @@ function App() {
     const c = await action(() =>
       post<Capture>(`/projects/${project.id}/captures`),
     );
-    if (c) {
+    if (c && currentProject.current === project.id) {
       setAttachments((prev) => [
         ...prev,
         { id: c.id, name: "当前场景截图", kind: "capture" },
@@ -494,6 +598,7 @@ function App() {
     );
   if (!auth) return <Login onLogin={() => setAuth(true)} />;
   const nav = [
+    ["projects", "项目", FolderOpen],
     ["studio", "工作台", Box],
     ["library", "素材库", Layers3],
     ["assets", "资源库", FolderOpen],
@@ -502,9 +607,25 @@ function App() {
   ] as const;
   return (
     <div className="app-shell">
-      <aside className="rail">
+      <aside className={"rail " + (sidebarOpen ? "expanded" : "compact")}>
         <div className="rail-brand" title="Blender Pilot">
           <Mark />
+          {sidebarOpen && (
+            <span>
+              Blender Pilot<small>创作工作台</small>
+            </span>
+          )}
+          <button
+            className="icon"
+            aria-label={sidebarOpen ? "收起导航" : "展开导航"}
+            onClick={() => setSidebarOpen((x) => !x)}
+          >
+            {sidebarOpen ? (
+              <PanelLeftClose size={16} />
+            ) : (
+              <PanelLeftOpen size={16} />
+            )}
+          </button>
         </div>
         <nav>
           {nav.map(([id, title, Icon]) => (
@@ -515,10 +636,54 @@ function App() {
               aria-label={title}
               onClick={() => setPage(id)}
             >
-              <Icon size={20} />
+              <Icon size={18} />
+              {sidebarOpen && <span>{title}</span>}
             </button>
           ))}
         </nav>
+        {sidebarOpen && (
+          <div className="project-explorer">
+            <div className="section-label">
+              项目空间
+              <button
+                className="icon"
+                aria-label="新建项目"
+                onClick={() => {
+                  setProjectName("");
+                  setModal("project");
+                }}
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                className={project?.id === p.id ? "selected" : ""}
+                onClick={() =>
+                  void action(async () => {
+                    await chooseProject(p);
+                    setPage("studio");
+                  })
+                }
+              >
+                <Box size={14} />
+                <span>{p.name}</span>
+                {health?.execution?.activeRuns?.some(
+                  (r: any) => r.projectId === p.id,
+                ) ? (
+                  <Loader2 size={12} className="spin" />
+                ) : openIds.includes(p.id) ? (
+                  <span className="dot green" />
+                ) : null}
+              </button>
+            ))}
+            <small>
+              {openIds.length} 个项目打开 · 上限{" "}
+              {health?.execution?.maxStudios || 3}
+            </small>
+          </div>
+        )}
         <div className="rail-bottom">
           <button
             className="rail-button"
@@ -557,7 +722,7 @@ function App() {
             <select
               aria-label="当前项目"
               value={project?.id || ""}
-              disabled={busy}
+              disabled={!!opening}
               onChange={(e) => {
                 const p = projects.find((p) => p.id === e.target.value);
                 if (p) void action(() => chooseProject(p));
@@ -613,6 +778,62 @@ function App() {
             </button>
           </div>
         </header>
+        <div
+          className="project-tabs"
+          role="tablist"
+          aria-label="打开的 Blender 项目"
+        >
+          {openIds
+            .map((id) => projects.find((p) => p.id === id))
+            .filter((p): p is Project => !!p)
+            .map((p) => (
+              <div
+                className={
+                  "project-tab " + (project?.id === p.id ? "active" : "")
+                }
+                key={p.id}
+              >
+                <button
+                  role="tab"
+                  aria-selected={project?.id === p.id}
+                  onClick={() =>
+                    void action(async () => {
+                      await chooseProject(p);
+                      setPage("studio");
+                    })
+                  }
+                >
+                  <Box size={13} />
+                  {p.name}
+                  {health?.execution?.activeRuns?.some(
+                    (r: any) => r.projectId === p.id,
+                  ) && <Loader2 className="spin" size={12} />}
+                </button>
+                <button
+                  className="icon"
+                  aria-label={`保存并关闭 ${p.name}`}
+                  onClick={() =>
+                    void action(() => closeProject(p), "项目已保存并关闭")
+                  }
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          {opening && (
+            <span className="opening-project">
+              <Loader2 className="spin" size={12} />
+              正在打开项目…
+            </span>
+          )}
+          <button
+            className="icon"
+            aria-label="打开项目列表"
+            onClick={() => setPage("projects")}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
         <div className="body">
           <main className="main-content">
             <div
@@ -654,7 +875,29 @@ function App() {
                 </div>
               </div>
               {project ? (
-                <Viewport busy={busy} onCapture={() => void capture()} />
+                <div className="project-viewports">
+                  {openIds.map((id) => (
+                    <div
+                      key={id}
+                      className={
+                        "project-viewport " +
+                        (project.id === id ? "" : "hidden")
+                      }
+                    >
+                      <Viewport
+                        projectId={id}
+                        busy={
+                          id === project.id
+                            ? busy
+                            : !!health?.execution?.activeRuns?.some(
+                                (r: any) => r.projectId === id,
+                              )
+                        }
+                        onCapture={() => void capture()}
+                      />
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="empty-workspace">
                   <div className="workspace-emblem">
@@ -693,19 +936,104 @@ function App() {
                 </div>
               )}
             </div>
+            {page === "projects" && (
+              <div className="page-content projects-page">
+                <PageHeading
+                  eyebrow="WORKSPACES"
+                  title="项目"
+                  description="每个项目拥有独立 Blender 场景和对话，共享可复用素材。"
+                  action={
+                    <button
+                      className="primary"
+                      onClick={() => {
+                        setProjectName("");
+                        setModal("project");
+                      }}
+                    >
+                      <Plus size={14} />
+                      新建项目
+                    </button>
+                  }
+                />
+                <div className="project-list">
+                  {projects.map((p) => (
+                    <div key={p.id} className="project-row">
+                      <Box size={20} />
+                      <div>
+                        <strong>{p.name}</strong>
+                        <small>
+                          {date(p.updatedAt)} ·{" "}
+                          {openIds.includes(p.id) ? "实例已打开" : "按需启动"}
+                        </small>
+                        {health?.execution?.studios?.find(
+                          (s: any) => s.projectId === p.id,
+                        )?.status === "failed" && (
+                          <p className="error">
+                            {
+                              health.execution.studios.find(
+                                (s: any) => s.projectId === p.id,
+                              ).error
+                            }
+                            <button
+                              onClick={() =>
+                                void action(
+                                  () => closeProject(p),
+                                  "故障实例已关闭，可以重新打开",
+                                )
+                              }
+                            >
+                              关闭故障实例
+                            </button>
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        disabled={opening === p.id}
+                        onClick={() =>
+                          void action(async () => {
+                            await chooseProject(p);
+                            setPage("studio");
+                          })
+                        }
+                      >
+                        {opening === p.id ? "启动中…" : "打开项目"}
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {page === "library" && (
               <LibraryPanel
                 projectId={project?.id}
                 busy={busy}
                 notify={notify}
-                onUse={(a) => {
-                  setDraft(
-                    (prev) =>
-                      `${prev}${prev ? "\n" : ""}使用素材库中的「${a.name}」（ID: ${a.id}），`,
+                onUse={(selected) => {
+                  if (
+                    attachments.length +
+                      selected.filter(
+                        (a) => !attachments.some((p) => p.id === a.id),
+                      ).length >
+                    12
+                  ) {
+                    notify("每次对话最多引用 12 项，请减少选择");
+                    return;
+                  }
+                  setAttachments((prev) =>
+                    [
+                      ...prev,
+                      ...selected
+                        .filter((a) => !prev.some((p) => p.id === a.id))
+                        .map((a) => ({
+                          id: a.id,
+                          name: a.name,
+                          kind: "library",
+                        })),
+                    ].slice(0, 12),
                   );
                   setPage("studio");
                   setPanel(true);
-                  draftRef.current?.focus();
                 }}
               />
             )}
@@ -1006,11 +1334,7 @@ function App() {
                     icon={<Server size={20} />}
                     title="Blender 环境"
                     value={health?.execution?.ok ? "已连接" : "未连接"}
-                    detail={
-                      health?.execution?.activeProject
-                        ? "已有活动场景"
-                        : "等待场景激活"
-                    }
+                    detail={`${health?.execution?.studios?.filter((s: any) => s.status === "ready").length || 0} 个项目就绪 · 上限 ${health?.execution?.maxStudios || 0}`}
                   />
                   <Metric
                     icon={<Command size={20} />}

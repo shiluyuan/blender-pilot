@@ -132,3 +132,38 @@ npm run doctor:codex
 机器记录：[素材库原生验收](validation/asset-library-2026-10-23.json)。[深色界面](screenshots/library-dark.png) / [浅色界面](screenshots/library-light.png)。截图素材是验收用的合成立方体/球体，不是成品角色或道具。
 
 开发中发现并修复了部分更新触发 Zod 默认值、重置标签的问题；编辑表单也增加明确的无障碍名称。最后从新建测试目录完整跑通，未复用先前模型或浏览器结果。截图禁用过渡动画，避免拍到主题切换的中间颜色。
+
+## 多项目与外部素材组合验收（2026-10-23 UTC）
+
+本轮以两个**同时运行的 Blender 4.5.4 GUI 进程**、两个独立 Xvfb/VNC 桌面、上游 MCP 与原生 Codex app-server 验证：
+
+- 同时打开两个项目，修改 A 的对象不出现在 B；实例满额时第三个项目明确拒绝，不关闭已有项目。
+- 从 Khronos 官方 glTF 示例下载 BoxTextured GLB，直接上传到全局库，无项目归属；来源、作者和许可保留，完成上传重试不产生重复条目。
+- 在两个项目分别导入外部 GLB；验证 256×256 纹理实际加载并打包，修改 A 的副本不影响 B。
+- 将外部模型、复用的座椅和新建装饰组合，保存 4 对象集合。条目记录 2 个直接来源素材 ID；在 B 导入组合并验证对象数量和贴图。
+- A 的 Codex 请求保持等待时，B 通过原生 Codex 工具导入对话中明确引用的组合素材，并完成场景修改与截图报告；核对会话输入、对象状态、项目锁和任务取消。运行中的 A 不允许被关闭。
+- 浏览器测试项目标签、两个 VNC 桌面、每项目草稿/引用切换与刷新持久化、批量引用、直接上传、批量导入、助手收起展开、明暗主题及 1280px 布局。
+- 保存并关闭 A 后，只释放 A 的进程；重新打开恢复对象数量，B 保持在线。
+- 主动结束 A 的 Blender 进程后，A 独立标记失败；B 仍可读写，A 的故障实例可关闭释放。
+- 浏览器验收等待实际非空 VNC 像素后截图，避免把“已连接但未收到首帧”当作可用视口。
+- 原有完整原生链路回归通过：导入导出、快照恢复、MCP 图像、原生会话续接与取消、库搜索/编辑/保存及浏览器交互。
+
+`npm run check` 通过：TypeScript 检查、**12 项测试**、生产构建。新增 API 测试检查无项目全局上传、来源保留、幂等完成及拒绝带外链依赖的 glTF。构建仍有主 bundle 超过 500 kB 的提示，不影响构建结果。
+
+本轮模型侧使用确定性的 Responses 协议夹具，包含原生 Codex 运行和真实 Blender 操作，**没有重新调用付费模型做自然语言创作评估**。外部 GLB 与组合链路是真实文件和进程验证。Docker 整机启动、NVIDIA、大型场景与复杂人物资产仍未完成验收。
+
+结果：[多项目与组合链路记录](validation/workspaces-2026-10-23.json)。界面截图：[深色工作区](screenshots/workspaces-dark.png)、[浅色工作区](screenshots/workspaces-light.png)、[素材库](screenshots/library-dark.png)、[1280px](screenshots/workspaces-1280.png)。测试对象为合成与官方示例素材，不代表生成品质。
+
+复现需要先安装文档中固定版本的 Blender、MCP、Codex、Xvfb、openbox、x11vnc 和 Playwright 浏览器，并在一个进程环境内执行：
+
+```bash
+curl -fL https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoxTextured/glTF-Binary/BoxTextured.glb -o /tmp/pilot-BoxTextured.glb
+export PILOT_EXTERNAL_TEST_GLB=/tmp/pilot-BoxTextured.glb
+export PILOT_ADDON_PATH=/absolute/path/to/mcp-for-blender/bundled/addon.py
+# Default is TCP X11 for restricted test hosts; normal Linux can use Unix X11.
+export PILOT_X11_TCP=false
+npm run build
+npm run verify:workspaces
+```
+
+可用 `BLENDER_BIN`、`MCP_BIN`、`XVFB_BIN`、`OPENBOX_BIN`、`X11VNC_BIN`、`PILOT_BROWSER_BIN` 覆盖可执行文件路径。`PILOT_TEST_DATA` 应指向新的空测试目录；模型接口由脚本在 localhost 启动，无需真实 Key。Khronos BoxTextured 原始说明标注 Cesium / CC BY 4.0，并有 Cesium 商标说明；模型不随本仓库分发，使用前阅读其原始 README。

@@ -13,20 +13,27 @@ import {
 import type { Capture, SceneInfo, Snapshot } from "../contracts/index.js";
 const py = (v: unknown) => JSON.stringify(v);
 export class SceneBridge {
-  upstream = new Upstream();
+  upstream: Upstream;
+  private stateFile: string;
   activeProject?: string;
   generation = 0;
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(public dataRoot: string) {}
+  constructor(
+    public dataRoot: string,
+    options: { environment?: Record<string, string>; projectId?: string } = {},
+  ) {
+    this.upstream = new Upstream(options.environment);
+    this.stateFile = options.projectId
+      ? path.join(this.projectRoot(options.projectId), "runtime-scene.json")
+      : path.join(dataRoot, "scene.json");
+  }
   projectRoot(id: string) {
     if (!/^[\w-]+$/.test(id)) throw new Error("无效项目");
     return safePath(this.dataRoot, "projects", id);
   }
   async init() {
     try {
-      const s = JSON.parse(
-        await readFile(path.join(this.dataRoot, "scene.json"), "utf8"),
-      );
+      const s = JSON.parse(await readFile(this.stateFile, "utf8"));
       this.generation = s.generation + 1;
       // A restarted Blender starts with its factory scene. Reload the saved
       // project instead of trusting the previous process's in-memory binding.
@@ -61,7 +68,7 @@ export class SceneBridge {
     );
     this.activeProject = projectId;
     this.generation++;
-    await atomicJson(path.join(this.dataRoot, "scene.json"), {
+    await atomicJson(this.stateFile, {
       projectId,
       generation: this.generation,
     });
@@ -195,7 +202,7 @@ export class SceneBridge {
     );
     this.generation++;
     await this.save();
-    await atomicJson(path.join(this.dataRoot, "scene.json"), {
+    await atomicJson(this.stateFile, {
       projectId,
       generation: this.generation,
     });
@@ -303,7 +310,7 @@ try:
     collection.asset_mark()
     collection.asset_data.description=${py(options.description)}
     bpy.data.libraries.write(${py(file)}, {collection}, path_remap='ABSOLUTE', fake_user=True, compress=True)
-    print('PILOT_JSON:'+json.dumps({'names':sorted(o.name for o in chosen)}))
+    print('PILOT_JSON:'+json.dumps({'names':sorted(o.name for o in chosen),'sources':sorted({o.get('pilot_asset_id') for o in chosen if o.get('pilot_asset_id')})}))
 finally:
     bpy.data.collections.remove(collection)`);
       // A real viewport capture, explicitly labelled as the saved view in the UI.
@@ -316,6 +323,7 @@ finally:
         mime: "application/x-blender",
         source: "blender",
         objectNames: objects.names,
+        sourceAssetIds: objects.sources,
       });
     } catch (e) {
       await rm(dir, { recursive: true, force: true });
@@ -326,7 +334,21 @@ finally:
     const library = new AssetLibrary(this.dataRoot),
       asset = await library.get(id);
     const file = await library.file(id);
-    if (asset.source !== "blender") return this.import(file);
+    const before = new Set((await this.info()).objects.map((o) => o.name));
+    if (asset.source !== "blender") {
+      await this.import(file);
+      const names = (await this.info()).objects
+        .filter((o) => !before.has(o.name))
+        .map((o) => o.name);
+      await this.upstream.python(
+        `for name in ${py(names)}:\n    bpy.data.objects[name]['pilot_asset_id']=${py(id)}`,
+      );
+      return {
+        assetId: id,
+        objects: names,
+        mode: names.length ? "independent-copy" : "image-datablock",
+      };
+    }
     return this.upstream.json(`import json
 with bpy.data.libraries.load(${py(file)}, link=False) as (source,target):
     target.collections=[n for n in source.collections if n.startswith('PILOT_ASSET')]
@@ -336,6 +358,7 @@ for collection in target.collections:
     if collection:
         collection.name=${py(asset.name)}
         bpy.context.scene.collection.children.link(collection)
+        for obj in collection.all_objects: obj["pilot_asset_id"]=${py(id)}
         names += [o.name for o in collection.all_objects]
 print('PILOT_JSON:'+json.dumps({'assetId':${py(id)},'objects':names,'mode':'independent-copy'}))`);
   }

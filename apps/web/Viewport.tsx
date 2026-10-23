@@ -3,9 +3,11 @@ import RFB from "@novnc/novnc";
 import { Monitor, RefreshCw, Maximize2, MousePointer2 } from "lucide-react";
 export function Viewport({
   busy,
+  projectId,
   onCapture,
 }: {
   busy: boolean;
+  projectId: string;
   onCapture: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null),
@@ -14,7 +16,7 @@ export function Viewport({
     [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!host.current) return;
-    const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/desktop`;
+    const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/desktop?projectId=${encodeURIComponent(projectId)}`;
     const client = new RFB(host.current, url, { shared: true });
     rfb.current = client;
     client.scaleViewport = true;
@@ -28,7 +30,7 @@ export function Viewport({
       client.disconnect();
       rfb.current = null;
     };
-  }, [attempt]);
+  }, [attempt, projectId]);
   useEffect(() => {
     if (rfb.current) rfb.current.viewOnly = busy;
   }, [busy]);

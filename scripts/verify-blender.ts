@@ -35,6 +35,7 @@ let childFailure: Error | undefined;
 const env = {
   ...process.env,
   PILOT_DEBUG: "true",
+  PILOT_EXTERNAL_DESKTOP: "true",
   PILOT_DATA: dir,
   PILOT_PASSWORD: "integration-password-only",
   PILOT_INTERNAL_TOKEN: "integration-token-not-for-production",
@@ -550,11 +551,10 @@ try {
     await libCard
       .getByRole("button", { name: "对话引用", exact: true })
       .click();
-    assert(
-      (await page.locator("textarea").first().inputValue()).includes(
-        "木质座椅",
-      ),
-    );
+    await page
+      .locator(".attachments")
+      .getByText("木质座椅", { exact: true })
+      .waitFor();
     await page.locator("textarea").first().fill("");
     await page.getByRole("button", { name: "素材库", exact: true }).click();
     await page

@@ -14,6 +14,12 @@ docker compose logs --tail=100 studio web
 
 模型配置保存于网页设置。官方或中转接口都要实现 Responses API 的 SSE、function tools 与 input_image。连接测试失败时看 HTTP 状态与明确错误，不要把 Chat Completions URL 直接填入。Docker 中的 `localhost` 指容器本身；如果模型网关在宿主机，使用可路由地址或配置 `host.docker.internal:host-gateway`。
 
+## 同时打开多个项目
+
+`.env` 中设置 `PILOT_MAX_STUDIOS=3`，重建 studio 容器配置生效。每个打开的项目增加一个 Blender、Xvfb 和 VNC 进程。默认上限是并发控制值，不是内存保障；8 GB 主机可从 1 个实例起步，逐步测量自己的场景再提高。项目关闭前自动保存并释放进程，切换标签本身不释放内存。
+
+工作台的容器健康表示服务 API 就绪；具体项目启动失败会独立报错。项目日志位于 `/data/projects/<id>/runtime/`。到项目页关闭故障实例，然后重新打开；无需重启其他正常项目。启动最多等待 120 秒，代理 API 超时应大于 180 秒。
+
 ## HTTPS
 
 使用已有 Caddy/Nginx 更轻。Caddy 运行在宿主机时可使用：

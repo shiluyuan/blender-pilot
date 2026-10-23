@@ -14,8 +14,10 @@ import {
   Layers3,
   Palette,
   Package,
+  Upload,
+  ExternalLink,
 } from "lucide-react";
-import { api, post, bytes, date } from "./api";
+import { api, post, bytes, date, upload } from "./api";
 import type { LibraryAsset } from "../../packages/blender-bridge/library";
 const categories = [
   ["all", "全部素材", Layers3],
@@ -33,7 +35,7 @@ export function LibraryPanel({
 }: {
   projectId?: string;
   busy: boolean;
-  onUse: (asset: LibraryAsset) => void;
+  onUse: (assets: LibraryAsset[]) => void;
   notify: (text: string) => void;
 }) {
   const [items, setItems] = useState<LibraryAsset[]>([]),
@@ -48,6 +50,14 @@ export function LibraryPanel({
     [editing, setEditing] = useState<LibraryAsset | "new">(),
     [working, setWorking] = useState(false),
     [preview, setPreview] = useState<LibraryAsset>();
+  const [selected, setSelected] = useState<LibraryAsset[]>([]),
+    [uploading, setUploading] = useState(false),
+    [progress, setProgress] = useState(""),
+    [receipt, setReceipt] = useState<string[]>([]);
+  const uploadDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (uploading) uploadDialog.current?.showModal();
+  }, [uploading]);
   const request = useRef(0),
     dialog = useRef<HTMLDialogElement>(null),
     previewDialog = useRef<HTMLDialogElement>(null);
@@ -100,27 +110,34 @@ export function LibraryPanel({
     <div className="page-content library-page">
       <div className="page-heading">
         <div>
-          <div className="eyebrow">YOUR REUSABLE WORLD</div>
+          <div className="eyebrow">SHARED LIBRARY</div>
           <h1>素材库</h1>
-          <p>人物、道具与场景，做一次，在每个项目里继续创作。</p>
+          <p>所有项目共享。选择素材，组合场景，再把新的创作保存回来。</p>
         </div>
-        <button
-          className="primary"
-          disabled={!projectId || busy || working}
-          onClick={() => setEditing("new")}
-        >
-          <Save size={15} />从 Blender 保存
-        </button>
+        <div className="heading-actions">
+          <button
+            disabled={working}
+            onClick={() => {
+              setReceipt([]);
+              setUploading(true);
+            }}
+          >
+            <Upload size={15} />
+            上传外部素材
+          </button>
+          <button
+            className="primary"
+            disabled={!projectId || busy || working}
+            onClick={() => setEditing("new")}
+          >
+            <Save size={15} />从 Blender 保存
+          </button>
+        </div>
       </div>
-      <div className="library-intro">
-        <Layers3 size={20} />
-        <div>
-          <strong>跨项目共享 · 独立副本导入</strong>
-          <p>
-            在 Blender 中选好对象，保存到这里。导入后自由修改，原素材仍然保留。
-          </p>
-        </div>
-        <span>CREATE · COLLECT · REUSE</span>
+      <div className="library-context">
+        <Layers3 size={15} />
+        <span>全局素材库</span>
+        <span className="muted">导入为独立副本 · 原始素材保留</span>
       </div>
       <div className="library-layout">
         <aside className="library-categories" aria-label="素材分类">
@@ -150,7 +167,28 @@ export function LibraryPanel({
             <Star size={16} />
             我的收藏
           </button>
-          <small>项目上传文件可在「资源库」中加入此库。</small>
+          <small>也可以把项目「资源库」中的文件加入此库。</small>
+          <hr />
+          <div className="section-label">查找外部素材</div>
+          {[
+            ["Poly Haven", "https://polyhaven.com/models"],
+            ["Blendkit", "https://www.blendkit.com"],
+            ["Fab", "https://www.fab.com"],
+          ].map(([name, url]) => (
+            <a
+              key={name}
+              className="source-link"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {name}
+              <ExternalLink size={12} />
+            </a>
+          ))}
+          <small>
+            前往原站下载或购买，再上传文件。使用范围遵循原素材许可。
+          </small>
         </aside>
         <section className="library-results" aria-label="素材列表">
           <div className="filterbar">
@@ -175,6 +213,48 @@ export function LibraryPanel({
               <RefreshCw size={15} />
             </button>
           </div>
+          {!!selected.length && (
+            <div className="selection-bar">
+              <span>已选 {selected.length} 项</span>
+              <button disabled={!projectId} onClick={() => onUse(selected)}>
+                引用选中素材
+              </button>
+              <button
+                disabled={!projectId || busy || working}
+                onClick={() =>
+                  void run(async () => {
+                    const result: string[] = [];
+                    for (const a of selected) {
+                      try {
+                        await post(`/library/${a.id}/import`, { projectId });
+                        result.push(`已导入：${a.name}`);
+                      } catch (e) {
+                        result.push(`失败：${a.name} — ${String(e)}`);
+                      }
+                    }
+                    setReceipt(result);
+                    setSelected([]);
+                  })
+                }
+              >
+                导入选中素材
+              </button>
+              <button
+                className="icon"
+                aria-label="清除素材选择"
+                onClick={() => setSelected([])}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {!!receipt.length && (
+            <div className="operation-receipt" role="status">
+              {receipt.map((r, i) => (
+                <p key={i}>{r}</p>
+              ))}
+            </div>
+          )}
           {error ? (
             <div role="alert" className="library-empty">
               {error}
@@ -188,7 +268,26 @@ export function LibraryPanel({
             <>
               <div className="asset-collection grid">
                 {items.map((a) => (
-                  <article className="asset-card library-card" key={a.id}>
+                  <article
+                    className={
+                      "asset-card library-card " +
+                      (selected.some((x) => x.id === a.id) ? "is-selected" : "")
+                    }
+                    key={a.id}
+                  >
+                    <input
+                      type="checkbox"
+                      className="asset-select"
+                      aria-label={`选择 ${a.name}`}
+                      checked={selected.some((x) => x.id === a.id)}
+                      onChange={(e) =>
+                        setSelected((prev) =>
+                          e.target.checked
+                            ? [...prev, a]
+                            : prev.filter((x) => x.id !== a.id),
+                        )
+                      }
+                    />
                     <button
                       className="asset-preview"
                       aria-label={`预览 ${a.name}`}
@@ -240,7 +339,7 @@ export function LibraryPanel({
                         <Box size={13} />
                         导入
                       </button>
-                      <button disabled={!projectId} onClick={() => onUse(a)}>
+                      <button disabled={!projectId} onClick={() => onUse([a])}>
                         <MessageSquare size={13} />
                         对话引用
                       </button>
@@ -340,6 +439,9 @@ export function LibraryPanel({
                     name: form.get("name"),
                     category: form.get("category"),
                     description: form.get("description"),
+                    sourceUrl: form.get("sourceUrl"),
+                    license: form.get("license"),
+                    author: form.get("author"),
                     tags: String(form.get("tags"))
                       .split(/[,，]/)
                       .map((x) => x.trim())
@@ -421,6 +523,44 @@ export function LibraryPanel({
                 rows={3}
               />
             </label>
+            <label>
+              来源地址
+              <input
+                aria-label="来源地址"
+                type="url"
+                name="sourceUrl"
+                maxLength={1000}
+                defaultValue={current?.sourceUrl || ""}
+                placeholder="https://…"
+              />
+            </label>
+            <div className="form-columns">
+              <label>
+                作者
+                <input
+                  aria-label="作者"
+                  name="author"
+                  maxLength={200}
+                  defaultValue={current?.author || ""}
+                />
+              </label>
+              <label>
+                许可说明
+                <input
+                  aria-label="许可说明"
+                  name="license"
+                  maxLength={300}
+                  defaultValue={current?.license || ""}
+                  placeholder="例如 CC0 / 商业授权"
+                />
+              </label>
+            </div>
+            {!!current?.sourceAssetIds?.length && (
+              <p className="muted">
+                由 {current.sourceAssetIds.length}{" "}
+                个库素材组合而来。原始来源记录随素材保留。
+              </p>
+            )}
             <p className="muted">
               保存对象、材质与可打包贴图，预览采用保存时的视图。场景类别保存对象集合，不包含世界与渲染设置；材质类别用于保存带材质的样例对象。
             </p>
@@ -436,6 +576,117 @@ export function LibraryPanel({
                 disabled={working || (!current && busy)}
               >
                 {working ? "正在保存…" : "保存素材"}
+              </button>
+            </div>
+          </form>
+        </dialog>
+      )}
+      {uploading && (
+        <dialog
+          ref={uploadDialog}
+          className="modal"
+          onCancel={(e) => {
+            e.preventDefault();
+            if (!working) setUploading(false);
+          }}
+        >
+          <div className="modal-head">
+            <h2>上传到共享素材库</h2>
+            <button
+              className="icon"
+              aria-label="关闭上传"
+              disabled={working}
+              onClick={() => setUploading(false)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const data = new FormData(form);
+              const files = (data.getAll("files") as File[]).filter(
+                (f) => f.size,
+              );
+              void run(async () => {
+                const result: string[] = [];
+                for (const file of files) {
+                  try {
+                    await upload(
+                      file,
+                      undefined,
+                      (n) => setProgress(`${file.name} · ${n}%`),
+                      {
+                        category: String(data.get("category")),
+                        sourceUrl: String(data.get("sourceUrl")),
+                        license: String(data.get("license")),
+                        author: String(data.get("author")),
+                      },
+                    );
+                    result.push(`已入库：${file.name}`);
+                  } catch (e) {
+                    result.push(`失败：${file.name} — ${String(e)}`);
+                  }
+                }
+                setReceipt(result);
+                setProgress("");
+                setUploading(false);
+              });
+            }}
+          >
+            <label>
+              素材文件
+              <input
+                aria-label="外部素材文件"
+                type="file"
+                name="files"
+                multiple
+                required
+                accept=".blend,.glb,.gltf,.fbx,.obj,.png,.jpg,.jpeg,.webp,.exr,.hdr"
+              />
+            </label>
+            <p className="muted">
+              推荐 GLB 或已打包贴图的 .blend。多文件素材包请先在 Blender
+              中整理并打包；当前不解压 ZIP，也不自动抓取外链依赖。
+            </p>
+            <label>
+              分类
+              <select name="category" aria-label="外部素材分类">
+                {categories.slice(1).map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              来源地址
+              <input
+                type="url"
+                name="sourceUrl"
+                maxLength={1000}
+                placeholder="原站素材详情页"
+              />
+            </label>
+            <div className="form-columns">
+              <label>
+                作者
+                <input name="author" maxLength={200} />
+              </label>
+              <label>
+                许可说明
+                <input
+                  name="license"
+                  maxLength={300}
+                  placeholder="保留下载时的许可信息"
+                />
+              </label>
+            </div>
+            <p role="status">{progress}</p>
+            <div className="modal-actions">
+              <button className="primary" disabled={working}>
+                {working ? "正在上传…" : "上传并入库"}
               </button>
             </div>
           </form>

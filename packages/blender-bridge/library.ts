@@ -23,6 +23,24 @@ export const libraryMetadataSchema = z.object({
   description: z.string().max(2000).default(""),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
   favorite: z.boolean().default(false),
+  sourceUrl: z
+    .string()
+    .max(1000)
+    .refine(
+      (s) =>
+        s === "" ||
+        (() => {
+          try {
+            return ["http:", "https:"].includes(new URL(s).protocol);
+          } catch {
+            return false;
+          }
+        })(),
+      "来源需为 HTTP(S) 地址",
+    )
+    .default(""),
+  license: z.string().max(300).default(""),
+  author: z.string().max(200).default(""),
 });
 export const saveLibrarySchema = libraryMetadataSchema.extend({
   scope: z.enum(["selection", "scene"]).default("selection"),
@@ -30,7 +48,8 @@ export const saveLibrarySchema = libraryMetadataSchema.extend({
 });
 export type LibraryAsset = z.infer<typeof libraryMetadataSchema> & {
   id: string;
-  sourceProjectId: string;
+  sourceProjectId?: string;
+  sourceAssetIds?: string[];
   path: string;
   previewPath?: string;
   mime: string;
@@ -109,6 +128,11 @@ export class AssetLibrary {
     const patch = z
       .object({
         name: libraryMetadataSchema.shape.name.optional(),
+        sourceUrl: libraryMetadataSchema.shape.sourceUrl
+          .removeDefault()
+          .optional(),
+        license: libraryMetadataSchema.shape.license.removeDefault().optional(),
+        author: libraryMetadataSchema.shape.author.removeDefault().optional(),
         category: libraryMetadataSchema.shape.category
           .removeDefault()
           .optional(),
@@ -129,12 +153,13 @@ export class AssetLibrary {
     input: z.infer<typeof libraryMetadataSchema>,
     source: {
       id?: string;
-      projectId: string;
+      projectId?: string;
       file: string;
       preview?: string;
       mime: string;
       source: LibraryAsset["source"];
       objectNames?: string[];
+      sourceAssetIds?: string[];
     },
   ) {
     const id = source.id || randomUUID(),
@@ -158,6 +183,7 @@ export class AssetLibrary {
         ...libraryMetadataSchema.parse(input),
         id,
         sourceProjectId: source.projectId,
+        sourceAssetIds: source.sourceAssetIds || [],
         path: file,
         previewPath,
         mime: source.mime,
