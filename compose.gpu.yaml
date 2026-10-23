@@ -1,0 +1,14 @@
+# Optional NVIDIA runtime access for Cycles CUDA/OptiX; viewport remains Xvfb.
+# Configure GPU rendering in Blender preferences. See docs/deployment.md.
+services:
+  studio:
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

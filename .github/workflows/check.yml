@@ -1,0 +1,60 @@
+name: Validate
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+  docker-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare isolated test configuration
+        run: |
+          umask 077
+          echo "PILOT_PASSWORD=$(openssl rand -hex 16)" >> .env
+          echo "PILOT_INTERNAL_TOKEN=$(openssl rand -hex 32)" >> .env
+          cat > compose.test.yaml <<'YAML'
+          services:
+            studio:
+              extra_hosts:
+                - host.docker.internal:host-gateway
+          YAML
+      - run: docker compose -f compose.yaml -f compose.test.yaml up -d --build --wait --wait-timeout 240
+      - name: Verify deployed binaries and browser
+        run: |
+          set -a
+          . ./.env
+          set +a
+          PILOT_FIXTURE_BIND=0.0.0.0 PILOT_FIXTURE_HOST=host.docker.internal npm run test:e2e
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color --tail=160
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deployment-validation
+          path: artifacts/
+          if-no-files-found: ignore
+      - if: always()
+        run: docker compose down -v

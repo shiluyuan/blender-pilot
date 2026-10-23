@@ -1,0 +1,62 @@
+name: blender-pilot
+services:
+  studio:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      target: studio
+    platform: linux/amd64
+    restart: unless-stopped
+    shm_size: 1gb
+    environment:
+      PILOT_INTERNAL_TOKEN: ${PILOT_INTERNAL_TOKEN:?Run ./scripts/setup.sh first}
+      PILOT_RESOLUTION: ${PILOT_RESOLUTION:-1440x900x24}
+    volumes:
+      - pilot-data:/data
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:8091/health',{headers:{authorization:'Bearer '+process.env.PILOT_INTERNAL_TOKEN}}).then(async r=>process.exit(r.ok&&(await r.json()).ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 15s
+      start_period: 120s
+      retries: 4
+    stop_grace_period: 45s
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      target: web
+    platform: linux/amd64
+    init: true
+    restart: unless-stopped
+    depends_on:
+      studio:
+        condition: service_healthy
+    ports:
+      - "${PILOT_BIND:-127.0.0.1}:${PILOT_PORT:-8090}:8090"
+    environment:
+      PILOT_PASSWORD: ${PILOT_PASSWORD:?Run ./scripts/setup.sh first}
+      PILOT_INTERNAL_TOKEN: ${PILOT_INTERNAL_TOKEN:?Run ./scripts/setup.sh first}
+      PILOT_RUNNER_URL: http://studio:8091
+      PILOT_SECURE_COOKIE: ${PILOT_SECURE_COOKIE:-false}
+    volumes:
+      - pilot-data:/data
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:8090/api/auth/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    stop_grace_period: 30s
+volumes:
+  pilot-data:

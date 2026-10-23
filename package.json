@@ -1,0 +1,49 @@
+{
+  "name": "blender-pilot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A focused Blender workspace powered by Codex and MCP",
+  "scripts": {
+    "dev": "node --import tsx --watch apps/server/index.ts",
+    "runner": "node --import tsx apps/runner/index.ts",
+    "web": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.server.json",
+    "start": "node dist/server/apps/server/index.js",
+    "start:runner": "node dist/server/apps/runner/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "node --import tsx scripts/verify-deployment.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "verify:blender": "node --import tsx scripts/verify-blender.ts",
+    "format": "prettier --write apps packages scripts tests docs README.md THIRD_PARTY_NOTICES.md compose*.yaml"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "@fastify/cookie": "11.1.3",
+    "@fastify/static": "10.1.7",
+    "@fontsource-variable/dm-sans": "5.3.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@novnc/novnc": "1.7.0",
+    "fastify": "5.12.7",
+    "lucide-react": "1.61.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "sharp": "0.35.5",
+    "ws": "8.22.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@openai/codex": "0.164.0",
+    "@playwright/test": "1.51.1",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/ws": "8.18.2",
+    "@vitejs/plugin-react": "6.1.2",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  }
+}
