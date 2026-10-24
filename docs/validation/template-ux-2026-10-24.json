@@ -1,0 +1,168 @@
+{
+  "passed": true,
+  "time": "2026-10-24T01:26:36.595Z",
+  "environment": {
+    "api": "real Fastify",
+    "database": "PostgreSQL WASM over real TCP protocol/pg driver (not native PostgreSQL)",
+    "runner": "explicit protocol fixture; no Blender or live model inference",
+    "browser": "Chromium/Playwright"
+  },
+  "checks": [
+    "模板 API 需要登录；六种内置配方可读取且禁止覆盖",
+    "分类筛选与共享素材搜索选择可用，所选素材真实绑定到创作配方",
+    "模板中心内置分类与搜索呈现真实 API 结果",
+    "1440×1000 与1280×800 首屏主操作完整可见，参数与任务预览仍可滚动访问",
+    "截图DOM真实字形为 DejaVu Sans 与 Noto Sans，品牌、标签、标题及正文无 serif 回退",
+    "参数展开后追加原草稿；素材引用去重合并；使用模板不会自动发送任务",
+    "刷新后从 PostgreSQL 恢复自定义模板，聊天草稿与引用仍然保留",
+    "合并超过对话长度上限时明确拒绝，原草稿与引用完整保留",
+    "模板校验期间上传完成，使用最新草稿原子合并，新增附件不会被旧回调覆盖",
+    "浏览器编辑持久化并递增版本；旧版本更新返回409且不覆盖新内容",
+    "浏览器新建配方真正保存到数据库，可按名称检索",
+    "素材校验未完成时切换会话，迟到的模板结果不会写入任何错误会话",
+    "数据库外键阻止删除仍被模板引用的素材",
+    "故意构造不一致恢复数据后，API明确报告丢失素材，界面阻止静默遗漏后套用",
+    "1280px 桌面视口模板列表、详情与操作无横向页面溢出",
+    "浏览、编辑、套用模板不会隐式提交任务或修改场景",
+    "聊天按事件显示可下载的真实磁盘恢复点，活动任务期间禁止恢复",
+    "工具完成后展示事件耗时与新增对象回执，回放关联到原工具卡片",
+    "任务完成后恢复需确认，通过真实API调用恢复并持久化恢复前备份",
+    "全流程无浏览器未捕获错误，仅显式发送产生一次协议夹具任务"
+  ],
+  "submissions": 1,
+  "restores": 1,
+  "uncaughtBrowserErrors": [],
+  "layoutAudit": {
+    "viewport": 1280,
+    "document": 1280,
+    "template": {
+      "width": 1056,
+      "scrollWidth": 1056
+    }
+  },
+  "applyLayoutAudit": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "button": {
+        "top": 929,
+        "bottom": 961,
+        "left": 1301,
+        "right": 1391
+      },
+      "main": {
+        "top": 90,
+        "bottom": 975
+      },
+      "hit": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "button": {
+        "top": 729,
+        "bottom": 761,
+        "left": 1141,
+        "right": 1231
+      },
+      "main": {
+        "top": 90,
+        "bottom": 775
+      },
+      "hit": true
+    }
+  ],
+  "fontAudit": {
+    "method": "Chromium CDP CSS.getPlatformFontsForNode against screenshot DOM",
+    "env": {
+      "XDG_DATA_DIRS": "/workspace/scratch/071f722f71e2/references/sysroot/usr/share:/usr/share"
+    },
+    "nodes": [
+      {
+        "selector": ".rail-brand>span",
+        "fonts": [
+          {
+            "familyName": "DejaVu Sans",
+            "postScriptName": "DejaVuSans-Bold",
+            "isCustomFont": false,
+            "glyphCount": 13
+          },
+          {
+            "familyName": "Noto Sans SC Thin",
+            "postScriptName": "NotoSansSC_400wght",
+            "isCustomFont": false,
+            "glyphCount": 5
+          }
+        ],
+        "computed": "600 13px / 19.5px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans CJK SC\", sans-serif"
+      },
+      {
+        "selector": ".templates-page h1",
+        "fonts": [
+          {
+            "familyName": "Noto Sans SC Thin",
+            "postScriptName": "NotoSansSC_400wght",
+            "isCustomFont": false,
+            "glyphCount": 4
+          }
+        ],
+        "computed": "550 22px / 30.8px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans CJK SC\", sans-serif"
+      },
+      {
+        "selector": ".template-card strong",
+        "fonts": [
+          {
+            "familyName": "Noto Sans SC Thin",
+            "postScriptName": "NotoSansSC_400wght",
+            "isCustomFont": false,
+            "glyphCount": 5
+          }
+        ],
+        "computed": "550 13px / 19.5px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans CJK SC\", sans-serif"
+      },
+      {
+        "selector": ".template-prompt",
+        "fonts": [
+          {
+            "familyName": "DejaVu Sans",
+            "postScriptName": "DejaVuSans",
+            "isCustomFont": false,
+            "glyphCount": 24
+          },
+          {
+            "familyName": "Noto Sans SC Thin",
+            "postScriptName": "NotoSansSC_400wght",
+            "isCustomFont": false,
+            "glyphCount": 157
+          }
+        ],
+        "computed": "11px / 20.9px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans CJK SC\", sans-serif"
+      },
+      {
+        "selector": ".eyebrow",
+        "fonts": [
+          {
+            "familyName": "DejaVu Sans",
+            "postScriptName": "DejaVuSans-Bold",
+            "isCustomFont": false,
+            "glyphCount": 16
+          }
+        ],
+        "computed": "600 10px / 15px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans CJK SC\", sans-serif"
+      }
+    ]
+  },
+  "screenshots": [
+    "docs/screenshots/templates-dark.png",
+    "docs/screenshots/templates-light.png",
+    "docs/screenshots/templates-recipe.png"
+  ],
+  "notes": [
+    "模板与聊天恢复交互使用真实 Fastify、SQL 与 Chromium；Runner、素材文件和快照内容是明确标注的协议夹具，未用于证明 Blender 建模或模型质量。",
+    "先前验收发现已保存 textarea 文本污染控件可访问名称；通过增加明确 aria-label 修复后，标签修复后的完整验收通过。",
+    "一次受限云端 Chromium 启动异常在打开页面之前终止；全新进程命名空间重跑成功，未增加 OOM kill 计数。",
+    "缺失素材测试先验证外键阻止常规删除，再故意构造引用表与JSON不一致的恢复数据，验证防御读取和界面阻止。",
+    "最终截图所在的 DOM 通过 CDP 获取真实平台字形：品牌与英文使用 DejaVu Sans，中文使用 Noto Sans SC；未发现 Times/serif 回退，无需修改产品字体。",
+    "截图复审发现首屏主操作被折叠线截断，最小修复为不创建滚动容器的 overflow:clip 与底部 sticky 操作栏；最终完整20项验收包含两种桌面高度的可点击性与字段滚动检查。"
+  ]
+}

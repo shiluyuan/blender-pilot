@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "mode": "live-model",
+  "time": "2026-10-24T01:31:34.713Z",
+  "runId": "411f9388-324d-4b31-824e-78ad50042e48",
+  "templateId": "6d62f1d1-8769-4a46-9946-d3a34a3500bb",
+  "libraryAssetId": "6a7e5da7-d667-4ea4-b4df-2a454613232e",
+  "combinationAssetId": "926dc2e1-a498-4dd2-8b48-cb52a963e877",
+  "targetProjectId": "84dfc47b-d1e1-4bf1-8dcc-e6e22fddaff5",
+  "geometryReadback": {
+    "name": "Recipe_3489c5fd",
+    "type": "MESH",
+    "location": [0, -3, 0.5],
+    "rotation": [0, 0, 0],
+    "scale": [0.20000000298023224, 0.30000001192092896, 0.5],
+    "dimensions": [0.4000000059604645, 0.6000000238418579, 1],
+    "materials": ["Recipe_Yellow"],
+    "vertices": 8
+  },
+  "sourceFileUnchanged": true,
+  "preTurnSnapshotRestored": true,
+  "checks": [
+    "PostgreSQL custom template + parameters + accurate library references",
+    "real model preview/import/create/save/visual report tools",
+    "independent bpy geometry readback",
+    "combination source lineage and selected hierarchy",
+    "cross-project reuse",
+    "original asset SHA256 preserved",
+    "pre-turn restore creates backup and preserves other project"
+  ]
+}

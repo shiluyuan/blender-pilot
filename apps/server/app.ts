@@ -33,6 +33,11 @@ import {
 } from "../../packages/blender-bridge/library.js";
 import { LibraryCatalog } from "../../packages/storage/library-catalog.js";
 import { Store } from "./db.js";
+import { registerTemplateRoutes } from "./template-routes.js";
+import {
+  MAX_CHAT_PROMPT_CHARS,
+  MAX_CHAT_ATTACHMENTS,
+} from "../../packages/contracts/chat-limits.js";
 import { Vault, validPassword } from "./security.js";
 import {
   idSchema,
@@ -151,6 +156,7 @@ export async function buildApp(options: AppOptions) {
                   : error.message || "操作失败",
       }),
   );
+  registerTemplateRoutes(app, store);
   const shutdownController = new AbortController();
   const streams = new Set<import("node:http").ServerResponse>();
   const fail = (message: string, statusCode = 400) =>
@@ -556,11 +562,17 @@ export async function buildApp(options: AppOptions) {
       const sid = idSchema.parse((req.params as any).id);
       const body = z
         .object({
-          text: z.string().trim().min(1).max(16000),
+          text: z.string().trim().min(1).max(MAX_CHAT_PROMPT_CHARS),
           assetIds: z.array(idSchema).max(12).default([]),
           libraryAssetIds: z.array(idSchema).max(12).default([]),
           clientRequestId: idSchema,
         })
+        .refine(
+          (input) =>
+            input.assetIds.length + input.libraryAssetIds.length <=
+            MAX_CHAT_ATTACHMENTS,
+          "项目附件与共享素材合计最多引用 12 项",
+        )
         .parse(req.body);
       const session = await store.get<Session>("session", sid);
       if (!session) throw fail("对话不存在", 404);
@@ -604,6 +616,7 @@ export async function buildApp(options: AppOptions) {
       const libraryAssets = await Promise.all(
         body.libraryAssetIds.map(async (id) => {
           const a = await library.get(id);
+          await library.file(id);
           return { id: a.id, name: a.name };
         }),
       );
@@ -1067,6 +1080,12 @@ export async function buildApp(options: AppOptions) {
       library.update(idSchema.parse((req.params as any).id), req.body),
     ),
   );
+  app.get("/api/library/:id", async (req) => {
+    const id = idSchema.parse((req.params as any).id);
+    const asset = await library.get(id);
+    await library.file(id);
+    return asset;
+  });
   app.post("/api/projects/:id/library", async (req) =>
     exclusive(req, async () => {
       const p = await project((req.params as any).id);
@@ -1083,6 +1102,7 @@ export async function buildApp(options: AppOptions) {
     exclusive(req, async () => {
       const id = idSchema.parse((req.params as any).id);
       await library.get(id);
+      await library.file(id);
       const body = z.object({ projectId: idSchema }).parse(req.body);
       await project(body.projectId);
       await ensureIdle(body.projectId);

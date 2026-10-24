@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { mkdir, copyFile, stat, rm } from "node:fs/promises";
+import { mkdir, copyFile, stat, rm, open } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -76,10 +76,28 @@ export class AssetLibrary {
   async file(id: string, preview = false) {
     const asset = await this.get(id);
     if (preview && !asset.previewPath) throw new Error("素材没有预览图");
-    return existingSafePath(
-      this.root(id),
-      preview ? asset.previewPath! : asset.path,
-    );
+    try {
+      const file = await existingSafePath(
+        this.root(id),
+        preview ? asset.previewPath! : asset.path,
+      );
+      const handle = await open(file, "r");
+      try {
+        const info = await handle.stat();
+        if (!info.isFile() || !info.size)
+          throw new Error("内容文件为空或不是文件");
+      } finally {
+        await handle.close();
+      }
+      return file;
+    } catch {
+      throw Object.assign(
+        new Error(
+          `素材「${asset.name}」的本地文件缺失、不可读或不在素材目录，请恢复文件或重新上传`,
+        ),
+        { statusCode: 409 },
+      );
+    }
   }
   async list(
     query: {

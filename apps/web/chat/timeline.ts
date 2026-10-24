@@ -1,4 +1,8 @@
-import type { Capture, PilotEvent } from "../../../packages/contracts/index";
+import type {
+  Capture,
+  PilotEvent,
+  Snapshot,
+} from "../../../packages/contracts/index";
 
 export type ChatBlock =
   | {
@@ -17,6 +21,9 @@ export type ChatBlock =
       args?: unknown;
       result?: unknown;
       error?: string;
+      startedAt?: string;
+      completedAt?: string;
+      receipt?: Record<string, unknown>;
       status: "running" | "completed" | "failed";
     }
   | {
@@ -27,6 +34,7 @@ export type ChatBlock =
       steps: Array<{ step: string; status: string }>;
     }
   | { kind: "capture"; id: string; capture: Capture }
+  | { kind: "snapshot"; id: string; snapshot: Snapshot }
   | { kind: "artifact"; id: string; artifact: Record<string, unknown> }
   | {
       kind: "verification";
@@ -151,6 +159,8 @@ export function reduceTimeline(events: readonly PilotEvent[]): ChatBlock[] {
     if (string(p.name)) block.name = string(p.name);
     if (p.args !== undefined) block.args = p.args;
     if (p.result !== undefined) block.result = p.result;
+    if (status === "running" && !block.startedAt) block.startedAt = event.time;
+    if (status !== "running") block.completedAt = event.time;
     if (p.error !== undefined)
       block.error =
         string(p.error) || string(record(p.error).message) || "工具执行失败";
@@ -222,6 +232,20 @@ export function reduceTimeline(events: readonly PilotEvent[]): ChatBlock[] {
           capture: capture as unknown as Capture,
         });
       }
+    } else if (event.type === "snapshot.created") {
+      const snapshot = record(p.snapshot),
+        id = string(snapshot.id);
+      if (id && string(snapshot.projectId) && !emitted.has(`snapshot:${id}`)) {
+        emitted.add(`snapshot:${id}`);
+        blocks.push({
+          kind: "snapshot",
+          id: `snapshot:${id}`,
+          snapshot: snapshot as unknown as Snapshot,
+        });
+      }
+    } else if (event.type === "scene.receipt") {
+      const block = tools.get(`${event.runId}:${string(p.callId)}`);
+      if (block) block.receipt = record(p.receipt);
     } else if (event.type === "artifact.created") {
       const artifact = record(p.artifact);
       const id = string(artifact.id);

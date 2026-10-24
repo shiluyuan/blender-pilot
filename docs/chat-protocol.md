@@ -26,18 +26,20 @@ API 保存消息后立即返回排队回执，桌面准备在后台进行。Runn
 
 新事件信封包含 `schemaVersion: 1`、`projectId`、`sessionId`、`runId`、递增 `seq`、`type`、`payload`、`time`。旧事件缺少项目/会话字段时仍可重放；API 根据 Run 确定归属。
 
-| 应用事件                           | 展示与语义                                                          |
-| ---------------------------------- | ------------------------------------------------------------------- |
-| `message.started/delta/completed`  | 按 itemId 归并；completed 正文是权威快照，不能当新增 delta 重复追加 |
-| `plan.updated`                     | 更新原位置的计划和步骤状态                                          |
-| `tool.started/completed/failed`    | Blender 工具输入、结果与明确终态；未收到完成回执不能显示成功        |
-| `runtime.item.started/completed`   | 原生工具诊断；本地 Blender MCP 与桥接工具重复的卡片不重复展示       |
-| `capture.created` / `verification` | 保留当时顺序的真实截图和检查结论                                    |
-| `artifact.created`                 | 可下载的场景或模型产物                                              |
-| `attachment.context`               | 文档实际纳入上下文的字符数、截断及未纳入状态                        |
-| `usage`                            | 使用量快照，不能把多次快照重复累加                                  |
-| `runtime.capabilities/notice`      | 内核能力、错误与不支持交互的明确说明                                |
-| `run.status`                       | 排队、执行、停止、成功、失败或中断                                  |
+| 应用事件                           | 展示与语义                                                                       |
+| ---------------------------------- | -------------------------------------------------------------------------------- |
+| `message.started/delta/completed`  | 按 itemId 归并；completed 正文是权威快照，不能当新增 delta 重复追加              |
+| `plan.updated`                     | 更新原位置的计划和步骤状态                                                       |
+| `tool.started/completed/failed`    | Blender 工具输入、结果与明确终态；未收到完成回执不能显示成功                     |
+| `runtime.item.started/completed`   | 原生工具诊断；本地 Blender MCP 与桥接工具重复的卡片不重复展示                    |
+| `capture.created` / `verification` | 保留当时顺序的真实截图和检查结论                                                 |
+| `snapshot.created`                 | 当前项目的恢复点，支持下载与显式恢复；任务运行中禁止恢复，恢复前保留当前场景备份 |
+| `scene.receipt`                    | 按 callId 附加到工具卡片的有限对象变化；后续失败不会抹去已经发生的变化           |
+| `artifact.created`                 | 可下载的场景或模型产物                                                           |
+| `attachment.context`               | 文档实际纳入上下文的字符数、截断及未纳入状态                                     |
+| `usage`                            | 使用量快照，不能把多次快照重复累加                                               |
+| `runtime.capabilities/notice`      | 内核能力、错误与不支持交互的明确说明                                             |
+| `run.status`                       | 排队、执行、停止、成功、失败或中断                                               |
 
 SSE 支持 `Last-Event-ID` 与 `after` 游标，服务端分页排空历史后才发送 `done`。原生适配器同时按 threadId/turnId 过滤历史重放，处理 `turn/start` 回执之前到达的事件，并等待异步事件消费者落盘后再报告完成。
 
@@ -49,6 +51,9 @@ SSE 支持 `Last-Event-ID` 与 `after` 游标，服务端分页排空历史后�
 - 会话切换后，旧请求、上传和事件继续属于原会话。刷新通过请求回执查询恢复，重试复用原编号。
 - 消息按实际顺序展示说明、工具、截图和结果。Markdown 支持代码块、复制、列表、链接和表格，不执行原始 HTML。
 - 用户上翻历史时停止自动跟随；使用“回到最新消息”恢复跟随。
+- 模板参数与素材校验后，在同一次草稿更新中追加文字和引用；使用最新草稿及已完成/待完成上传计数，统一执行 16,000 字符、12 项附件上限。项目/会话改变、超限或发送回执待确认时明确阻止套用。
+
+工具耗时来自持久事件的开始/结束时间。连续三次同名同参数调用失败后，阻止再次重复但允许修正参数；超过 40 次调用会中断当前 Codex turn，任务标记 `interrupted` 并说明预算原因。MCP 初始化失败和关闭期间的握手会回收子进程；最终日志写入失败会撤销活动 token，存储错误继续阻止新任务。正在执行的阻塞 bpy 算子不保证立即抢占，取消会停止后续调用并等待场景队列释放。
 
 `GET /api/sessions/:id/requests/:requestId` 返回 `{run: Run|null}`，用于核对不确定投递。任务历史保存附件名称、类型和引用 ID，用户可以回看原始参考。
 

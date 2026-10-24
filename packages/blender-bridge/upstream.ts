@@ -4,9 +4,14 @@ export class Upstream {
   constructor(private environment: Record<string, string> = {}) {}
   private client?: Client;
   private connecting?: Promise<Client>;
+  private connection?: { client: Client; transport: StdioClientTransport };
+  private closing?: Promise<void>;
+  private generation = 0;
   async connect() {
+    if (this.closing) throw new Error("Blender MCP 正在关闭");
     if (this.client) return this.client;
     if (this.connecting) return this.connecting;
+    const generation = this.generation;
     this.connecting = (async () => {
       const client = new Client({
         name: "blender-pilot-bridge",
@@ -28,17 +33,31 @@ export class Upstream {
         },
         stderr: "pipe",
       });
+      const connection = { client, transport };
+      this.connection = connection;
       transport.stderr?.on("data", () => {});
-      await client.connect(transport);
       client.onclose = () => {
-        this.client = undefined;
+        if (this.client === client) this.client = undefined;
+        if (this.connection === connection) this.connection = undefined;
       };
-      const list = await client.listTools();
-      for (const name of ["look", "execute_blender_code", "get_scene_info"])
-        if (!list.tools.some((t) => t.name === name))
-          throw new Error(`MCP 缺少工具 ${name}`);
-      this.client = client;
-      return client;
+      try {
+        await client.connect(transport);
+        const list = await client.listTools();
+        for (const name of ["look", "execute_blender_code", "get_scene_info"])
+          if (!list.tools.some((t) => t.name === name))
+            throw new Error(`MCP 缺少工具 ${name}`);
+        if (generation !== this.generation)
+          throw new Error("Blender MCP 连接已取消");
+        this.client = client;
+        return client;
+      } catch (error) {
+        // A failed handshake or incompatible tool list still owns a native
+        // subprocess. Reap it before allowing another connection attempt.
+        await client.close().catch(() => {});
+        await transport.close().catch(() => {});
+        if (this.connection === connection) this.connection = undefined;
+        throw error;
+      }
     })().finally(() => {
       this.connecting = undefined;
     });
@@ -81,7 +100,24 @@ export class Upstream {
     if (i < 0) throw new Error("Blender 未返回预期的结构化结果");
     return JSON.parse(text.slice(i + marker.length).trim());
   }
-  async close() {
-    await this.client?.close();
+  close(): Promise<void> {
+    if (this.closing) return this.closing;
+    this.generation++;
+    const connection = this.connection;
+    const connecting = this.connecting;
+    this.client = undefined;
+    this.closing = (async () => {
+      // close() must also stop initialization, not just a fully ready client.
+      // Closing the transport rejects the pending SDK handshake/list request.
+      if (connection) {
+        await connection.client.close().catch(() => {});
+        await connection.transport.close();
+      }
+      await connecting?.catch(() => {});
+    })().finally(() => {
+      if (this.connection === connection) this.connection = undefined;
+      this.closing = undefined;
+    });
+    return this.closing;
   }
 }

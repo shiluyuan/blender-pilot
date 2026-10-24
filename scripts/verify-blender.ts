@@ -14,6 +14,7 @@ import { responsesFixture } from "../tests/fixtures/responses.js";
 import { modelSettingsSchema } from "../packages/contracts/index.js";
 import { verifyLibrary } from "./library-checks.js";
 import { verifyRealModel } from "./real-model-checks.js";
+import { verifyTemplateRealModel } from "./template-model-checks.js";
 const configPath = process.env.PILOT_MODEL_CONFIG_FILE;
 const liveSettings = configPath
   ? modelSettingsSchema.parse(JSON.parse(await readFile(configPath, "utf8")))
@@ -270,6 +271,8 @@ try {
   assert(session, "previous live session must still exist");
   let images = 0;
   let liveReport: Awaited<ReturnType<typeof verifyRealModel>> | undefined;
+  let templateReport:
+    Awaited<ReturnType<typeof verifyTemplateRealModel>> | undefined;
   const skipCodex = process.env.PILOT_SKIP_CODEX === "true";
   if (previousLive) {
     assert.equal(session.nativeThreadId, previousLive.nativeThreadId);
@@ -287,6 +290,14 @@ try {
       api,
       projectId: project.id,
       sessionId: session.id,
+      dir,
+      secret: liveSettings.apiKey!,
+    });
+    templateReport = await verifyTemplateRealModel({
+      api,
+      projectId: project.id,
+      sessionId: session.id,
+      libraryAssetId: libraryReport.assetIds[0],
       dir,
       secret: liveSettings.apiKey!,
     });
@@ -676,6 +687,7 @@ try {
         imageInputs: liveSettings ? undefined : images,
         live: liveReport,
         library: libraryReport,
+        templates: templateReport,
         checks: [
           "native MCP",
           "snapshots",

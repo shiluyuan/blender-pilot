@@ -1,0 +1,56 @@
+{
+  "passed": true,
+  "date": "2026-10-24",
+  "applicationTests": 51,
+  "deploymentScriptTests": 7,
+  "browserChecks": 35,
+  "productionBuild": "passed",
+  "native": {
+    "passed": true,
+    "model": "gpt-5.6-luna",
+    "blender": "5.2.3 LTS",
+    "codex": "0.164.0",
+    "mcp": "2.2.2",
+    "reusedLiveChecks": false,
+    "runs": 7,
+    "actualStatuses": {
+      "cancelled": 1,
+      "succeeded": 6
+    },
+    "templateRunId": "411f9388-324d-4b31-824e-78ad50042e48",
+    "templateChecks": [
+      "PostgreSQL custom template + parameters + accurate library references",
+      "real model preview/import/create/save/visual report tools",
+      "independent bpy geometry readback",
+      "combination source lineage and selected hierarchy",
+      "cross-project reuse",
+      "original asset SHA256 preserved",
+      "pre-turn restore creates backup and preserves other project"
+    ],
+    "crossProjectMode": "save, close and reopen a single physical Blender in the external-desktop acceptance environment; prior parallel-workspace checks are separate"
+  },
+  "competitor": {
+    "repository": "XEonAX/blender-copilot",
+    "commit": "ba38965c280005ef7162a1138346f3f5ad59224f",
+    "review": "fixed source and four pure Python scripts; no upstream GUI or same-model performance benchmark"
+  },
+  "earlierAttempts": [
+    {
+      "scope": "extended native suite",
+      "reason": "one-slot external desktop capacity reached during the first cross-project test; harness corrected to save/close/reopen; entire suite rerun from a clean data directory, without reused model results"
+    }
+  ],
+  "environmentLimits": [
+    "PostgreSQL WASM engine over real TCP/pg driver; native PostgreSQL deployment not exercised",
+    "Docker image startup not exercised in this host",
+    "GPU and large production scenes not tested"
+  ],
+  "evidence": {
+    "chat": "copilot-chat-2026-10-24.json",
+    "templates": "template-ux-2026-10-24.json",
+    "native": "copilot-native-2026-10-24.json",
+    "nativeTemplate": "template-native-2026-10-24.json"
+  },
+  "plaintextKeyMatches": 0,
+  "privateTestConfigDeleted": true
+}

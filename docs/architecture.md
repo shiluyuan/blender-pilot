@@ -87,6 +87,8 @@ Codex 使用应用自己的 Blender 指令，不自动扫描项目说明文件�
 
 `SceneBridge.saveLibraryAsset` 使用 Blender 原生集合写入；`importLibraryAsset` append 独立集合。MCP 门面增加 search/get/save/import 四个库工具，运行时白名单同步登记。导入使用既有场景变化回执、自动截图和最终视觉验证。列表不加载模型内容，图片按需获取。详见 [素材库设计与限制](asset-library.md)。
 
+创作模板由共享合约、PostgreSQL 目录与独立路由组成，不增加 Agent 或独立服务。内置配方随代码版本发布，自定义配方使用迁移 v2 的两张表；`expectedVersion` 保护编辑/删除，素材关联有外键。前端展开参数并再次校验素材本地文件，使用最新会话记录原子合并草稿，之后继续走同一个发送与执行协议。详见 [创作模板](templates.md)。
+
 ## 安全和限制
 
 访问密码、签名 HttpOnly cookie、同源校验、加密 key、鉴权 WS、资源归属、路径/符号链接检查和日志脱敏构成单用户工作台的基本保护。任意 Python 仍可访问执行容器和挂载的数据，不能用它隔离恶意租户。Web 与 studio 共享数据卷，也不是互不信任的安全域。

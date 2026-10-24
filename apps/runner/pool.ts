@@ -268,17 +268,23 @@ export class StudioPool {
     this.stopping = true;
     await Promise.allSettled([...this.pending.values()]);
     for (const s of this.studios.values()) {
-      if (s.jobs.active) {
-        await s.jobs.cancel(s.jobs.active.state.id);
-        await s.jobs.active?.runtime?.close();
-        const until = Date.now() + 15000;
-        while (s.jobs.active && Date.now() < until) await delay(100);
+      try {
+        const active = s.jobs.active;
+        if (active) {
+          // Cancellation aborts before journaling. A disk fault must not stop
+          // teardown of this model, its MCP process, or the other desktops.
+          await s.jobs.cancel(active.state.id).catch(() => {});
+          await active.runtime?.close().catch(() => {});
+          const until = Date.now() + 15000;
+          while (s.jobs.active && Date.now() < until) await delay(100);
+        }
+        await s.scene.idle();
+        if (s.status === "ready") await s.scene.save().catch(() => {});
+      } finally {
+        s.status = "closing";
+        await s.scene.upstream.close().catch(() => {});
+        await this.stopProcesses(s);
       }
-      await s.scene.idle();
-      if (s.status === "ready") await s.scene.save().catch(() => {});
-      s.status = "closing";
-      await s.scene.upstream.close().catch(() => {});
-      await this.stopProcesses(s);
     }
   }
 }

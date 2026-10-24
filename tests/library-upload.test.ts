@@ -73,6 +73,50 @@ test("global upload without a project preserves provenance, is retry-idempotent,
     );
     assert.equal((await call("/library", undefined, "GET")).json().total, 1);
     assert.equal(
+      (await call(`/library/${item.id}`, undefined, "GET")).statusCode,
+      200,
+    );
+    await rm(item.path);
+    const missing = await call(`/library/${item.id}`, undefined, "GET");
+    assert.equal(missing.statusCode, 409);
+    assert.match(missing.json().error, /本地文件缺失/);
+    await call(
+      "/settings",
+      {
+        baseUrl: "https://example.invalid",
+        model: "fixture",
+        apiKey: "fixture-key-only-1234",
+        effort: "low",
+      },
+      "PUT",
+    );
+    const project = (
+      await call("/projects", { name: "missing-file-test" })
+    ).json();
+    const session = (await call(`/projects/${project.id}/sessions`, {})).json();
+    const overLimit = await call(`/sessions/${session.id}/turns`, {
+      text: "复用素材",
+      assetIds: Array.from({ length: 7 }, (_, index) => `asset-${index}`),
+      libraryAssetIds: Array.from(
+        { length: 6 },
+        (_, index) => `library-${index}`,
+      ),
+      clientRequestId: "combined-reference-limit",
+    });
+    assert.equal(overLimit.statusCode, 400);
+    assert.match(overLimit.json().error, /合计最多引用 12 项/);
+    const rejected = await call(`/sessions/${session.id}/turns`, {
+      text: "复用素材",
+      libraryAssetIds: [item.id],
+      clientRequestId: "missing-file-test",
+    });
+    assert.equal(rejected.statusCode, 409);
+    assert.match(rejected.json().error, /本地文件缺失/);
+    assert.deepEqual(
+      (await call(`/sessions/${session.id}/runs`, undefined, "GET")).json(),
+      [],
+    );
+    assert.equal(
       (await call(`/library/${item.id}`, { favorite: true }, "PATCH"))
         .statusCode,
       200,

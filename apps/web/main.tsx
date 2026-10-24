@@ -71,6 +71,7 @@ import type {
 import { terminal } from "../../packages/contracts/index";
 import { api, post, fileUrl, bytes, date, upload } from "./api";
 import { LibraryPanel } from "./LibraryPanel";
+import { TemplatesPanel } from "./TemplatesPanel";
 import { Viewport } from "./Viewport";
 import { ChatComposer } from "./chat/ChatComposer";
 import { ConversationTimeline } from "./chat/ConversationTimeline";
@@ -239,6 +240,7 @@ function App() {
       Array<{ name: string; progress: number; error?: string }>
     >([]),
     [renaming, setRenaming] = useState<Asset>();
+  const [restoringProject, setRestoringProject] = useState<string>();
   const assetRequest = useRef(0);
   const projectRequest = useRef(0);
   useEffect(() => {
@@ -255,7 +257,10 @@ function App() {
     !runs.some((r) => r.id === projectRunInfo.id && terminal.has(r.status))
       ? projectRunInfo
       : undefined;
-  const busy = !!active || !!projectRun;
+  const busy =
+    !!active ||
+    !!projectRun ||
+    (restoringProject === project?.id && !!restoringProject);
   const files = useRef<HTMLInputElement>(null),
     draftRef = useRef<HTMLTextAreaElement>(null),
     sessionRef = useRef<string | undefined>(undefined);
@@ -334,6 +339,27 @@ function App() {
       if (currentProject.current === project.id) setSnapshots(r);
     }
   }, [project?.id]);
+  const restoreSnapshot = async (snapshot: Snapshot) => {
+    if (currentProject.current !== snapshot.projectId || busy) return;
+    if (
+      !confirm(
+        `恢复「${snapshot.name}」？系统会先保存当前场景，再加载所选版本。`,
+      )
+    )
+      return;
+    setRestoringProject(snapshot.projectId);
+    try {
+      await post(`/snapshots/${snapshot.id}/restore`);
+      await loadSnapshots();
+      notify("已恢复，并保留恢复前备份");
+    } catch (error) {
+      notify(String(error));
+    } finally {
+      setRestoringProject((current) =>
+        current === snapshot.projectId ? undefined : current,
+      );
+    }
+  };
   const loadRuns = useCallback(async () => {
     if (!session) return;
     const id = session.id;
@@ -607,6 +633,7 @@ function App() {
     ["projects", "项目", FolderOpen],
     ["studio", "工作台", Box],
     ["library", "素材库", Layers3],
+    ["templates", "模板中心", Grid2X2],
     ["assets", "资源库", FolderOpen],
     ["history", "快照与恢复", Clock3],
     ["console", "运行控制台", Activity],
@@ -1043,6 +1070,42 @@ function App() {
                 }}
               />
             )}
+            {page === "templates" && (
+              <TemplatesPanel
+                projectId={project?.id}
+                sessionId={session?.id}
+                busy={busy || chat.loading || !!chat.outbox}
+                blockedReason={
+                  chat.outbox
+                    ? "当前对话有待确认的发送，请先返回对话处理"
+                    : undefined
+                }
+                notify={notify}
+                onUse={({ prompt, libraryAssets }) => {
+                  if (
+                    !project ||
+                    !session ||
+                    currentProject.current !== project.id ||
+                    sessionRef.current !== session.id
+                  )
+                    throw new Error("当前项目或对话已切换，请重新应用模板");
+                  chat.applyTemplate({
+                    projectId: project.id,
+                    sessionId: session.id,
+                    prompt,
+                    attachments: libraryAssets.map((asset) => ({
+                      id: asset.id,
+                      name: asset.name,
+                      kind: "library",
+                    })),
+                  });
+                  setPage("studio");
+                  setPanel(true);
+                  notify("模板已加入当前对话草稿，确认要求后发送");
+                  requestAnimationFrame(() => draftRef.current?.focus());
+                }}
+              />
+            )}
             {page === "assets" && (
               <div className="page-content">
                 <PageHeading
@@ -1304,17 +1367,7 @@ function App() {
                       </a>
                       <button
                         disabled={busy}
-                        onClick={() => {
-                          if (
-                            confirm(
-                              "恢复此快照？系统会先保存当前场景，再加载所选版本。",
-                            )
-                          )
-                            void action(async () => {
-                              await post(`/snapshots/${s.id}/restore`);
-                              await loadSnapshots();
-                            }, "已恢复，并保留恢复前备份");
-                        }}
+                        onClick={() => void restoreSnapshot(s)}
                       >
                         <RotateCcw size={14} />
                         恢复
@@ -1521,6 +1574,14 @@ function App() {
                         <Image size={16} />
                         <span>添加参考图，让空间、人物与风格更明确。</span>
                       </div>
+                      <button
+                        className="chat-template-entry"
+                        onClick={() => setPage("templates")}
+                      >
+                        <Grid2X2 size={14} />
+                        从模板与素材组合开始
+                        <ChevronRight size={14} />
+                      </button>
                     </div>
                   )}
                   {runs.map((run) => (
@@ -1529,6 +1590,10 @@ function App() {
                       run={run}
                       events={events[run.id] || []}
                       lightbox={setLightbox}
+                      busy={busy}
+                      onRestoreSnapshot={(snapshot) =>
+                        void restoreSnapshot(snapshot)
+                      }
                     />
                   ))}
                 </ConversationTimeline>

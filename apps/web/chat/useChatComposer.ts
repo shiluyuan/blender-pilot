@@ -7,6 +7,10 @@ import {
 } from "react";
 import type { Run } from "../../../packages/contracts/index";
 import { api, ApiError, post, upload } from "../api";
+import {
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_PROMPT_CHARS,
+} from "../../../packages/contracts/chat-limits";
 
 export interface ChatAttachment {
   id: string;
@@ -202,6 +206,44 @@ export function useChatComposer(options: {
         revision: r.revision + 1,
       }));
   };
+  const applyTemplate = (input: {
+    projectId: string;
+    sessionId: string;
+    prompt: string;
+    attachments: ChatAttachment[];
+  }) => {
+    if (
+      callbacks.current.projectId !== input.projectId ||
+      callbacks.current.sessionId !== input.sessionId
+    )
+      throw new Error("当前项目或对话已切换，请重新应用模板");
+    // Read once at commit time: uploads or later edits may have completed while
+    // the template was revalidating its files. Commit text and references together.
+    change(input.sessionId, (record) => {
+      if (record.outbox || sending.current.has(input.sessionId))
+        throw new Error("请先确认上一条消息的接收结果，再应用模板");
+      const text = record.text.trim()
+        ? `${record.text}\n\n${input.prompt}`
+        : input.prompt;
+      if (text.length > MAX_CHAT_PROMPT_CHARS)
+        throw new Error(
+          `模板与当前草稿合计超过 ${MAX_CHAT_PROMPT_CHARS} 字符，请缩短后重试；当前草稿已保留`,
+        );
+      const byId = new Map(record.attachments.map((ref) => [ref.id, ref]));
+      for (const ref of input.attachments)
+        if (!byId.has(ref.id)) byId.set(ref.id, ref);
+      if (byId.size + record.uploads.length > MAX_CHAT_ATTACHMENTS)
+        throw new Error(
+          `模板、当前附件与待完成上传合计超过 ${MAX_CHAT_ATTACHMENTS} 项，请减少引用；当前草稿已保留`,
+        );
+      return {
+        ...record,
+        text,
+        attachments: [...byId.values()],
+        revision: record.revision + 1,
+      };
+    });
+  };
   const accepted = (id: string, pending: ChatOutbox, run: Run) => {
     change(id, (r) =>
       r.outbox?.clientRequestId === pending.clientRequestId
@@ -258,6 +300,12 @@ export function useChatComposer(options: {
   const send = async () => {
     if (!sessionId || !projectId || sending.current.has(sessionId)) return;
     const record = get(sessionId);
+    if (record.text.length > MAX_CHAT_PROMPT_CHARS) {
+      callbacks.current.onError(
+        `消息不能超过 ${MAX_CHAT_PROMPT_CHARS} 字符，请缩短后发送。`,
+      );
+      return;
+    }
     if (
       record.outbox ||
       record.uploads.length ||
@@ -418,6 +466,7 @@ export function useChatComposer(options: {
     setDraft,
     attachments: current.attachments,
     setAttachments,
+    applyTemplate,
     uploads: current.uploads,
     outbox: current.outbox,
     loading: current.outbox?.status === "sending",

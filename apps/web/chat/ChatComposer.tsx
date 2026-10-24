@@ -16,6 +16,7 @@ import {
   MAX_DOCUMENT_BYTES,
 } from "../../../packages/contracts/attachments";
 import { bytes, fileUrl } from "../api";
+import { MAX_CHAT_PROMPT_CHARS } from "../../../packages/contracts/chat-limits";
 import type { ChatAttachment, ChatOutbox, ChatUpload } from "./useChatComposer";
 
 export function ChatComposer(props: {
@@ -53,7 +54,7 @@ export function ChatComposer(props: {
     !!props.outbox ||
     props.uploads.length > 0 ||
     !props.draft.trim() ||
-    props.draft.length > 16000 ||
+    props.draft.length > MAX_CHAT_PROMPT_CHARS ||
     referenceCount > 12;
   useEffect(() => {
     const node = props.inputRef.current;
@@ -336,7 +337,9 @@ export function ChatComposer(props: {
         <div
           className={
             "chat-composer-hint " +
-            (props.draft.length > 16000 || referenceCount > 12 ? "error" : "")
+            (props.draft.length > MAX_CHAT_PROMPT_CHARS || referenceCount > 12
+              ? "error"
+              : "")
           }
         >
           {props.draft.length > 15000

@@ -57,6 +57,8 @@ export class Jobs {
     calls: number;
     report?: { captureId: string; passed: boolean; observations: string };
     review?: { repairsLeft: number; allowWrite: boolean };
+    lastFailure?: { key: string; count: number };
+    budgetError?: string;
   };
   states = new Map<string, JobState>();
   events = new Map<string, PilotEvent[]>();
@@ -234,8 +236,13 @@ export class Jobs {
       mutations: 0,
       calls: 0,
     };
-    if (!registeredState)
-      await this.emit(state, "run.status", { status: "queued" });
+    try {
+      if (!registeredState)
+        await this.emit(state, "run.status", { status: "queued" });
+    } catch (error) {
+      if (this.active?.state === state) this.active = undefined;
+      throw error;
+    }
     void this.execute().catch((e) =>
       console.error(
         "Job cleanup failed",
@@ -264,12 +271,18 @@ export class Jobs {
     try {
       state.status = "running";
       await this.emit(state, "run.status", { status: "running" });
+      a.abort.signal.throwIfAborted();
       await this.scene.serial(async () => {
+        a.abort.signal.throwIfAborted();
         await this.scene.activate(state.projectId);
+        a.abort.signal.throwIfAborted();
         const snapshot = await this.scene.snapshot("AI 操作前", state.id);
         await this.emit(state, "snapshot.created", { snapshot });
       });
-      const baseline = await this.scene.serial(() => this.capture("before"));
+      const baseline = await this.scene.serial(() => {
+        a.abort.signal.throwIfAborted();
+        return this.capture("before");
+      });
       const root = this.scene.projectRoot(state.projectId);
       const proxyPath = fileURLToPath(
         new URL("../../packages/blender-bridge/mcp-proxy.js", import.meta.url),
@@ -390,7 +403,8 @@ export class Jobs {
         if (a.report?.passed) break;
       }
       if (a.abort.signal.aborted) {
-        state.status = "cancelled";
+        state.status = a.budgetError ? "interrupted" : "cancelled";
+        state.error = a.budgetError;
         state.verification = "unavailable";
       } else {
         state.verification = a.report?.passed
@@ -409,22 +423,42 @@ export class Jobs {
         });
       }
     } catch (e) {
-      state.status = a.abort.signal.aborted
-        ? "cancelled"
-        : /超时|timed out|closed|进程结束/i.test(String(e))
-          ? "interrupted"
-          : "failed";
-      state.error = redact(String(e), [a.input.settings.apiKey || ""]);
+      state.status = a.budgetError
+        ? "interrupted"
+        : a.abort.signal.aborted
+          ? "cancelled"
+          : /超时|timed out|closed|进程结束/i.test(String(e))
+            ? "interrupted"
+            : "failed";
+      state.error =
+        a.budgetError || redact(String(e), [a.input.settings.apiKey || ""]);
       state.verification = "unavailable";
     } finally {
-      await a.runtime?.close();
-      await this.scene.idle();
-      await this.emit(state, "run.status", {
-        status: state.status,
-        verification: state.verification,
-        error: state.error,
-      });
-      if (this.active === a) this.active = undefined;
+      try {
+        try {
+          await a.runtime?.close();
+        } catch (error) {
+          // Revoke further MCP work even if native process cleanup cannot be
+          // confirmed. An already executing bpy operation is drained below.
+          a.abort.abort();
+          state.status = "interrupted";
+          state.verification = "unavailable";
+          state.error = redact("执行端清理未完成：" + String(error), [
+            a.input.settings.apiKey || "",
+          ]);
+        }
+        await this.scene.idle();
+        await this.emit(state, "run.status", {
+          status: state.status,
+          verification: state.verification,
+          error: state.error,
+        });
+      } finally {
+        // A failed final journal append must not retain a live token, model
+        // credentials or a permanently busy studio. storageFailure separately
+        // prevents accepting new jobs until the journal has been repaired.
+        if (this.active === a) this.active = undefined;
+      }
     }
   }
   get(id: string): JobState | undefined {
@@ -451,15 +485,39 @@ export class Jobs {
   }
   async tool(name: string, args: any) {
     const a = this.active;
-    if (!a || a.abort.signal.aborted) throw new Error("任务已停止");
-    if (++a.calls > 40) throw new Error("工具调用预算已用完");
+    if (!a || a.abort.signal.aborted || terminal.has(a.state.status))
+      throw new Error("任务已停止");
+    if (++a.calls > 40) {
+      a.budgetError =
+        "TOOL_BUDGET_EXCEEDED：本轮已达到 40 次工具调用上限，已停止后续操作。请检查当前场景后，在新一轮对话中继续。";
+      // A throw-only budget lets the model loop on rejected tool requests
+      // until its wall-clock timeout. Interrupt the turn and preserve the
+      // distinction between a guardrail stop and a user's cancellation.
+      a.abort.abort();
+      await this.emit(a.state, "runtime.notice", {
+        level: "warning",
+        kind: "budget",
+        code: "TOOL_BUDGET_EXCEEDED",
+        message: a.budgetError,
+      });
+      throw new Error(a.budgetError);
+    }
     return this.scene.serial(async () => {
-      if (a !== this.active || a.abort.signal.aborted)
+      if (
+        a !== this.active ||
+        a.abort.signal.aborted ||
+        terminal.has(a.state.status)
+      )
         throw new Error("任务已停止");
       this.scene.assertProject(a.state.projectId);
       const callId = randomUUID();
       await this.emit(a.state, "tool.started", { callId, name, args });
+      const failureKey = JSON.stringify([name, args]);
       try {
+        if (a.lastFailure?.key === failureKey && a.lastFailure.count >= 3)
+          throw new Error(
+            "TOOL_RETRY_LIMIT：相同工具和参数已连续失败 3 次。停止重复调用，检查错误后调整参数；可读取场景、截图或向用户说明当前阻碍。",
+          );
         let result: unknown;
         let image: any;
         let cap: Capture | undefined;
@@ -605,6 +663,7 @@ export class Jobs {
           if (error) throw error;
         } else throw new Error("未知工具");
         await this.emit(a.state, "tool.completed", { callId, name, result });
+        a.lastFailure = undefined;
         return {
           content: [
             { type: "text", text: JSON.stringify(result) },
@@ -612,6 +671,11 @@ export class Jobs {
           ],
         };
       } catch (e) {
+        a.lastFailure = {
+          key: failureKey,
+          count:
+            a.lastFailure?.key === failureKey ? a.lastFailure.count + 1 : 1,
+        };
         await this.emit(a.state, "tool.failed", {
           callId,
           name,

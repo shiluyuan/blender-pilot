@@ -3109,3 +3109,69 @@ button svg {
 .chat-markdown td {
   min-width: 72px;
 }
+
+.chat-snapshot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.chat-snapshot > span {
+  flex: 1;
+  min-width: 0;
+}
+.chat-snapshot strong {
+  display: block;
+  font-size: 11px;
+  color: var(--text);
+}
+.chat-snapshot small {
+  display: block;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.chat-snapshot button {
+  padding: 4px 7px;
+  font-size: 11px;
+  min-height: 26px;
+}
+.chat-snapshot a {
+  display: inline-flex;
+  padding: 5px;
+  color: var(--muted);
+}
+.chat-change-receipt {
+  padding: 7px 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+.chat-change-receipt > div {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.chat-change-receipt strong {
+  flex: 0 0 54px;
+}
+.chat-change-receipt span {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.chat-change-receipt small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.chat-template-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  font-size: 12px;
+  margin-top: 12px;
+}

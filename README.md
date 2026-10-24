@@ -6,6 +6,8 @@
 
 聊天按 **Loom、AionUi、ComfyUI MCP Panel** 的协议与交互设计重构：独立会话草稿、附件直接引用、Markdown 与代码块、按顺序展示工具和截图、稳定发送回执、断线续传和取消。详见 [对话协议与附件](docs/chat-protocol.md)。
 
+**模板 → 素材 → 再创作**：内置 6 类创作配方，填写参数、绑定共享素材，保存为自己的模板，在不同项目重复使用。应用时追加到当前对话草稿，保留已有文字和附件，确认发送后才执行。对话直接展示恢复点、对象变化回执和工具耗时。详见 [创作模板](docs/templates.md) 与 [Blender Copilot 对照](docs/competitor-review.md)。
+
 ![真实 Blender 多项目工作区](docs/screenshots/workspaces-dark.png)
 
 ## 一条命令部署
@@ -28,7 +30,7 @@ sudo ./docker-up.sh --install-docker
 
 启动后自动验证 **PostgreSQL → 登录 → 启动 Blender → MCP 读取场景 → 截图下载 → 保存**，失败会以非零状态退出。首次进入会创建一个入门项目。默认打开 `http://服务器IP:8090`，使用终端打印的密码登录，在「模型设置」中填写接口和模型。
 
-**聊天重构检查：40 项应用/协议测试 + 7 项部署脚本测试、15 项浏览器交互验收及生产构建通过。真实模型已验证图片创作、Markdown 正文驱动建模、续聊与取消后继续；详细范围和当前结果见验收记录。**
+**应用/协议自动检查 51 项、部署脚本检查 7 项、浏览器交互检查 35 项及生产构建通过。** 真实 Key 已跑通模板与素材组合、尺寸回读、跨项目复用和快照恢复。实际执行范围、结果和限制见 [验收记录](docs/validation.md)。
 
 > 当前云端已完成的验证与限制详见 [验收记录](docs/validation.md)。生产配置使用 PostgreSQL；云端数据库检查使用明确标识的 PostgreSQL WASM / TCP 协议环境，Docker 整机启动与原生 PostgreSQL 18 尚未在此云端实测，不能将其称为 Docker 全量验收完成。
 
@@ -97,6 +99,11 @@ sudo ./docker-up.sh --install-docker
 
 ![素材库深色界面](docs/screenshots/library-dark.png)
 
+**模板中心：内置配方、参数预览与绑定共享素材。界面素材条目标注为协议验收示例，截图不代表模型生成质量。**
+
+![模板中心浅色](docs/screenshots/templates-light.png)
+![自己的素材组合模板](docs/screenshots/templates-recipe.png)
+
 **浅色工作区：每个项目独立 Blender、对话、草稿与引用。**
 
 ![浅色多项目工作区](docs/screenshots/workspaces-light.png)
@@ -113,6 +120,7 @@ sudo ./docker-up.sh --install-docker
 ![项目资源](docs/screenshots/assets.png)
 ![模型设置](docs/screenshots/settings.png)
 ![快照与恢复](docs/screenshots/snapshots.png)
+![模板中心深色](docs/screenshots/templates-dark.png)
 
 </details>
 
@@ -121,8 +129,11 @@ sudo ./docker-up.sh --install-docker
 1. 创建或打开一个项目，中央显示服务器上的原生 Blender，可键鼠操作；右侧助手支持收起、调宽和 `Alt+J` 切换。
 2. 在对话输入区选择、拖拽或粘贴参考图，上传后自动成为当前消息附件。也可上传 Markdown、TXT、JSON、CSV 说明，正文会提供给 Codex；单文档最大 2 MiB，超出上下文预算会明确提示截断。
 3. 在共享素材库选择人物、道具和场景部件，批量引用到当前项目，描述摆放与修改要求。
+   常用组合可在「模板中心」保存成参数化配方，之后调整布局、配色与新增部件即可复用。
 4. Codex 通过我们的 MCP 搜索素材、读取预览、导入独立副本并编写 bpy 脚本。每次场景修改后回读对象信息、自动截图，并要求模型检查当前截图。
 5. 新对象与现有素材组合后保存回库，保留源素材关系，再到另一个项目复用。
+
+每轮操作前保留 `.blend` 快照，可在聊天恢复点卡片下载或恢复；恢复前会再保存当前场景。失败工具仍保留已经回读的对象变化，便于判断是否产生了部分修改。连续 3 次相同参数失败会阻止再次重复，允许修正参数；超过 40 次工具调用会明确中断本轮，避免持续无效调用。已经进入 Blender 的阻塞算子不能保证立即抢占，取消期间仍会等待场景队列释放。
 
 不同项目拥有独立 Blender 进程和原生 Codex 会话，可以同时执行；同一项目内操作串行。关闭项目会先保存再释放内存，活动任务需先停止。内存紧张时把 `--max-studios` 设为 1；同时打开多个大场景需要相应增加内存。
 

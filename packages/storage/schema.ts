@@ -59,4 +59,23 @@ CREATE TABLE library_asset_sources (
 CREATE TABLE migration_imports (source text PRIMARY KEY, imported_at timestamptz NOT NULL DEFAULT now(), details jsonb NOT NULL);
 `,
   },
+  {
+    version: 2,
+    sql: `
+CREATE TABLE creation_templates (
+ id text PRIMARY KEY, name text NOT NULL CHECK(length(name)>0),
+ category text NOT NULL CHECK(category IN ('prop','character','scene','material','composition')),
+ version integer NOT NULL CHECK(version>0),
+ created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
+ data jsonb NOT NULL CHECK(data->>'id'=id)
+);
+CREATE INDEX creation_templates_category_updated ON creation_templates(category,updated_at DESC,id);
+CREATE TABLE creation_template_assets (
+ template_id text NOT NULL REFERENCES creation_templates(id) ON DELETE CASCADE,
+ asset_id text NOT NULL REFERENCES library_assets(id),
+ PRIMARY KEY(template_id,asset_id)
+);
+CREATE INDEX creation_template_assets_asset ON creation_template_assets(asset_id);
+`,
+  },
 ];

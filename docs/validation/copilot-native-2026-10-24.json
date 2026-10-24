@@ -1,0 +1,152 @@
+{
+  "passed": true,
+  "codex": "passed",
+  "time": "2026-10-24T01:32:39.281Z",
+  "blender": "5.2.3 LTS",
+  "model": "gpt-5.6-luna",
+  "provider": "https://coding.smartpaipai.com",
+  "databaseValidation": "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised",
+  "mode": "live-model",
+  "reusedLiveChecks": false,
+  "live": {
+    "passed": true,
+    "runIds": [
+      "6094bbae-2a4f-450f-8368-b4f14908df4f",
+      "91e5b5ec-95b2-49c6-b83f-ac0f1559a5cd",
+      "2f55dcdb-0664-4a77-9f6e-b0aae2708909",
+      "db54d157-2df6-4eda-952a-c2f101dc25d0",
+      "e3cedffb-1913-497e-a535-9982144a0e45",
+      "323eb955-5971-44ac-9986-b92ee012962e"
+    ],
+    "nativeThreadId": "01a16b7e-704f-7630-aeac-63b66c05b614",
+    "referenceGroundTruth": {
+      "left": "#e12628",
+      "right": "#25bb48"
+    },
+    "blenderReadback": [
+      {
+        "name": "Live_Reference_Sphere",
+        "location": [-3, 0, 2],
+        "dimensions": [2.0000014305114746, 2.000002145767212, 2],
+        "color": [
+          0.8899999856948853, 0.014999999664723873, 0.019999999552965164, 1
+        ]
+      },
+      {
+        "name": "Live_Reference_Cube",
+        "location": [3, 0, 1],
+        "dimensions": [2, 2, 2],
+        "color": [
+          0.019999999552965164, 0.6000000238418579, 0.11999999731779099, 1
+        ]
+      }
+    ],
+    "documentReadback": {
+      "name": "Brief_6cf5831f51",
+      "location": [1.75, -2.25, 0.6499999761581421],
+      "dimensions": [0.6000000238418579, 0.800000011920929, 1.2999999523162842]
+    },
+    "captures": 16,
+    "toolCalls": 23,
+    "visualReports": [
+      {
+        "captureId": "695c1b74-78f1-4158-bba9-985b574e93f4",
+        "passed": true,
+        "observations": "最终视口截图显示三个无遮挡的网格物体：左侧为红色材质 UV 球体 Live_Reference_Sphere，中间为默认灰白 Cube，右侧为绿色材质立方体 Live_Reference_Cube。场景读回确认：默认 Cube、Camera、Light 均保留；球体位置 (-3,0,1)、尺寸约 (2,2,2)，立方体位置 (3,0,1)、尺寸 (2,2,2)。视口已使用 MATERIAL 材质预览，参考图片未导入场景。"
+      },
+      {
+        "captureId": "0cdadf15-db16-47d9-be61-62ea0d843f97",
+        "passed": true,
+        "observations": "最新视口截图显示红色 Live_Reference_Sphere 已沿 Z 轴上移后位于左侧上方，完整可见且未被遮挡；中央默认 Cube 与右侧绿色 Live_Reference_Cube 仍清楚可见。场景读回确认球体位置为 (-3,0,2)，尺寸和红色材质保持不变；Live_Reference_Cube 仍为 (3,0,1)、尺寸 (2,2,2)、绿色材质；默认 Cube、Camera、Light 均保持原状态。"
+      },
+      {
+        "captureId": "8da26c57-ed57-42f2-beff-5dd8ffbc8e54",
+        "passed": true,
+        "observations": "最新截图中黄色立方体 Brief_6cf5831f51 位于中央默认 Cube 与右侧绿色立方体之间，完整可见且未被遮挡。场景读回确认其位置为 (1.75, -2.25, 0.65)，尺寸为 (0.6, 0.8, 1.3)，材质为 Brief_Yellow。既有 Cube、Light、Camera、Live_Reference_Sphere 和 Live_Reference_Cube 均保留且未修改。"
+      },
+      {
+        "captureId": "bbd44bae-49a9-423a-8c90-4c5f7087dfe2",
+        "passed": true,
+        "observations": "当前截图显示两个参考物体均清晰可见：红色 Live_Reference_Sphere 位于 (-3,0,2)，材质为 Live_Reference_Red；绿色 Live_Reference_Cube 位于 (3,0,1)，材质为 Live_Reference_Green。场景保持不变，未执行任何修改。"
+      },
+      {
+        "captureId": "23d60dd6-174e-4374-8b61-f25267886759",
+        "passed": true,
+        "observations": "当前截图中可见的两个参考物体是：Live_Reference_Sphere 位于画面左上方，材质数据为红色 Live_Reference_Red；Live_Reference_Cube 位于右下方、相对球体更靠右且更低，材质数据为绿色 Live_Reference_Green。两者均在视口内可见。当前视口为实体显示模式，因此截图表面呈灰色，未直接显示材质颜色；本次未修改场景。"
+      }
+    ],
+    "checks": [
+      "reference-image colors independently verified in real Blender materials",
+      "mutation receipts",
+      "current screenshot visual report",
+      "request idempotency",
+      "native process restart and conversation resume",
+      "uploaded Markdown body drives independently verified Blender component",
+      "interruption during real streamed model output",
+      "successful continuation after cancellation",
+      "browser composer → real model → screenshot report → streamed completion"
+    ]
+  },
+  "library": {
+    "passed": true,
+    "blender": "5.2.3 LTS",
+    "checks": [
+      "selected hierarchy only",
+      "packed texture survives deletion of original",
+      "materials and transforms",
+      "source scene unchanged",
+      "cross-project append",
+      "repeated imports have independent meshes and materials",
+      "scene collection merge",
+      "category/tag search",
+      "favorite survives reload",
+      "empty selection rejected"
+    ],
+    "assetIds": [
+      "6a7e5da7-d667-4ea4-b4df-2a454613232e",
+      "e558cbf6-6e6e-4ce3-8a0e-1c29475e1479"
+    ]
+  },
+  "templates": {
+    "passed": true,
+    "mode": "live-model",
+    "time": "2026-10-24T01:31:34.713Z",
+    "runId": "411f9388-324d-4b31-824e-78ad50042e48",
+    "templateId": "6d62f1d1-8769-4a46-9946-d3a34a3500bb",
+    "libraryAssetId": "6a7e5da7-d667-4ea4-b4df-2a454613232e",
+    "combinationAssetId": "926dc2e1-a498-4dd2-8b48-cb52a963e877",
+    "targetProjectId": "84dfc47b-d1e1-4bf1-8dcc-e6e22fddaff5",
+    "geometryReadback": {
+      "name": "Recipe_3489c5fd",
+      "type": "MESH",
+      "location": [0, -3, 0.5],
+      "rotation": [0, 0, 0],
+      "scale": [0.20000000298023224, 0.30000001192092896, 0.5],
+      "dimensions": [0.4000000059604645, 0.6000000238418579, 1],
+      "materials": ["Recipe_Yellow"],
+      "vertices": 8
+    },
+    "sourceFileUnchanged": true,
+    "preTurnSnapshotRestored": true,
+    "checks": [
+      "PostgreSQL custom template + parameters + accurate library references",
+      "real model preview/import/create/save/visual report tools",
+      "independent bpy geometry readback",
+      "combination source lineage and selected hierarchy",
+      "cross-project reuse",
+      "original asset SHA256 preserved",
+      "pre-turn restore creates backup and preserves other project"
+    ]
+  },
+  "checks": [
+    "native MCP",
+    "snapshots",
+    "GLB/glTF/blend exports",
+    "Codex tool calls",
+    "image input",
+    "idempotency",
+    "thread resume",
+    "cancel",
+    "browser VNC"
+  ]
+}

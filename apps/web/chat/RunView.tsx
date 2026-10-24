@@ -11,9 +11,15 @@ import {
   Loader2,
   Maximize2,
   Paperclip,
+  RotateCcw,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import type { PilotEvent, Run } from "../../../packages/contracts/index";
+import type {
+  PilotEvent,
+  Run,
+  Snapshot,
+} from "../../../packages/contracts/index";
 import { terminal } from "../../../packages/contracts/index";
 import { date, fileUrl } from "../api";
 import { Markdown } from "./Markdown";
@@ -52,6 +58,21 @@ function ToolCard({
   finished: boolean;
 }) {
   const interrupted = finished && block.status === "running";
+  const elapsed =
+    Date.parse(block.completedAt || "") - Date.parse(block.startedAt || "");
+  const duration =
+    Number.isFinite(elapsed) && elapsed >= 0
+      ? elapsed < 1000
+        ? "<1 秒"
+        : `${(elapsed / 1000).toFixed(elapsed < 10000 ? 1 : 0)} 秒`
+      : "";
+  const receipt =
+    block.receipt ||
+    (block.result &&
+    typeof block.result === "object" &&
+    "receipt" in block.result
+      ? (block.result.receipt as Record<string, unknown>)
+      : undefined);
   return (
     <details
       className={
@@ -76,9 +97,44 @@ function ToolCard({
               : block.status === "failed"
                 ? "失败"
                 : "完成"}
+          {duration && ` · ${duration}`}
         </small>
         <ChevronRight size={12} />
       </summary>
+      {receipt && (
+        <div className="chat-change-receipt">
+          {[
+            ["created", "新增"],
+            ["modified", "修改"],
+            ["deleted", "删除"],
+          ].map(([key, label]) => {
+            const values = receipt[key];
+            if (!Array.isArray(values) || !values.length) return null;
+            const names = values
+              .slice(0, 8)
+              .map((v) =>
+                typeof v === "string"
+                  ? v
+                  : typeof v?.name === "string"
+                    ? v.name
+                    : "",
+              )
+              .filter(Boolean);
+            return (
+              <div key={key}>
+                <strong>
+                  {label} {values.length}
+                </strong>
+                <span>
+                  {names.join("、")}
+                  {values.length > 8 ? "…" : ""}
+                </span>
+              </div>
+            );
+          })}
+          <small>对象变化回读；完整范围见结果。</small>
+        </div>
+      )}
       {block.args !== undefined && (
         <div className="chat-tool-detail">
           <span>输入</span>
@@ -99,10 +155,14 @@ export function RunView({
   run,
   events,
   lightbox,
+  onRestoreSnapshot,
+  busy = false,
 }: {
   run: Run;
   events: PilotEvent[];
   lightbox: (v: { src: string; title: string }) => void;
+  onRestoreSnapshot?: (snapshot: Snapshot) => void;
+  busy?: boolean;
 }) {
   const blocks = useMemo(() => reduceTimeline(events), [events]);
   const [copied, setCopied] = useState(false);
@@ -235,6 +295,36 @@ export function RunView({
                   <Maximize2 size={12} />
                 </span>
               </button>
+            );
+          }
+          if (block.kind === "snapshot") {
+            const snapshot = block.snapshot;
+            if (snapshot.projectId !== run.projectId) return null;
+            return (
+              <div className="chat-snapshot" key={block.id}>
+                <ShieldCheck size={14} />
+                <span>
+                  <strong>{snapshot.name || "场景恢复点"}</strong>
+                  <small>已保存 Blender 文件</small>
+                </span>
+                <a
+                  href={fileUrl("snapshot", snapshot.id)}
+                  title="下载恢复点"
+                  aria-label="下载恢复点"
+                >
+                  <ArrowDownToLine size={14} />
+                </a>
+                {onRestoreSnapshot && (
+                  <button
+                    type="button"
+                    disabled={busy || !finished}
+                    onClick={() => onRestoreSnapshot(snapshot)}
+                  >
+                    <RotateCcw size={12} />
+                    恢复
+                  </button>
+                )}
+              </div>
             );
           }
           if (block.kind === "verification")

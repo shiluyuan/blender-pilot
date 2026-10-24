@@ -190,6 +190,8 @@ test("other MCP servers retain their native tool lifecycle", () => {
     name: "search",
     args: { term: "chair" },
     result: { count: 4 },
+    startedAt: "2026-10-24T00:00:00Z",
+    completedAt: "2026-10-24T00:00:00Z",
     status: "completed",
   });
 });
@@ -273,4 +275,57 @@ test("document context receipts distinguish full, truncated and zero-budget read
   assert.match(notices[2].message, /0\/2000 字符/);
   assert.equal(notices[2].severity, "error");
   assert(!notices[2].message.startsWith("已读取文档"));
+});
+
+test("replayed recovery points and mutation receipts retain their chronological owner", () => {
+  const before = {
+    id: "before",
+    projectId: "project-a",
+    name: "AI 操作前",
+    createdAt: "2026-10-24T00:00:00Z",
+    path: "/local/before.blend",
+  };
+  const after = { ...before, id: "after", name: "AI 操作结果" };
+  const blocks = reduceTimeline([
+    event(1, "snapshot.created", { snapshot: before }),
+    event(2, "tool.started", {
+      callId: "mutate",
+      name: "execute_blender_code",
+    }),
+    event(3, "scene.receipt", {
+      callId: "mutate",
+      receipt: {
+        created: ["Chair"],
+        deleted: [],
+        modified: [{ name: "Table" }],
+      },
+    }),
+    {
+      ...event(4, "tool.failed", {
+        callId: "mutate",
+        error: "截图失败，几何体可能已创建",
+      }),
+      time: "2026-10-24T00:00:04Z",
+    },
+    event(5, "snapshot.created", { snapshot: after }),
+    event(6, "snapshot.created", { snapshot: before }),
+    event(7, "snapshot.created", { snapshot: { id: "invalid" } }),
+  ]);
+  assert.deepEqual(
+    blocks.map((block) => block.kind),
+    ["snapshot", "tool", "snapshot"],
+  );
+  assert.equal(
+    blocks[0].kind === "snapshot" && blocks[0].snapshot.id,
+    "before",
+  );
+  const tool = blocks.find((block) => block.kind === "tool")!;
+  assert.equal(tool.status, "failed");
+  assert.equal(tool.startedAt, "2026-10-24T00:00:00Z");
+  assert.equal(tool.completedAt, "2026-10-24T00:00:04Z");
+  assert.deepEqual(tool.receipt, {
+    created: ["Chair"],
+    deleted: [],
+    modified: [{ name: "Table" }],
+  });
 });
