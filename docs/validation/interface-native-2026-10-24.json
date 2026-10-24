@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "codex": "passed",
+  "time": "2026-10-24T03:43:10.863Z",
+  "blender": "5.2.3 LTS",
+  "model": "deterministic Responses fixture (not real inference)",
+  "databaseValidation": "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised",
+  "mode": "protocol-fixture",
+  "reusedLiveChecks": false,
+  "imageInputs": 19,
+  "library": {
+    "passed": true,
+    "blender": "5.2.3 LTS",
+    "checks": [
+      "selected hierarchy only",
+      "packed texture survives deletion of original",
+      "materials and transforms",
+      "source scene unchanged",
+      "cross-project append",
+      "repeated imports have independent meshes and materials",
+      "scene collection merge",
+      "category/tag search",
+      "favorite survives reload",
+      "empty selection rejected"
+    ],
+    "assetIds": [
+      "5e3fa615-3696-464b-b7c1-0a025b952453",
+      "0ecc4e86-b46e-4f6b-abff-2c54c713cc1e"
+    ]
+  },
+  "checks": [
+    "native MCP",
+    "snapshots",
+    "GLB/glTF/blend exports",
+    "Codex tool calls",
+    "image input",
+    "idempotency",
+    "thread resume",
+    "cancel",
+    "browser VNC"
+  ]
+}

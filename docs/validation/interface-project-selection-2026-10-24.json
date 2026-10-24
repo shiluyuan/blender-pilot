@@ -1,0 +1,30 @@
+[
+  {
+    "name": "湖畔小屋",
+    "active": "true",
+    "draft": "",
+    "attachments": 0,
+    "context": "自动截图已开启A 的独立任务"
+  },
+  {
+    "name": "角色工作室",
+    "active": "true",
+    "draft": "",
+    "attachments": 0,
+    "context": "自动截图已开启B 的独立任务，引用阅读角组合"
+  },
+  {
+    "name": "湖畔小屋",
+    "active": "true",
+    "draft": "只属于湖畔小屋的草稿",
+    "attachments": 2,
+    "context": "自动截图已开启A 的独立任务"
+  },
+  {
+    "name": "角色工作室",
+    "active": "true",
+    "draft": "角色项目草稿",
+    "attachments": 0,
+    "context": "自动截图已开启B 的独立任务，引用阅读角组合"
+  }
+]

@@ -7,7 +7,7 @@
   flex-wrap: wrap;
   gap: 8px 12px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 20px;
 }
 .template-context small {
@@ -25,7 +25,7 @@
   margin-left: auto;
 }
 .template-toolbar select {
-  font-size: 11px;
+  font-size: 12px;
   padding: 6px 9px;
 }
 .template-tabs {
@@ -60,7 +60,7 @@
 .template-list-heading {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   padding: 0 2px 3px;
 }
@@ -72,7 +72,7 @@
   background: var(--panel);
   white-space: normal;
   padding: 14px;
-  border-radius: 7px;
+  border-radius: 10px;
   gap: 7px;
   min-width: 0;
 }
@@ -99,7 +99,7 @@
 }
 .template-card p {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -108,13 +108,13 @@
   justify-content: space-between;
   gap: 10px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 4px;
 }
 .template-detail {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 10px;
   min-width: 0;
   /* Keep rounded clipping without creating a scroll container for the footer. */
   overflow: clip;
@@ -138,7 +138,7 @@
   overflow-wrap: anywhere;
 }
 .template-detail-heading p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   max-width: 500px;
   overflow-wrap: anywhere;
@@ -149,7 +149,7 @@
   align-items: center;
 }
 .template-detail-actions button {
-  font-size: 10px;
+  font-size: 12px;
   min-height: 28px;
 }
 .template-detail-body {
@@ -161,7 +161,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 12px;
 }
 .template-section-heading > span {
@@ -171,7 +171,7 @@
   font-weight: 550;
 }
 .template-section-heading small {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
 }
 .template-parameters {
@@ -180,19 +180,19 @@
   gap: 0 14px;
 }
 .template-parameters label {
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 15px;
   gap: 6px;
 }
 .template-parameters textarea {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
   padding: 8px;
   min-height: 64px;
 }
 .template-help {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.75;
 }
 .template-asset-picker {
@@ -214,7 +214,7 @@
   padding: 3px 4px 3px 7px;
   border: 1px solid var(--line);
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 12px;
   background: var(--raised);
 }
 .template-ref > span {
@@ -238,7 +238,7 @@
   margin-bottom: 8px;
 }
 .template-asset-browser .search input {
-  font-size: 11px;
+  font-size: 12px;
 }
 .template-asset-options {
   max-height: 220px;
@@ -253,7 +253,7 @@
   gap: 8px;
   margin: 0;
   padding: 6px;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 4px;
   cursor: pointer;
 }
@@ -273,22 +273,22 @@
 }
 .template-asset-options small {
   margin-left: 9px;
-  font-size: 9px;
+  font-size: 12px;
 }
 .template-prompt-heading {
   display: flex;
   justify-content: space-between;
   margin: 16px 0 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .template-prompt-heading small {
-  font-size: 9px;
+  font-size: 12px;
 }
 .template-prompt {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.9;
   background: var(--bg);
   border: 1px solid var(--soft-line);
@@ -314,22 +314,22 @@
   gap: 12px;
 }
 .template-use-footer > div > span {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .template-use-footer button {
-  font-size: 11px;
+  font-size: 12px;
 }
 .template-inline-error {
   color: var(--error);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
   margin: 8px 0 12px;
   overflow-wrap: anywhere;
 }
 .template-inline-error > button {
   margin-left: 8px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .template-empty {
   min-height: 210px;
@@ -341,7 +341,7 @@
   padding: 25px;
   text-align: center;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .template-empty h3 {
@@ -357,10 +357,10 @@
   gap: 9px;
   margin: 10px 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 .template-pagination button {
-  font-size: 10px;
+  font-size: 12px;
   min-height: 27px;
   padding: 4px 7px;
 }
@@ -398,7 +398,7 @@
   margin-bottom: 4px;
 }
 .template-dialog-heading small {
-  font-size: 10px;
+  font-size: 12px;
 }
 .template-editor-dialog fieldset {
   margin: 0;
@@ -407,7 +407,7 @@
   min-width: 0;
 }
 .template-editor-dialog label {
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 15px;
   gap: 6px;
 }
@@ -438,10 +438,10 @@
 }
 .template-variable-row label {
   margin-bottom: 9px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .template-variable-row input {
-  font-size: 11px;
+  font-size: 12px;
   padding: 7px;
 }
 .template-variable-row > .icon {
@@ -461,10 +461,10 @@
   gap: 7px;
 }
 .template-dialog-footer small {
-  font-size: 10px;
+  font-size: 12px;
 }
 .template-dialog-footer button {
-  font-size: 11px;
+  font-size: 12px;
 }
 .template-delete-dialog {
   width: 430px;

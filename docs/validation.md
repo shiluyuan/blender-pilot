@@ -243,3 +243,7 @@ npm run verify:workspaces
 ```
 
 可用 `BLENDER_BIN`、`MCP_BIN`、`XVFB_BIN`、`OPENBOX_BIN`、`X11VNC_BIN`、`PILOT_BROWSER_BIN` 覆盖可执行文件路径。`PILOT_TEST_DATA` 应指向新的空测试目录；模型接口由脚本在 localhost 启动，无需真实 Key。Khronos BoxTextured 原始说明标注 Cesium / CC BY 4.0，并有 Cesium 商标说明；模型不随本仓库分发，使用前阅读其原始 README。
+
+## 界面、系统状态与启动故障补充验收（2026-10-24 北京时间）
+
+最新结果与真实截图集中在 [界面与系统状态验收](interface-acceptance.md)，机器汇总见 [interface-summary-2026-10-24.json](validation/interface-summary-2026-10-24.json)。深浅主题、项目切换保护、状态过期、逐组件故障和桌面启动身份核对都在此轮重新检查。真实模型的审批缺口与 Docker / 原生 PostgreSQL 实机验收仍保留，不将协议夹具标记为模型推理。

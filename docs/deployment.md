@@ -98,9 +98,14 @@ docker compose --env-file .env --profile bundled-db start studio web
 | 数据库未就绪       | `docker compose --env-file .env --profile bundled-db logs --tail=100 db web`；外部数据库检查 TLS、角色权限与连接串 |
 | 发现旧 PGlite 数据 | 让一键脚本完成离线迁移；不要删除旧目录来跳过保护                                                                   |
 | Blender 启动失败   | 查看 `<data-dir>/projects/<id>/runtime/`；项目页关闭故障实例后再开                                                 |
+| 桌面端口已被占用   | Runner 单进程被强杀可能留下旧桌面；先结束其他任务并保存场景，再重启 `studio` 容器，重新打开项目                    |
 | 视口断开           | 检查 WebSocket 代理，点击重新连接；只关闭有故障的项目                                                              |
 | 模型能答但无法看图 | 检查 Responses 图片和工具能力；连接测试不能替代真实任务                                                            |
 | 上传完成阶段失败   | 重新选择同一文件重试，服务器保留分块并恢复完成标记                                                                 |
 | 外部素材没有贴图   | 优先使用含贴图 GLB 或打包后的 .blend；ZIP 和相对依赖未自动整理                                                     |
 
 当前云端没有可运行的 Docker daemon，原生 PostgreSQL 所需用户操作也被环境禁止；云端 SQL/pg 驱动检查明确使用测试协议环境，不能代替标准主机的 Docker / PostgreSQL 验收。脚本的默认启动检查会在实际部署主机运行真实服务验证。
+
+运行控制台按 10 秒检查，显示最近成功检查时间；网络失败后旧状态会标记过期。模型“已配置”只说明配置已保存，Codex/MCP 的构建版本也不代表本次实际运行验证。Blender 实例独立列出启动中、就绪、关闭中和失败状态。详细语义与场景见 [界面与系统状态验收](interface-acceptance.md)。
+
+“项目桌面端口已被占用”时，程序不会终止不明进程或把遗留 MCP 当作新实例。完成其他项目的任务与保存后，可执行 `docker compose --env-file .env restart studio`；该操作会重启所有项目的桌面，再从网页重新打开已保存项目。非 Docker 开发模式应由进程管理器完整清理自己创建的桌面进程后重启，不能只重启 Runner Node 进程并依赖旧桌面。

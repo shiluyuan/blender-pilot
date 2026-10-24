@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "timezone": "Asia/Shanghai",
+  "createdAt": "2026-10-24T03:44:19.058925+00:00",
+  "scope": "interface consistency, system status and backend regression acceptance",
+  "completedChecksPassed": true,
+  "controlledTrialReady": true,
+  "productionReady": false,
+  "baseCommit": "f8cca9298b9552cd23c45346dcffe84bff039481",
+  "automated": {
+    "nodeTests": 79,
+    "pythonDeploymentTests": 11,
+    "total": 90,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "browser": {
+    "chat": 15,
+    "templates": 20,
+    "journeys": 9,
+    "interfaceAndStatus": 16,
+    "total": 60,
+    "uncaughtBrowserErrors": 0,
+    "scope": "Real Fastify, PostgreSQL WASM/TCP and Chromium; Runner/model responses explicitly controlled fixtures"
+  },
+  "visual": {
+    "acceptedCleanScreenshots": 20,
+    "themes": ["dark", "light"],
+    "desktopWidths": [1440, 1280, 1024],
+    "matchedReferenceViewport": [1440, 960],
+    "referenceRepository": "debpalash/VoiceStudio",
+    "referenceCommit": "80a01e595b5ae060e47fdeaa128d21f3a38de0df",
+    "screenshotDirectory": "docs/screenshots/interface",
+    "accessibility": "Sampled text/action contrasts >=4.5:1; not full accessibility certification"
+  },
+  "native": {
+    "dualBlenderGroups": 12,
+    "singleBlenderCategories": 9,
+    "blender": "5.2.3 LTS",
+    "codex": "0.164.0",
+    "mcp": "2.2.2",
+    "modelMode": "local deterministic Responses fixture; no external model inference",
+    "actualSnapshotRestore": true,
+    "exportFormats": ["glb", "gltf", "blend"],
+    "imageInputs": 19,
+    "orphanStartupRefused": true,
+    "ownedRuntimeCleanup": "Test-only wrappers record owned process IDs; only those are cleaned before restart. Production refuses unknown orphan endpoints, does not kill them.",
+    "dockerContainerRestartTested": false
+  },
+  "fixes": [
+    "VoiceStudio screenshot-grounded shared theme and readable typography",
+    "Independent component health with fresh/stale/error semantics and bounded polling",
+    "Configured model and pinned versions do not claim inference/runtime verification",
+    "Strict Runner health validation and preserved degraded receipts",
+    "Project switching disables editing/actions until ownership commits or rolls back",
+    "Startup cannot overwrite failed state; read-only launch identity and Blender PID verification precede scene mutation",
+    "Occupied orphan endpoints fail closed; fresh owned desktops recover saved scenes after explicit test-owned cleanup",
+    "Narrow viewport footer clipping fixed"
+  ],
+  "supersededEvidence": {
+    "earlierNativeTwelveGroupResult": "Invalidated after screenshot exposed ready-with-Xvfb-exit-error. Not used as final acceptance.",
+    "replacement": "interface-workspaces-2026-10-24.json from fresh .data/interface-workspaces-verified with stronger ownership and orphan-refusal assertions",
+    "rejectedVisualFrames": "Loading narrow libraries and clipped footer frames recaptured; fault-toast remnants excluded from clean gallery"
+  },
+  "environment": {
+    "database": "Explicit PostgreSQL WASM over TCP using pg driver; not native PostgreSQL",
+    "memoryLimitBytes": 8589934592,
+    "newOomKills": 0,
+    "privateModelConfigAbsent": true
+  },
+  "notCompleted": [
+    "Actual host Docker image build/start and native PostgreSQL acceptance",
+    "Previously blocked final external real-model browser acceptance; no retry or external model transmission in this round",
+    "GPU and large production-scene performance"
+  ],
+  "reports": [
+    "interface-chat-2026-10-24.json",
+    "interface-templates-2026-10-24.json",
+    "interface-journeys-2026-10-24.json",
+    "interface-browser-2026-10-24.json",
+    "interface-visual-2026-10-24.json",
+    "interface-visual-review-2026-10-24.json",
+    "interface-workspaces-2026-10-24.json",
+    "interface-project-selection-2026-10-24.json",
+    "interface-native-2026-10-24.json"
+  ],
+  "sourceSha256": {
+    "apps/runner/pool.ts": "615bed9521a4e1ec1379e9d42503939d16f35dbf30afa807fa3f9db25008ee5a",
+    "apps/runner/health.ts": "5d3d4001b014fe49841fc3b93f62e65b4c434e4eb8d7dda08b563352c7e72d14",
+    "apps/server/health.ts": "c136380cec879087e31f0bf8a1f16637d2552f764b87044e40d44db3b46b9873",
+    "apps/server/app.ts": "d5d634e685ff61851a54c2c1a2756a0ed0c02a0b53a6f33a8bc16cd9b0858cd6",
+    "apps/web/main.tsx": "c2ad4599ddd34b9177cd593200be5dec23858f53b21f07c3adb96179ea91fcb0",
+    "apps/web/SystemStatus.tsx": "75656ff34e06c349c151db8203620753df282cf346d66e65fc0ff7fe9e6d4c68",
+    "apps/web/useSystemHealth.ts": "8d5b9da1bea2526f67a0392d2fba32983c86e2848df528ef25d3dab72c4c0bb1",
+    "apps/web/chat/ChatComposer.tsx": "99c291398fe7a58ad73583643556a54c23d27e76009fa776d0a96a8a9e1d72e5",
+    "apps/web/styles.css": "2a5ab3b0ed8fa57d842a0d31fed82e933d4317f71859628f98f1cc79e3dc78e1",
+    "apps/web/templates.css": "f8c0c9f7ce7ca28ea1d0af37420e7822bdc21799046cc6e678d0990c61bf3202",
+    "apps/web/status.css": "74aa6ac08464d09396dae7b029a4e9d3d640dc0670da407a5612fe28f9a760dd"
+  }
+}

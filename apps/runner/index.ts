@@ -4,13 +4,13 @@ import { connect } from "node:net";
 import { mkdir } from "node:fs/promises";
 import { StudioPool } from "./pool.js";
 import { StartupJobs } from "./dispatch.js";
+import { collectRunnerHealth } from "./health.js";
 import { saveLibrarySchema } from "../../packages/blender-bridge/library.js";
 import { toolDefinitions } from "./jobs.js";
 import { equal } from "../server/security.js";
 import {
   idSchema,
   modelSettingsSchema,
-  terminal,
 } from "../../packages/contracts/index.js";
 import { z } from "zod";
 import { existingSafePath } from "../../packages/contracts/fs.js";
@@ -46,32 +46,13 @@ app.setErrorHandler((e: any, req, reply) => {
     .send({ error: e.message || "Runner failed" });
 });
 app.get("/health", async (_req, reply) => {
-  const failedStorage =
-    pool.history.storageFailure ||
-    [...pool.studios.values()].find((s) => s.jobs.storageFailure)?.jobs
-      .storageFailure;
-  if (failedStorage) reply.code(503);
-  return {
-    ok: !failedStorage,
-    storage: {
-      ok: !failedStorage,
-      ...(failedStorage
-        ? { error: "执行事件存储不可用，请修复磁盘并重启执行服务" }
-        : {}),
-    },
-    blender: pool.status().some((s) => s.status === "ready"),
-    mode: pool.external ? "external-desktop" : "project-pool",
-    maxStudios: pool.external ? 1 : pool.max,
-    studios: pool.status(),
-    activeRuns: queuedJobs
-      .all()
-      .filter((s) => !terminal.has(s.status))
-      .map((s) => ({
-        id: s.id,
-        projectId: s.projectId,
-        sessionId: s.sessionId,
-      })),
-  };
+  const health = await collectRunnerHealth(
+    pool,
+    sharedDatabase(),
+    queuedJobs.all(),
+  );
+  if (!health.ok) reply.code(503);
+  return health;
 });
 app.post("/projects/:id/close", async (req) => {
   await pool.close(idSchema.parse((req.params as any).id));

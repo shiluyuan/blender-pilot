@@ -1,51 +1,67 @@
 :root {
+  /* VoiceStudio README's Original-style plum canvas, with the current source's
+     brighter rose for readable links/focus. Actions retain the shown magenta. */
   font-family:
     "Inter",
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
     "Noto Sans CJK SC",
+    "Noto Sans SC",
     sans-serif;
   color-scheme: dark;
-  --bg: #101012;
-  --panel: #18181b;
-  --raised: #222225;
-  --input: #101012;
-  --hover: #2c2c30;
-  --line: #333338;
-  --soft-line: #28282d;
-  --text: #ececee;
-  --muted: #a1a1aa;
-  --faint: #71717a;
-  --accent: #6485f7;
-  --accent-ink: #ffffff;
-  --accent-soft: #242d4a;
-  --error: #e8a394;
+  --bg: #211a25;
+  --chrome: #1a131c;
+  --panel: #281f2c;
+  --raised: #302637;
+  --input: #211a25;
+  --hover: #382c40;
+  --line: #483b50;
+  --soft-line: #352a3c;
+  --text: #f1eaf4;
+  --muted: #c6b8ce;
+  --faint: #ac9bb5;
+  --accent: #f09bb8;
+  --accent-ink: #291d29;
+  --accent-soft: #403049;
+  --action: #a3004c;
+  --action-ink: #fbd0e8;
+  --success: #5dd6a5;
+  --warning: #edc277;
+  --error: #ffaaa9;
   --shadow: 0 20px 80px #0005;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
 }
 :root[data-theme="light"] {
+  /* Complementary light palette from VoiceStudio Classic/heritage source. */
   color-scheme: light;
-  --bg: #f7f7f8;
-  --panel: #ffffff;
-  --raised: #f1f1f3;
-  --input: #fff;
-  --hover: #e9e9ed;
-  --line: #dedee3;
-  --soft-line: #eaeaee;
-  --text: #202024;
-  --muted: #71717a;
-  --faint: #92929d;
-  --accent: #4169e1;
-  --accent-ink: #fff;
-  --accent-soft: #ebefff;
-  --error: #b24a34;
-  --shadow: 0 20px 80px #18181b20;
+  --bg: #faf6fc;
+  --chrome: #eee5f2;
+  --panel: #fffbff;
+  --raised: #ffffff;
+  --input: #fffbff;
+  --hover: #eadff0;
+  --line: #d9cddd;
+  --soft-line: #e7dfea;
+  --text: #392c42;
+  --muted: #725d7b;
+  --faint: #725d7b;
+  --accent: #8f3f71;
+  --accent-ink: #ffffff;
+  --accent-soft: #eadff0;
+  --action: #8f3f71;
+  --action-ink: #ffffff;
+  --success: #11724d;
+  --warning: #935b12;
+  --error: #a02c36;
+  --shadow: 0 20px 80px #392c4220;
 }
 * {
   box-sizing: border-box;
@@ -99,14 +115,14 @@ select:focus-visible,
   outline-offset: 2px;
 }
 .primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--action-ink);
   font-weight: 600;
 }
 .primary:hover {
-  filter: brightness(1.06);
-  background: var(--accent);
+  filter: brightness(1.08);
+  background: var(--action);
 }
 .quiet {
   border-color: transparent;
@@ -130,7 +146,7 @@ select:focus-visible,
   padding: 0;
   min-height: 20px;
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
 }
 .full {
   width: 100%;
@@ -159,13 +175,13 @@ h3 {
   font-weight: 550;
 }
 small {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 code,
 pre {
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
+  font-size: 12px;
 }
 input,
 textarea,
@@ -185,7 +201,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   margin-bottom: 22px;
 }
@@ -221,13 +237,16 @@ button svg {
   background: var(--muted);
 }
 .green {
-  background: var(--accent);
+  background: var(--success);
 }
 .amber {
-  background: #b8a777;
+  background: var(--warning);
+}
+.red {
+  background: var(--error);
 }
 .eyebrow {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1.9px;
   font-weight: 600;
   color: var(--muted);
@@ -236,12 +255,12 @@ button svg {
   padding: 2px 6px;
   border: 1px solid var(--line);
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
 }
 .badge.small {
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.6px;
 }
 .spin {
@@ -319,7 +338,7 @@ button svg {
   padding: 0;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
 }
 .main-shell {
   display: flex;
@@ -334,7 +353,7 @@ button svg {
   align-items: center;
   padding: 0 17px;
   gap: 12px;
-  background: var(--panel);
+  background: var(--chrome);
   flex-shrink: 0;
 }
 .brand-text {
@@ -351,7 +370,7 @@ button svg {
 }
 .beta {
   margin-left: 7px;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 1px;
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -390,11 +409,11 @@ button svg {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .topbar-right .quiet {
-  font-size: 11px;
+  font-size: 12px;
 }
 .model-dot {
   width: 12px;
@@ -441,7 +460,7 @@ button svg {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
+  font-size: 12px;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -458,7 +477,7 @@ button svg {
   gap: 4px;
 }
 .toolbar-buttons button {
-  font-size: 11px;
+  font-size: 12px;
   background: none;
   border-color: transparent;
   min-height: 27px;
@@ -481,14 +500,14 @@ button svg {
 .viewport-strip {
   height: 29px;
   flex-shrink: 0;
-  background: #222628;
-  color: #a8b3af;
+  background: var(--chrome);
+  color: var(--muted);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  font-size: 10px;
-  border-bottom: 1px solid #333a39;
+  font-size: 12px;
+  border-bottom: 1px solid var(--soft-line);
 }
 .viewport-strip > span {
   display: flex;
@@ -499,7 +518,7 @@ button svg {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #9aa69f;
+  color: var(--muted);
 }
 .viewport-actions .icon {
   height: 23px;
@@ -513,16 +532,31 @@ button svg {
 }
 .viewport-bottom {
   height: 24px;
-  background: #222628;
+  background: var(--chrome);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 10px;
-  font-size: 9px;
-  color: #87938d;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
   flex-shrink: 0;
-  border-top: 1px solid #333a39;
+  border-top: 1px solid var(--soft-line);
 }
+.viewport-bottom > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viewport-bottom > span:first-child {
+  flex-shrink: 0;
+  max-width: 48%;
+}
+.viewport-bottom > span:last-child {
+  text-align: right;
+}
+
 .viewport-offline {
   position: absolute;
   inset: 29px 0 24px;
@@ -531,23 +565,23 @@ button svg {
   align-items: center;
   justify-content: center;
   gap: 15px;
-  color: #93a39b;
-  background: radial-gradient(ellipse at 50% 50%, #2b3330 0%, #1c2021 60%);
+  color: var(--muted);
+  background: var(--bg);
 }
 .viewport-offline h3 {
-  color: #cfdbd5;
+  color: var(--text);
 }
 .viewport-offline p {
   font-size: 12px;
   text-align: center;
   line-height: 1.9;
-  color: #8d9b94;
+  color: var(--muted);
 }
 .viewport-offline button {
-  background: #303a34;
-  border-color: #46534b;
-  color: #bdcec4;
-  font-size: 11px;
+  background: var(--raised);
+  border-color: var(--line);
+  color: var(--text);
+  font-size: 12px;
 }
 .statusbar {
   height: 25px;
@@ -556,9 +590,9 @@ button svg {
   gap: 20px;
   padding: 0 14px;
   border-top: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--chrome);
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 .statusbar > span {
@@ -619,7 +653,7 @@ button svg {
   gap: 15px;
   align-items: center;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 14px;
 }
 .empty-steps span {
@@ -645,7 +679,7 @@ button svg {
   flex-direction: column;
   flex-shrink: 0;
   min-width: 0;
-  background: var(--panel);
+  background: var(--chrome);
 }
 .chat-header {
   height: 43px;
@@ -662,7 +696,7 @@ button svg {
   align-items: center;
 }
 .chat-header strong {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
 }
 .chat-header > div > svg {
@@ -678,7 +712,7 @@ button svg {
   align-items: center;
   gap: 6px;
   padding: 9px 16px;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
   border-bottom: 1px solid var(--soft-line);
 }
@@ -716,7 +750,7 @@ button svg {
   margin-bottom: 12px;
 }
 .chat-welcome p {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   line-height: 1.9;
 }
@@ -732,14 +766,14 @@ button svg {
   white-space: normal;
   background: transparent;
   min-height: 43px;
-  font-size: 11px;
+  font-size: 13px;
   padding: 9px 10px;
   gap: 10px;
 }
 .suggestions button > span {
   color: var(--faint);
   font-family: monospace;
-  font-size: 9px;
+  font-size: 12px;
 }
 .suggestions button > svg {
   margin-left: auto;
@@ -754,23 +788,23 @@ button svg {
   display: flex;
   gap: 9px;
   align-items: flex-start;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--faint);
   line-height: 1.8;
 }
 .composer-wrap {
   padding: 12px 14px 7px;
   border-top: 1px solid var(--soft-line);
-  background: var(--panel);
+  background: var(--chrome);
 }
 .composer {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--input);
+  border-radius: 16px;
+  background: var(--panel);
   transition: border-color 0.2s;
 }
 .composer:focus-within {
-  border-color: var(--muted);
+  border-color: var(--accent);
 }
 .composer textarea {
   width: 100%;
@@ -779,7 +813,7 @@ button svg {
   max-height: 180px;
   border: 0;
   background: none;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
   padding: 12px;
   outline: 0;
@@ -792,26 +826,26 @@ button svg {
 }
 .shortcut {
   color: var(--faint);
-  font-size: 9px;
+  font-size: 12px;
   margin-right: 9px;
 }
 .send-button {
-  min-height: 29px;
-  width: 29px;
+  min-height: 32px;
+  width: 32px;
   padding: 0;
   border: 0;
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-radius: 6px;
+  background: var(--action);
+  color: var(--action-ink);
+  border-radius: 9px;
 }
 .send-button:hover {
-  background: var(--accent);
+  background: var(--action);
   filter: brightness(1.1);
 }
 .composer-foot {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--faint);
   padding-top: 8px;
 }
@@ -823,7 +857,7 @@ button svg {
 .run-status {
   display: flex;
   align-items: center;
-  font-size: 10px;
+  font-size: 12px;
   gap: 6px;
   color: var(--accent);
   padding: 0 1px 10px;
@@ -838,7 +872,7 @@ button svg {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: 12px;
   border: 1px solid var(--line);
   padding: 2px 4px 2px 7px;
   border-radius: 4px;
@@ -866,15 +900,15 @@ button svg {
 .user-label {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 13px;
   color: var(--muted);
 }
 .user-label time {
   color: var(--faint);
-  font-size: 9px;
+  font-size: 12px;
 }
 .user-message p {
-  font-size: 12px;
+  font-size: 14px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin-top: 6px;
@@ -898,23 +932,23 @@ button svg {
   color: var(--accent);
 }
 .assistant-label strong {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 550;
 }
 .run-badge {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
 }
 .run-badge.succeeded {
-  color: var(--accent);
+  color: var(--success);
 }
 .run-badge.failed,
 .run-badge.interrupted {
   color: var(--error);
 }
 .assistant-copy {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.85;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -926,7 +960,7 @@ button svg {
   margin: 5px 0 15px 7px;
 }
 .tool-row {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .tool-row summary {
@@ -958,7 +992,7 @@ button svg {
   padding: 10px;
   border: 1px solid var(--soft-line);
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .capture-pair {
   display: flex;
@@ -985,7 +1019,7 @@ button svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
   padding: 6px 7px;
 }
@@ -995,7 +1029,7 @@ button svg {
   color: var(--error);
   padding: 9px 0;
   border-top: 1px solid var(--soft-line);
-  font-size: 10px;
+  font-size: 12px;
 }
 .verification.passed {
   color: var(--accent);
@@ -1003,7 +1037,7 @@ button svg {
 .verification small {
   display: block;
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .run-error {
@@ -1015,14 +1049,14 @@ button svg {
   border: 1px solid color-mix(in srgb, var(--error) 22%, transparent);
   border-radius: 8px;
   color: var(--error);
-  font-size: 10px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .artifact-link {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
@@ -1055,7 +1089,7 @@ button svg {
   margin-top: 8px;
 }
 .page-heading button {
-  font-size: 11px;
+  font-size: 13px;
   padding: 7px 13px;
 }
 .filterbar {
@@ -1079,7 +1113,7 @@ button svg {
   width: 100%;
   border: 0;
   background: none;
-  font-size: 11px;
+  font-size: 13px;
   padding: 7px 4px;
   outline: 0;
 }
@@ -1094,7 +1128,7 @@ button svg {
   border: 0;
   min-height: 25px;
   padding: 3px 10px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   background: none;
   border-radius: 3px;
@@ -1104,7 +1138,7 @@ button svg {
   color: var(--text);
 }
 .count {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   margin-left: auto;
 }
@@ -1115,7 +1149,7 @@ button svg {
 }
 .asset-card {
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 10px;
   overflow: hidden;
   background: var(--panel);
 }
@@ -1138,11 +1172,11 @@ button svg {
   position: absolute;
   left: 8px;
   bottom: 8px;
-  font-size: 8px;
+  font-size: 12px;
   padding: 2px 4px;
   border-radius: 3px;
-  background: #171c1cbb;
-  color: #d2ddd7;
+  background: color-mix(in srgb, var(--chrome) 90%, transparent);
+  color: var(--text);
   letter-spacing: 0.4px;
 }
 .asset-info {
@@ -1151,7 +1185,7 @@ button svg {
 }
 .asset-info strong {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1160,7 +1194,7 @@ button svg {
 .asset-info small {
   display: flex;
   gap: 8px;
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 5px;
 }
 .asset-actions {
@@ -1172,7 +1206,7 @@ button svg {
 .asset-actions > button {
   border: 0;
   background: none;
-  font-size: 10px;
+  font-size: 12px;
   padding: 4px 6px;
   min-height: 26px;
   color: var(--muted);
@@ -1199,7 +1233,7 @@ button svg {
   flex-shrink: 0;
 }
 .list .file-ext {
-  font-size: 7px;
+  font-size: 12px;
   left: 3px;
   bottom: 3px;
 }
@@ -1216,11 +1250,11 @@ button svg {
   align-items: center;
   justify-content: center;
   margin: 24px 0;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .pagination button {
-  font-size: 10px;
+  font-size: 12px;
   min-height: 27px;
 }
 .tags {
@@ -1229,7 +1263,7 @@ button svg {
   margin-top: 6px;
 }
 .tags span {
-  font-size: 8px;
+  font-size: 12px;
   padding: 1px 5px;
   background: var(--raised);
   border-radius: 3px;
@@ -1253,7 +1287,7 @@ button svg {
   margin-top: 4px;
 }
 .empty p {
-  font-size: 11px;
+  font-size: 12px;
   max-width: 400px;
 }
 .snapshot-list {
@@ -1289,18 +1323,18 @@ button svg {
 }
 .snapshot-row small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 4px;
 }
 .snapshot-row button,
 .snapshot-row a {
-  font-size: 10px;
+  font-size: 12px;
 }
 .note {
   display: flex;
   gap: 9px;
   margin-top: 22px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .metrics {
@@ -1324,7 +1358,7 @@ button svg {
   gap: 9px;
   align-items: center;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .metric > strong {
   display: block;
@@ -1334,10 +1368,10 @@ button svg {
   letter-spacing: -0.7px;
 }
 .metric small {
-  font-size: 10px;
+  font-size: 12px;
 }
 .section-heading {
-  font-size: 12px;
+  font-size: 13px;
   margin: 25px 0 13px;
 }
 .component-table {
@@ -1350,7 +1384,7 @@ button svg {
   gap: 20px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--soft-line);
-  font-size: 11px;
+  font-size: 12px;
 }
 .component-table > div:last-child {
   border: 0;
@@ -1360,7 +1394,7 @@ button svg {
 }
 .component-table .muted {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 12px;
 }
 .console-log {
   padding: 14px;
@@ -1373,7 +1407,7 @@ button svg {
 .console-log > div {
   display: flex;
   gap: 15px;
-  font-size: 10px;
+  font-size: 12px;
   padding: 7px 0;
   border-bottom: 1px solid var(--soft-line);
   align-items: flex-start;
@@ -1387,7 +1421,7 @@ button svg {
   color: var(--accent);
 }
 .console-log code {
-  font-size: 10px;
+  font-size: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--muted);
@@ -1414,7 +1448,7 @@ button svg {
   gap: 9px;
   color: var(--faint);
   padding: 9px 11px;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 8px;
 }
 .settings-nav .active {
@@ -1440,7 +1474,7 @@ button svg {
   border-radius: 9px;
 }
 .settings-title p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
 }
@@ -1483,7 +1517,7 @@ button svg {
   gap: 9px;
 }
 .form-actions button {
-  font-size: 11px;
+  font-size: 12px;
 }
 .settings-section {
   border-top: 1px solid var(--line);
@@ -1500,13 +1534,13 @@ button svg {
   margin-left: auto;
 }
 .settings-section p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   line-height: 1.9;
   margin: 14px 0;
 }
 .settings-section > small {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.8;
   display: block;
 }
@@ -1520,7 +1554,7 @@ button svg {
 }
 .settings-facts > span {
   flex: 1;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .settings-facts strong {
@@ -1531,7 +1565,7 @@ button svg {
   margin-top: 5px;
 }
 .test-result {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
   margin-top: 15px;
   padding: 12px;
@@ -1614,7 +1648,7 @@ button svg {
 }
 .session-list small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
 }
 .attach-list {
   max-height: 400px;
@@ -1681,7 +1715,7 @@ button svg {
   display: flex;
   gap: 10px;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 7px;
   box-shadow: var(--shadow);
 }
@@ -1714,7 +1748,7 @@ button svg {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 12px;
   padding: 7px 0;
 }
 .upload-row > span {
@@ -1729,7 +1763,7 @@ button svg {
   accent-color: var(--accent);
 }
 .upload-row small {
-  font-size: 9px;
+  font-size: 12px;
 }
 .error-text {
   color: var(--error);
@@ -1739,7 +1773,7 @@ button svg {
   border: 1px solid color-mix(in srgb, var(--error) 40%, transparent);
   color: var(--error);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   margin: 14px 0;
   overflow-wrap: anywhere;
 }
@@ -1775,7 +1809,7 @@ button svg {
   color: var(--accent);
 }
 .version {
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 1.2px;
   color: var(--muted);
   border: 1px solid var(--line);
@@ -1798,7 +1832,7 @@ button svg {
 .login-box > small {
   display: block;
   text-align: center;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 23px;
   color: var(--faint);
 }
@@ -1835,7 +1869,7 @@ button svg {
 .login-art > span {
   position: absolute;
   bottom: 20px;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 3px;
   color: var(--faint);
 }
@@ -1973,10 +2007,10 @@ button svg {
     font-size: 22px;
   }
   .page-heading p {
-    font-size: 11px;
+    font-size: 12px;
   }
   .page-heading button {
-    font-size: 10px;
+    font-size: 13px;
   }
   .metrics {
     grid-template-columns: 1fr;
@@ -2050,10 +2084,10 @@ button svg {
     padding: 15px;
   }
   .empty-workspace h1 {
-    font-size: 17px;
+    font-size: 13px;
   }
   .empty-workspace p {
-    font-size: 11px;
+    font-size: 13px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2080,13 +2114,13 @@ button svg {
   font-size: 12px;
 }
 .library-intro p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 6px;
 }
 .library-intro > span {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 1.2px;
   color: var(--muted);
 }
@@ -2118,7 +2152,7 @@ button svg {
 }
 .library-categories small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
   padding: 18px 12px;
 }
@@ -2144,7 +2178,7 @@ button svg {
 }
 .library-description {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
   margin: 7px 0;
   display: -webkit-box;
@@ -2197,14 +2231,14 @@ button svg {
   }
 }
 
-/* Compact workspace chrome, guided by VoiceStudio's current Electron app shell. */
+/* VoiceStudio-style workspace geometry; central Blender remains native. */
 .rail {
   width: 48px;
-  background: var(--panel);
+  background: var(--chrome);
   align-items: stretch;
 }
 .rail.expanded {
-  width: 224px;
+  width: 255px;
 }
 .rail-brand {
   height: 52px;
@@ -2221,13 +2255,13 @@ button svg {
 }
 .rail-brand > span {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   flex: 1;
   white-space: nowrap;
 }
 .rail-brand small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--muted);
 }
@@ -2247,7 +2281,7 @@ button svg {
   min-height: 35px;
   height: 35px;
   gap: 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .rail.expanded .rail-button {
   justify-content: flex-start;
@@ -2279,7 +2313,7 @@ button svg {
   overflow: auto;
 }
 .section-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--muted);
   display: flex;
@@ -2308,13 +2342,13 @@ button svg {
 }
 .project-explorer > small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--faint);
   padding: 14px 8px;
 }
 .topbar {
   height: 52px;
-  background: var(--panel);
+  background: var(--chrome);
 }
 .topbar .brand-text {
   display: none;
@@ -2328,7 +2362,7 @@ button svg {
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--chrome);
   overflow-x: auto;
 }
 .project-tab {
@@ -2360,7 +2394,7 @@ button svg {
   margin: 0 6px;
 }
 .opening-project {
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -2498,7 +2532,7 @@ button svg {
     gap: 6px;
   }
   .rail-brand > span {
-    font-size: 12px;
+    font-size: 14px;
   }
   .page-content {
     padding: 22px;
@@ -2575,7 +2609,7 @@ button svg {
   min-height: 28px;
   padding: 5px 10px;
   gap: 5px;
-  font-size: 10px;
+  font-size: 12px;
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: 0 3px 15px #0002;
@@ -2609,13 +2643,13 @@ button svg {
   place-items: center;
   background: var(--panel);
   color: var(--accent);
-  font-size: 12px;
-  border-radius: 7px;
+  font-size: 13px;
+  border-radius: 15px;
   pointer-events: none;
   opacity: 0.96;
 }
 .chat-composer-wrap .shortcut {
-  font-size: 9px;
+  font-size: 12px;
   margin-right: 7px;
 }
 .chat-attach-menu {
@@ -2641,7 +2675,7 @@ button svg {
   border: 0;
   background: transparent;
   min-height: 32px;
-  font-size: 11px;
+  font-size: 12px;
   padding: 7px 8px;
 }
 .chat-attach-menu [role="menuitem"]:hover {
@@ -2651,7 +2685,7 @@ button svg {
   display: block;
   padding: 7px 8px 4px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.7;
   border-top: 1px solid var(--soft-line);
   margin-top: 3px;
@@ -2685,7 +2719,7 @@ button svg {
 }
 .chat-attachment small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--error);
 }
 .chat-upload-list {
@@ -2707,14 +2741,14 @@ button svg {
 .chat-upload-row > div > span {
   flex: 1;
   min-width: 0;
-  font-size: 10px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .chat-upload-row small {
   display: block;
   color: var(--muted);
   margin-top: 2px;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.5;
 }
 .chat-upload-row.failed {
@@ -2747,14 +2781,14 @@ button svg {
   align-items: center;
   gap: 6px;
   color: var(--accent);
-  font-size: 10px;
+  font-size: 12px;
 }
 .chat-outbox.error > div:first-child {
   color: var(--error);
 }
 .chat-outbox p {
   margin: 6px 0 3px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.6;
   max-height: 54px;
   overflow: auto;
@@ -2764,7 +2798,7 @@ button svg {
 .chat-outbox > small {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.6;
   overflow-wrap: anywhere;
   max-height: 64px;
@@ -2778,11 +2812,11 @@ button svg {
 .chat-outbox-actions button {
   min-height: 25px;
   padding: 3px 7px;
-  font-size: 10px;
+  font-size: 12px;
   gap: 5px;
 }
 .chat-composer-hint {
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.6;
   color: var(--muted);
   padding-top: 5px;
@@ -2792,7 +2826,7 @@ button svg {
 }
 .chat-markdown {
   color: var(--text);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.85;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -2843,7 +2877,7 @@ button svg {
   border: 1px solid var(--soft-line);
   border-radius: 3px;
   padding: 1px 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .chat-markdown blockquote {
   border-left: 2px solid var(--line);
@@ -2863,7 +2897,7 @@ button svg {
   width: max-content;
   max-width: 100%;
   margin: 10px 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 .chat-markdown th,
 .chat-markdown td {
@@ -2892,14 +2926,14 @@ button svg {
   align-items: center;
   justify-content: space-between;
   padding: 4px 8px;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
   border-bottom: 1px solid var(--soft-line);
 }
 .chat-code-head button {
   border: 0;
   background: none;
-  font-size: 9px;
+  font-size: 12px;
   min-height: 22px;
   padding: 1px 3px;
   color: var(--muted);
@@ -2910,7 +2944,7 @@ button svg {
   padding: 10px;
   overflow-x: auto;
   white-space: pre;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.75;
   max-height: 340px;
 }
@@ -2937,7 +2971,7 @@ button svg {
 .chat-tool summary > small {
   margin-left: auto;
   color: var(--faint);
-  font-size: 9px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 .chat-tool summary > svg:last-child {
@@ -2946,7 +2980,7 @@ button svg {
 .chat-tool-detail > span {
   display: block;
   margin: 6px 0;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--faint);
 }
 .chat-tool-detail pre {
@@ -2957,7 +2991,7 @@ button svg {
   border-radius: 5px;
   padding: 8px 10px;
   margin: 10px 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 .chat-plan summary {
   display: flex;
@@ -2967,10 +3001,10 @@ button svg {
 }
 .chat-plan summary span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 .chat-plan p {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
   color: var(--muted);
   margin: 8px 0;
@@ -2984,7 +3018,7 @@ button svg {
   display: flex;
   align-items: flex-start;
   gap: 7px;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
   padding: 3px 0;
 }
@@ -2995,6 +3029,9 @@ button svg {
 }
 .chat-plan li[data-status="completed"] {
   color: var(--muted);
+}
+.chat-plan li[data-status="completed"] > svg {
+  color: var(--success);
 }
 .chat-plan-dot {
   height: 6px;
@@ -3026,7 +3063,7 @@ button svg {
   justify-content: space-between;
   padding: 6px 9px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
   border-top: 1px solid var(--soft-line);
 }
 .chat-notice {
@@ -3038,7 +3075,7 @@ button svg {
   padding: 8px 9px;
   border-radius: 4px;
   margin: 9px 0;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
@@ -3053,7 +3090,7 @@ button svg {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   margin: 13px 0;
 }
@@ -3064,7 +3101,7 @@ button svg {
 .chat-turn-actions button {
   border: 0;
   background: none;
-  font-size: 9px;
+  font-size: 12px;
   min-height: 24px;
   padding: 3px;
   gap: 5px;
@@ -3088,7 +3125,7 @@ button svg {
   border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   text-decoration: none;
   max-width: 100%;
 }
@@ -3119,7 +3156,7 @@ button svg {
   padding: 8px;
   margin: 10px 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .chat-snapshot > span {
   flex: 1;
@@ -3127,17 +3164,17 @@ button svg {
 }
 .chat-snapshot strong {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text);
 }
 .chat-snapshot small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 2px;
 }
 .chat-snapshot button {
   padding: 4px 7px;
-  font-size: 11px;
+  font-size: 12px;
   min-height: 26px;
 }
 .chat-snapshot a {
@@ -3148,7 +3185,7 @@ button svg {
 .chat-change-receipt {
   padding: 7px 10px;
   border-top: 1px solid var(--line);
-  font-size: 11px;
+  font-size: 12px;
 }
 .chat-change-receipt > div {
   display: flex;
@@ -3163,7 +3200,7 @@ button svg {
   color: var(--muted);
 }
 .chat-change-receipt small {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .chat-template-entry {

@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "scope": "interface-visual-capture",
+  "time": "2026-10-24T03:33:15.660Z",
+  "environment": {
+    "api": "real Fastify",
+    "database": "explicit PostgreSQL WASM over TCP/pg driver; not native PostgreSQL",
+    "runner": "explicit health/scene fixture; no native Blender or model inference",
+    "browser": "Chromium/Playwright"
+  },
+  "checks": [
+    "工作台、素材库、模板中心、控制台、设置五个页面深浅主题均可显示且无整页横向溢出",
+    "导航和右侧助手均可收起再展开，当前工作区保持可操作",
+    "1280和1024桌面宽度下核心页面无整页横向溢出，操作入口可达",
+    "界面与系统状态全部新增场景没有未捕获的浏览器错误"
+  ],
+  "screenshots": [
+    "08-studio-dark.png",
+    "08-library-dark.png",
+    "08-templates-dark.png",
+    "08-console-dark.png",
+    "08-settings-dark.png",
+    "08-studio-light.png",
+    "08-library-light.png",
+    "08-templates-light.png",
+    "08-console-light.png",
+    "08-settings-light.png",
+    "08-studio-reference-size-light.png",
+    "08-studio-reference-size-dark.png",
+    "09-1280-工作台.png",
+    "09-1280-素材库.png",
+    "09-1280-运行控制台.png",
+    "09-1280-模型设置.png",
+    "09-1024-工作台.png",
+    "09-1024-素材库.png",
+    "09-1024-运行控制台.png",
+    "09-1024-模型设置.png"
+  ],
+  "runnerHealthReads": 5,
+  "uncaughtBrowserErrors": [],
+  "screenshotDirectory": "docs/screenshots/interface"
+}

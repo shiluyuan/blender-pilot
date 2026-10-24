@@ -51,9 +51,7 @@ import {
   Sparkles,
   MessageSquare,
   Command,
-  HardDrive,
   Server,
-  Database as DatabaseIcon,
   RefreshCw,
   SlidersHorizontal,
   ExternalLink,
@@ -89,6 +87,8 @@ import { useChatComposer } from "./chat/useChatComposer";
 import { mergePilotEvents } from "./chat/timeline";
 import { documentMime } from "../../packages/contracts/attachments";
 
+import { useSystemHealth } from "./useSystemHealth";
+import { SystemStatus, workspaceHealth } from "./SystemStatus";
 import "./styles.css";
 const labels: Record<string, string> = {
   queued: "等待执行",
@@ -231,7 +231,6 @@ function App() {
     [session, setSession] = useState<Session>(),
     [runs, setRuns] = useState<Run[]>([]),
     [events, setEvents] = useState<Record<string, PilotEvent[]>>({}),
-    [health, setHealth] = useState<any>(),
     [assets, setAssets] = useState<Asset[]>([]),
     [assetTotal, setAssetTotal] = useState(0),
     [assetPage, setAssetPage] = useState(0),
@@ -239,6 +238,20 @@ function App() {
     [assetKind, setAssetKind] = useState("all"),
     [assetView, setAssetView] = useState("grid"),
     [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const {
+    health,
+    loading: healthLoading,
+    error: healthError,
+    stale: healthStale,
+    lastSuccessAt,
+    refresh: loadHealth,
+  } = useSystemHealth(auth === true);
+  const systemState = workspaceHealth(
+    health,
+    healthStale,
+    healthError,
+    project?.id,
+  );
   const [authExpired, setAuthExpired] = useState(false);
   const [panel, setPanel] = useState(true),
     [panelWidth, setPanelWidth] = useState(
@@ -258,6 +271,12 @@ function App() {
   const [restoringProject, setRestoringProject] = useState<string>();
   const assetRequest = useRef(0);
   const projectRequest = useRef(0);
+  useEffect(() => {
+    if (auth !== true) {
+      projectRequest.current++;
+      setOpening(undefined);
+    }
+  }, [auth]);
   useEffect(() => {
     localStorage.setItem("pilot-sidebar", sidebarOpen ? "open" : "closed");
   }, [sidebarOpen]);
@@ -338,11 +357,6 @@ function App() {
       return () => clearTimeout(t);
     }
   }, [toast]);
-  const loadHealth = useCallback(async () => {
-    try {
-      setHealth(await api("/health"));
-    } catch {}
-  }, []);
   const loadAssets = useCallback(async () => {
     if (!project) return;
     const request = ++assetRequest.current;
@@ -408,6 +422,7 @@ function App() {
     setOpening(p.id);
     try {
       await post(`/projects/${p.id}/activate`);
+      if (request !== projectRequest.current) return;
       setOpenIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));
       let ss = await api<Session[]>(`/projects/${p.id}/sessions`);
       if (!ss.length) ss = [await post<Session>(`/projects/${p.id}/sessions`)];
@@ -457,17 +472,19 @@ function App() {
   };
   useEffect(() => {
     if (!auth) return;
+    let disposed = false;
     void api<Project[]>("/projects")
       .then(async (ps) => {
+        if (disposed) return;
         setProjects(ps);
-        const status = await api("/health");
-        setHealth(status);
+        const status = await loadHealth();
+        if (disposed) return;
         setOpenIds(
-          (status.execution?.studios || [])
+          (status?.execution?.studios || [])
             .filter((s: any) => s.status === "ready")
             .map((s: any) => s.projectId),
         );
-        const running = status.execution?.activeRuns?.find(
+        const running = status?.execution?.activeRuns?.find(
           (r: any) => r.projectId === localStorage.getItem("pilot-project"),
         );
         const saved =
@@ -476,7 +493,7 @@ function App() {
           await chooseProject(
             ps.find((p) => p.id === saved) ||
               ps.find((p) =>
-                status.execution?.studios?.some(
+                status?.execution?.studios?.some(
                   (s: any) => s.projectId === p.id && s.status === "ready",
                 ),
               ) ||
@@ -484,10 +501,12 @@ function App() {
             running?.sessionId,
           );
       })
-      .catch((e) => notify(String(e)));
-    void loadHealth();
-    const timer = setInterval(() => void loadHealth(), 10000);
-    return () => clearInterval(timer);
+      .catch((e) => {
+        if (!disposed) notify(String(e));
+      });
+    return () => {
+      disposed = true;
+    };
   }, [auth]);
   useEffect(() => {
     void loadAssets().catch((e) => notify(String(e)));
@@ -587,7 +606,7 @@ function App() {
     return () => window.removeEventListener("keydown", key);
   }, []);
   const newSession = async () => {
-    if (!project) return;
+    if (!project || opening) return;
     const boundProject = project.id;
     const s = await post<Session>(`/projects/${boundProject}/sessions`);
     if (currentProject.current !== boundProject) return;
@@ -596,10 +615,10 @@ function App() {
     setModal(null);
   };
   const send = async () => {
-    if (!busy) await chat.send();
+    if (!busy && !opening) await chat.send();
   };
   const capture = async () => {
-    if (!project) return;
+    if (!project || opening) return;
     const c = await action(() =>
       post<Capture>(`/projects/${project.id}/captures`),
     );
@@ -749,12 +768,39 @@ function App() {
               >
                 <Box size={14} />
                 <span>{p.name}</span>
-                {health?.execution?.activeRuns?.some(
+                {!healthStale &&
+                health?.execution?.activeRuns?.some(
                   (r: any) => r.projectId === p.id,
                 ) ? (
                   <Loader2 size={12} className="spin" />
                 ) : openIds.includes(p.id) ? (
-                  <span className="dot green" />
+                  <span
+                    data-testid={"project-state-" + p.id}
+                    data-tone={
+                      healthStale
+                        ? "unknown"
+                        : health?.execution?.studios?.find(
+                              (studio) => studio.projectId === p.id,
+                            )?.status === "ready"
+                          ? "good"
+                          : health?.execution?.studios?.find(
+                                (studio) => studio.projectId === p.id,
+                              )?.status === "failed"
+                            ? "bad"
+                            : "unknown"
+                    }
+                    title={
+                      healthStale
+                        ? "状态待确认"
+                        : health?.execution?.studios?.find(
+                              (studio) => studio.projectId === p.id,
+                            )?.status === "failed"
+                          ? "实例异常"
+                          : "项目实例"
+                    }
+                  >
+                    <i className="health-dot" aria-hidden="true" />
+                  </span>
                 ) : null}
               </button>
             ))}
@@ -836,12 +882,16 @@ function App() {
             <Plus size={15} />
           </button>
           <div className="topbar-right">
-            <span className="status">
-              <span
-                className={"dot " + (health?.execution?.ok ? "green" : "amber")}
-              />
-              {health?.execution?.ok ? "执行环境就绪" : "执行环境未连接"}
-            </span>
+            <button
+              className="status workspace-health"
+              data-testid="workspace-health"
+              data-tone={systemState.tone}
+              onClick={() => setPage("console")}
+              title="查看系统状态"
+            >
+              <i className="health-dot" aria-hidden="true" />
+              {systemState.label}
+            </button>
             <button className="quiet" onClick={() => setPage("settings")}>
               <span className="model-dot" />
               {health?.model?.model || "配置模型"}
@@ -933,14 +983,14 @@ function App() {
                 </div>
                 <div className="toolbar-buttons">
                   <button
-                    disabled={!project || busy}
+                    disabled={!project || busy || !!opening}
                     onClick={() => void capture()}
                   >
                     <Camera size={14} />
                     截图
                   </button>
                   <button
-                    disabled={!project || busy}
+                    disabled={!project || busy || !!opening}
                     onClick={() =>
                       void action(
                         () => post(`/projects/${project!.id}/save`),
@@ -952,7 +1002,7 @@ function App() {
                     保存
                   </button>
                   <button
-                    disabled={!project || busy}
+                    disabled={!project || busy || !!opening}
                     onClick={() => setModal("export")}
                   >
                     <ArrowDownToLine size={14} />
@@ -1056,9 +1106,9 @@ function App() {
                         )?.status === "failed" && (
                           <p className="error">
                             {
-                              health.execution.studios.find(
+                              health?.execution?.studios?.find(
                                 (s: any) => s.projectId === p.id,
-                              ).error
+                              )?.error
                             }
                             <button
                               onClick={() =>
@@ -1093,9 +1143,13 @@ function App() {
             {page === "library" && (
               <LibraryPanel
                 projectId={project?.id}
-                busy={busy}
+                busy={busy || !!opening}
                 notify={notify}
                 onUse={(selected) => {
+                  if (opening) {
+                    notify("正在切换项目，请稍候再引用素材");
+                    return;
+                  }
                   if (
                     attachments.length +
                       selected.filter(
@@ -1127,15 +1181,18 @@ function App() {
               <TemplatesPanel
                 projectId={project?.id}
                 sessionId={session?.id}
-                busy={busy || chat.loading || !!chat.outbox}
+                busy={busy || !!opening || chat.loading || !!chat.outbox}
                 blockedReason={
-                  chat.outbox
-                    ? "当前对话有待确认的发送，请先返回对话处理"
-                    : undefined
+                  opening
+                    ? "正在切换项目，请稍候"
+                    : chat.outbox
+                      ? "当前对话有待确认的发送，请先返回对话处理"
+                      : undefined
                 }
                 notify={notify}
                 onUse={({ prompt, libraryAssets }) => {
                   if (
+                    opening ||
                     !project ||
                     !session ||
                     currentProject.current !== project.id ||
@@ -1381,7 +1438,7 @@ function App() {
                   action={
                     <button
                       className="primary"
-                      disabled={!project || busy}
+                      disabled={!project || busy || !!opening}
                       onClick={() =>
                         void action(async () => {
                           await post(`/projects/${project!.id}/snapshots`, {
@@ -1446,56 +1503,16 @@ function App() {
             )}
             {page === "console" && (
               <div className="page-content">
-                <PageHeading
-                  eyebrow="SYSTEM CONSOLE"
-                  title="运行控制台"
-                  description="查看真实连接、存储与执行状态。"
-                  action={
-                    <button onClick={() => void loadHealth()}>
-                      <RefreshCw size={14} />
-                      刷新
-                    </button>
-                  }
+                <SystemStatus
+                  health={health}
+                  stale={healthStale}
+                  loading={healthLoading}
+                  error={healthError}
+                  lastSuccessAt={lastSuccessAt}
+                  onRefresh={() => void loadHealth()}
+                  projectId={project?.id}
+                  projects={projects}
                 />
-                <div className="metrics">
-                  <Metric
-                    icon={<Server size={20} />}
-                    title="Blender 环境"
-                    value={health?.execution?.ok ? "已连接" : "未连接"}
-                    detail={`${health?.execution?.studios?.filter((s: any) => s.status === "ready").length || 0} 个项目就绪 · 上限 ${health?.execution?.maxStudios || 0}`}
-                  />
-                  <Metric
-                    icon={<Command size={20} />}
-                    title="Codex 内核"
-                    value={health?.versions?.codex || "—"}
-                    detail={health?.model?.model || "尚未配置模型"}
-                  />
-                  <Metric
-                    icon={<DatabaseIcon size={20} />}
-                    title="数据库"
-                    value={health?.database?.ok ? "PostgreSQL" : "未连接"}
-                    detail={health?.database?.version || "检查数据库服务"}
-                  />
-                  <Metric
-                    icon={<HardDrive size={20} />}
-                    title="可用存储"
-                    value={bytes(health?.storage?.free || 0)}
-                    detail={"总容量 " + bytes(health?.storage?.total || 0)}
-                  />
-                </div>
-                <h3 className="section-heading">组件版本</h3>
-                <div className="component-table">
-                  {Object.entries(health?.versions || {}).map(([k, v]) => (
-                    <div key={k}>
-                      <span>{k}</span>
-                      <code>{String(v)}</code>
-                      <span className="muted">固定版本</span>
-                    </div>
-                  ))}
-                </div>
-                {health?.execution?.error && (
-                  <div className="error">{health.execution.error}</div>
-                )}
                 <h3 className="section-heading">当前对话执行记录</h3>
                 <div className="console-log">
                   {Object.values(events)
@@ -1643,7 +1660,7 @@ function App() {
                       run={run}
                       events={events[run.id] || []}
                       lightbox={setLightbox}
-                      busy={busy}
+                      busy={busy || !!opening}
                       onRestoreSnapshot={(snapshot) =>
                         void restoreSnapshot(snapshot)
                       }
@@ -1658,7 +1675,8 @@ function App() {
                   outbox={chat.outbox}
                   busy={busy}
                   loading={chat.loading}
-                  disabled={!project || !session}
+                  disabled={!project || !session || !!opening}
+                  disabledReason={opening ? "正在切换项目，请稍候…" : undefined}
                   model={health?.model?.model}
                   status={
                     active ? labels[active.status] : "项目中有任务正在运行"
@@ -1686,12 +1704,20 @@ function App() {
         </div>
         <footer className="statusbar">
           <span>
-            <span className="dot green" />
+            <span className="dot" />
             本地项目
           </span>
           <span>Blender Pilot 0.1.0</span>
           <div className="grow" />
-          <span>{busy ? "AI 正在操作场景" : "就绪"}</span>
+          <button
+            className="text-button footer-health"
+            data-tone={systemState.tone}
+            onClick={() => setPage("console")}
+            title="查看系统状态"
+          >
+            <i className="health-dot" aria-hidden="true" />
+            {busy ? "AI 正在操作场景" : systemState.label}
+          </button>
           <span>
             {location.protocol === "https:" ? "HTTPS / WSS" : "HTTP / WS"}
           </span>
@@ -2002,28 +2028,6 @@ function Empty({
       {icon}
       <h3>{title}</h3>
       <p>{text}</p>
-    </div>
-  );
-}
-function Metric({
-  icon,
-  title,
-  value,
-  detail,
-}: {
-  icon: ReactNode;
-  title: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="metric">
-      <div>
-        {icon}
-        <span>{title}</span>
-      </div>
-      <strong>{value}</strong>
-      <small>{detail}</small>
     </div>
   );
 }

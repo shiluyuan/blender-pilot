@@ -28,6 +28,7 @@ export function ChatComposer(props: {
   busy: boolean;
   loading: boolean;
   disabled: boolean;
+  disabledReason?: string;
   model?: string;
   status?: string;
   inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -47,6 +48,12 @@ export function ChatComposer(props: {
   const [dragging, setDragging] = useState(false),
     [menu, setMenu] = useState(false);
   const referenceCount = props.attachments.length + props.uploads.length;
+  useEffect(() => {
+    if (props.disabled) {
+      setMenu(false);
+      setDragging(false);
+    }
+  }, [props.disabled]);
   const blocked =
     props.disabled ||
     props.loading ||
@@ -65,6 +72,12 @@ export function ChatComposer(props: {
   }, [props.draft]);
   return (
     <div className="composer-wrap chat-composer-wrap">
+      {props.disabledReason && (
+        <div className="run-status" role="status">
+          <Loader2 size={13} className="spin" />
+          {props.disabledReason}
+        </div>
+      )}
       {props.busy && (
         <div className="run-status" role="status">
           <Loader2 size={13} className="spin" />
@@ -99,12 +112,20 @@ export function ChatComposer(props: {
           {props.outbox.error && <small>{props.outbox.error}</small>}
           {!props.loading && (
             <div className="chat-outbox-actions">
-              <button type="button" onClick={props.onRetrySend}>
+              <button
+                type="button"
+                disabled={props.disabled}
+                onClick={props.onRetrySend}
+              >
                 <RefreshCw size={12} />
                 重试确认
               </button>
               {!props.outbox.uncertain && (
-                <button type="button" onClick={props.onMoveBack}>
+                <button
+                  type="button"
+                  disabled={props.disabled}
+                  onClick={props.onMoveBack}
+                >
                   移回草稿
                 </button>
               )}
@@ -150,6 +171,7 @@ export function ChatComposer(props: {
                   type="button"
                   className="icon"
                   aria-label="移除附件"
+                  disabled={props.disabled}
                   title={"移除 " + a.name}
                   onClick={() => props.onRemove(a.id)}
                 >
@@ -187,6 +209,7 @@ export function ChatComposer(props: {
                     type="button"
                     className="icon"
                     aria-label={"重试上传 " + row.name}
+                    disabled={props.disabled}
                     onClick={() => props.onRetryUpload(row.id)}
                   >
                     <RefreshCw size={13} />
@@ -196,6 +219,7 @@ export function ChatComposer(props: {
                   type="button"
                   className="icon"
                   aria-label={"取消上传 " + row.name}
+                  disabled={props.disabled}
                   onClick={() => props.onRemoveUpload(row.id)}
                 >
                   <X size={13} />
@@ -231,7 +255,7 @@ export function ChatComposer(props: {
           onChange={(e) => props.setDraft(e.target.value)}
           placeholder={
             props.disabled
-              ? "先创建一个项目，开启对话创作…"
+              ? props.disabledReason || "先创建一个项目，开启对话创作…"
               : "描述创作目标，或添加参考图片与文档…"
           }
           disabled={props.disabled}
@@ -317,7 +341,7 @@ export function ChatComposer(props: {
             type="button"
             className="send-button"
             aria-label={props.busy ? "停止任务" : "发送消息"}
-            disabled={props.busy ? false : blocked}
+            disabled={props.disabled || (props.busy ? false : blocked)}
             onClick={props.busy ? props.onStop : props.onSend}
           >
             {props.busy ? (
@@ -368,6 +392,7 @@ export function ChatComposer(props: {
         multiple
         hidden
         aria-label="上传对话附件"
+        disabled={props.disabled}
         accept={[
           ".png",
           ".jpg",
@@ -383,7 +408,7 @@ export function ChatComposer(props: {
           ...DOCUMENT_EXTENSIONS,
         ].join(",")}
         onChange={(e) => {
-          if (e.target.files) props.onFiles(e.target.files);
+          if (e.target.files && !props.disabled) props.onFiles(e.target.files);
           e.target.value = "";
         }}
       />

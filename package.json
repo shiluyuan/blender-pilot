@@ -23,6 +23,7 @@
     "verify:templates": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-templates.ts",
     "verify:readiness": "node --import tsx scripts/verify-readiness.ts",
     "verify:journeys": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-journeys.ts",
+    "verify:interface": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-interface.ts",
     "test:deploy": "python3 -m unittest discover -s tests -p 'test_*.py' -v"
   },
   "dependencies": {

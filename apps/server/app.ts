@@ -40,6 +40,7 @@ import {
 } from "../../packages/contracts/chat-limits.js";
 import { Vault, validPassword } from "./security.js";
 import { AuthSessions } from "./auth-sessions.js";
+import { probeExecution } from "./health.js";
 import {
   idSchema,
   modelSettingsSchema,
@@ -365,39 +366,62 @@ export async function buildApp(options: AppOptions) {
     }
   });
   app.get("/api/health", async () => {
-    let execution;
-    try {
-      execution = await runner("/health");
-    } catch (e) {
-      execution = { ok: false, error: String(e) };
-    }
-    const disk = await statfs(options.dataRoot);
-    return {
-      app: true,
-      database: await store.db.health().catch(() => ({
+    const [execution, database, storage, model] = await Promise.all([
+      probeExecution({
+        runnerUrl: options.runnerUrl,
+        internalToken: options.internalToken,
+        signal: shutdownController.signal,
+      }),
+      store.db.health().catch(() => ({
         ok: false,
         engine: "PostgreSQL",
         error: "数据库暂时不可用",
       })),
+      statfs(options.dataRoot)
+        .then((disk) => ({
+          ok: true,
+          free: Number(disk.bavail) * Number(disk.bsize),
+          total: Number(disk.blocks) * Number(disk.bsize),
+        }))
+        .catch(() => ({ ok: false, error: "无法读取工作目录的磁盘状态" })),
+      publicModel()
+        .then((value) => ({ ok: true, ...value }))
+        .catch(() => ({
+          ok: false,
+          error: "无法读取模型配置，请检查数据库连接",
+          baseUrl: "",
+          model: "",
+          hasKey: false,
+        })),
+    ]);
+    const observedBlender = execution?.studios?.find(
+      (studio: any) => studio.status === "ready" && studio.blenderVersion,
+    )?.blenderVersion;
+    return {
+      app: true,
+      checkedAt: new Date().toISOString(),
+      database,
       execution,
-      storage: {
-        free: Number(disk.bavail) * Number(disk.bsize),
-        total: Number(disk.blocks) * Number(disk.bsize),
-      },
-      model: await publicModel().catch(() => ({
-        baseUrl: "",
-        model: "",
-        hasKey: false,
-      })),
+      storage,
+      model,
       versions: {
         app: "0.1.0",
         codex: "0.164.0",
         mcp: "2.2.2",
         blender:
+          observedBlender ||
           process.env.BLENDER_VERSION ||
-          execution?.studios?.find((s: any) => s.blenderVersion)
-            ?.blenderVersion ||
           "按项目启动时检测",
+      },
+      versionSources: {
+        app: "build",
+        codex: "pinned",
+        mcp: "pinned",
+        blender: observedBlender
+          ? "runtime"
+          : process.env.BLENDER_VERSION
+            ? "configured"
+            : "pending",
       },
     };
   });

@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { connect } from "node:net";
 import { createWriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { SceneBridge } from "../../packages/blender-bridge/scene.js";
 import { idSchema } from "../../packages/contracts/index.js";
@@ -115,17 +116,51 @@ export class StudioPool {
     };
     this.studios.set(projectId, studio);
     const start = (async () => {
-      const logDir = path.join(scene.projectRoot(projectId), "runtime");
-      await mkdir(logDir, { recursive: true });
+      const instanceId = randomUUID();
       const environment = {
         ...process.env,
         DISPLAY: display,
         BLENDER_PORT: String(blenderPort),
+        PILOT_STUDIO_ID: instanceId,
       };
-      const launch = (name: string, bin: string, args: string[]) => {
+      const assertStarting = () => {
+        if (this.stopping || studio.status === "closing")
+          throw problem("执行服务正在关闭", 503);
+        if (
+          this.studios.get(projectId) !== studio ||
+          studio.status !== "starting" ||
+          studio.error
+        )
+          throw problem(studio.error || "项目实例启动已取消", 503);
+        if (
+          studio.children.some(
+            (child) =>
+              child.pid === undefined ||
+              child.exitCode !== null ||
+              child.signalCode !== null ||
+              child.killed,
+          )
+        )
+          throw problem("项目实例的桌面进程已退出", 503);
+      };
+      const failed = (name: string, reason: string) => {
+        if (studio.status === "closing" || studio.status === "failed") return;
+        studio.status = "failed";
+        studio.error = `${name}: ${reason}`;
+        if (jobs.active) {
+          jobs.active.abort.abort();
+          void jobs.active.runtime?.close().catch(() => {});
+        }
+        void scene.upstream.close().catch(() => {});
+        void this.stopProcesses(studio);
+      };
+      const logDir = path.join(scene.projectRoot(projectId), "runtime");
+      const launch = async (name: string, bin: string, args: string[]) => {
+        assertStarting();
         const stream = createWriteStream(path.join(logDir, name + ".log"), {
           flags: "a",
         });
+        stream.on("error", (error) => failed(name, error.message));
         const child = spawn(bin, args, {
           env: environment,
           stdio: ["ignore", "pipe", "pipe"],
@@ -133,38 +168,50 @@ export class StudioPool {
         studio.children.push(child);
         child.stdout!.pipe(stream, { end: false });
         child.stderr!.pipe(stream, { end: false });
-        const failed = (reason: string) => {
-          if (studio.status === "closing" || studio.status === "failed") return;
-          studio.status = "failed";
-          studio.error = `${name}: ${reason}`;
-          if (jobs.active) {
-            jobs.active.abort.abort();
-            void jobs.active.runtime?.close().catch(() => {});
-          }
-          void scene.upstream.close().catch(() => {});
-          void this.stopProcesses(studio);
-        };
         child.once("error", (e) => {
-          failed(e.message);
+          failed(name, e.message);
         });
         child.once("close", () => stream.end());
         child.once("exit", (code) => {
-          if (studio.status !== "failed") failed("进程退出 " + code);
+          if (studio.status !== "failed") failed(name, "进程退出 " + code);
         });
+        await new Promise<void>((resolve, reject) => {
+          child.once("spawn", resolve);
+          child.once("error", reject);
+        });
+        assertStarting();
+        return child;
       };
       const wait = async (port: number, unix?: string) => {
         const end = Date.now() + 120000;
         while (Date.now() < end) {
-          if (studio.status === "failed" || this.stopping)
-            throw new Error(studio.error || "服务正在关闭");
-          if (await reachable(port, unix)) return;
+          assertStarting();
+          const available = await reachable(port, unix);
+          assertStarting();
+          if (available) return;
           await delay(200);
         }
         throw new Error("Blender 桌面启动超时");
       };
       try {
+        await mkdir(logDir, { recursive: true });
+        assertStarting();
         if (!this.external) {
-          launch("xvfb", process.env.XVFB_BIN || "Xvfb", [
+          // A Runner process crash may leave desktops behind. Never interpret
+          // somebody else's display/MCP/VNC listener as our new child's readiness.
+          const occupied = await Promise.all([
+            reachable(6000 + displayNumber),
+            reachable(6000 + displayNumber, `/tmp/.X11-unix/X${displayNumber}`),
+            reachable(blenderPort),
+            reachable(vncPort),
+          ]);
+          assertStarting();
+          if (occupied.some(Boolean))
+            throw problem(
+              "项目桌面端口已被占用；请检查遗留实例并重启执行容器后重试",
+              503,
+            );
+          await launch("xvfb", process.env.XVFB_BIN || "Xvfb", [
             `:${displayNumber}`,
             "-screen",
             "0",
@@ -178,18 +225,22 @@ export class StudioPool {
             6000 + displayNumber,
             tcpX ? undefined : `/tmp/.X11-unix/X${displayNumber}`,
           );
-          launch("openbox", process.env.OPENBOX_BIN || "openbox", [
+          await launch("openbox", process.env.OPENBOX_BIN || "openbox", [
             "--sm-disable",
           ]);
-          launch("blender", process.env.BLENDER_BIN || "blender", [
-            "--factory-startup",
-            "-noaudio",
-            "--window-fullscreen",
-            "--python",
-            process.env.PILOT_BOOTSTRAP_PATH || "/opt/pilot/bootstrap.py",
-          ]);
+          const blender = await launch(
+            "blender",
+            process.env.BLENDER_BIN || "blender",
+            [
+              "--factory-startup",
+              "-noaudio",
+              "--window-fullscreen",
+              "--python",
+              process.env.PILOT_BOOTSTRAP_PATH || "/opt/pilot/bootstrap.py",
+            ],
+          );
           await wait(blenderPort);
-          launch("vnc", process.env.X11VNC_BIN || "x11vnc", [
+          await launch("vnc", process.env.X11VNC_BIN || "x11vnc", [
             "-display",
             display,
             "-forever",
@@ -204,15 +255,34 @@ export class StudioPool {
             "-quiet",
           ]);
           await wait(vncPort);
+          // This read-only handshake precedes scene loading or saving. A
+          // listener which raced our port preflight cannot receive mutations.
+          const identity = await scene.upstream.json(
+            "import json,os\nprint('PILOT_JSON:'+json.dumps({'instanceId':os.environ.get('PILOT_STUDIO_ID'),'pid':os.getpid()}))",
+          );
+          assertStarting();
+          if (
+            identity.instanceId !== instanceId ||
+            identity.pid !== blender.pid
+          )
+            throw problem(
+              "Blender 连接不属于本次启动，已拒绝复用遗留实例",
+              503,
+            );
         }
         await scene.init();
+        assertStarting();
         await scene.activate(projectId);
+        assertStarting();
         studio.blenderVersion = (await scene.info()).version;
+        // Drain already queued exit/error callbacks before committing ready.
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        assertStarting();
         studio.status = "ready";
         return studio;
       } catch (e) {
-        studio.status = "failed";
-        studio.error = String(e);
+        if (studio.status !== "closing") studio.status = "failed";
+        studio.error ||= String(e);
         await scene.upstream.close().catch(() => {});
         await this.stopProcesses(studio);
         throw e;

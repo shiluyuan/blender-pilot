@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "time": "2026-10-24T03:37:00.319Z",
+  "environment": {
+    "api": "real Fastify",
+    "database": "explicit PostgreSQL WASM over TCP/pg driver; not native PostgreSQL",
+    "runner": "explicit protocol fixture; no real model or Blender in this suite",
+    "browser": "Chromium/Playwright"
+  },
+  "checks": [
+    "首次登录密码错误明确提示，正确登录后项目可操作",
+    "模型未配置时拒绝任务且保留要求；配置后刷新草稿仍在",
+    "两个项目重复交替切换六次，草稿和文档引用独立且不会隐式提交任务",
+    "发送遇到真实401会转回登录；重新登录后保留文档并按原消息编号继续发送",
+    "已接收但丢失回执时，401不抹去不确定状态；重新登录只核对原任务，不重复执行",
+    "上传分片遇到401时保留文件与草稿，重新登录后重试完成且引用不重复",
+    "服务器撤销登录后关闭活动连接，重新登录恢复原任务与事件，任务继续且没有重复创建",
+    "40轮已持久化会话加载和刷新后，40个任务与40张工具卡片完整且无重复",
+    "全部新增用户旅程没有未捕获的浏览器错误"
+  ],
+  "submissions": 3,
+  "seededHistoryTurns": 40,
+  "uncaughtBrowserErrors": []
+}

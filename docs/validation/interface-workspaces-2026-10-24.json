@@ -1,0 +1,162 @@
+{
+  "date": "2026-10-24T03:41:42.775Z",
+  "passed": true,
+  "databaseValidation": "PostgreSQL WASM engine over TCP wire protocol; native PostgreSQL not exercised",
+  "mode": "real two-process Blender + native Codex protocol fixtures (not AI inference)",
+  "readiness": {
+    "passed": true,
+    "time": "2026-10-24T03:40:53.927Z",
+    "scope": "installed-workspace-health",
+    "checks": [
+      {
+        "name": "service-ready",
+        "passed": true,
+        "message": "\u670d\u52a1\u5c31\u7eea\u63a5\u53e3\u901a\u8fc7"
+      },
+      {
+        "name": "authentication",
+        "passed": true,
+        "message": "\u72ec\u7acb\u68c0\u67e5\u4f1a\u8bdd\u767b\u5f55\u6210\u529f"
+      },
+      {
+        "name": "application",
+        "passed": true,
+        "message": "Web API \u6b63\u5e38"
+      },
+      {
+        "name": "database",
+        "passed": true,
+        "message": "PostgreSQL \u8fde\u63a5\u53ef\u7528"
+      },
+      {
+        "name": "runner",
+        "passed": true,
+        "message": "\u6267\u884c\u670d\u52a1\u53ef\u8fbe"
+      },
+      {
+        "name": "studio-failures",
+        "passed": true,
+        "message": "\u672a\u53d1\u73b0\u6545\u969c\u5b9e\u4f8b"
+      },
+      {
+        "name": "free-storage",
+        "passed": true,
+        "message": "\u53ef\u7528\u7a7a\u95f4\u8fbe\u5230\u8bbe\u5b9a\u9608\u503c"
+      },
+      {
+        "name": "model-configured",
+        "passed": true,
+        "message": "\u6a21\u578b\u914d\u7f6e\u5df2\u4fdd\u5b58\uff1b\u63a8\u7406\u80fd\u529b\u7531\u771f\u5b9e\u4efb\u52a1\u9a8c\u6536"
+      },
+      {
+        "name": "check-session-closed",
+        "passed": true,
+        "message": "\u68c0\u67e5\u4f1a\u8bdd\u5df2\u9000\u51fa"
+      }
+    ],
+    "observed": {
+      "databaseVersion": "18.6",
+      "readyStudios": 2,
+      "activeTasks": 0,
+      "freeBytes": 26570600448,
+      "model": "gpt-5.1-codex",
+      "versions": {
+        "app": "0.1.0",
+        "codex": "0.164.0",
+        "mcp": "2.2.2",
+        "blender": "5.2.3 LTS"
+      }
+    }
+  },
+  "checks": [
+    "two live Blender processes, independent scenes, capacity refusal without eviction",
+    "external textured GLB uploaded directly to shared library; provenance, texture and independent cross-project copies",
+    "existing + external + newly created objects assembled, saved as reusable collection, imported in another project with textures and lineage",
+    "non-destructive installed-workspace readiness check uses an independent temporary session and preserves the caller, configuration and scenes",
+    "concurrent native Codex sessions: B finishes while A waits, project-scoped busy/close guard, separate scene and prompt, cancellation",
+    "browser: two live desktops, independent persistent drafts/references, library multiselect, direct external upload, batch import, collapsible assistant, dark/light and 1280px",
+    "save-and-close releases only its instance; reopen restores scene while other project stays live",
+    "injected Blender process failure is reported per project; B remains operational and failed A can be closed",
+    "failed Blender instance reopens from its saved scene while the second desktop remains operational",
+    "gateway restart during a live held model request preserves its receipt and ownership; same-ID retry does not duplicate execution and cancellation remains usable",
+    "forced Runner crash interrupts without replay; unknown orphan endpoints are refused, explicit test-owned cleanup permits fresh owned desktops and saved scene recovery",
+    "gateway restart preserves authenticated session, projects, library and completed runs; real deployment smoke passes and database status is visible in console"
+  ],
+  "projects": [
+    "c201704f-ef69-4cda-b2a4-dfd141725872",
+    "6d0e56e1-63d6-47f1-b2a1-15c9af1f5c6a"
+  ],
+  "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/BoxTextured",
+  "externalFixture": {
+    "bytes": 5956,
+    "sha256": "b510eca2e2ef33f62f9ed57d6e7ce2d10ebb2bdebc4a8e59d347719ba81abdf4"
+  },
+  "textures": [
+    {
+      "name": "Image_0",
+      "size": [256, 256],
+      "packed": true
+    }
+  ],
+  "composite": {
+    "id": "7ee0c740-b966-4e8c-9b28-99d382b89d8c",
+    "sourceAssetIds": [
+      "26ba84e2-227f-4160-aaed-8bde7dc6cd09",
+      "cc129ed6-28db-43e6-b2f5-996c8e3d421f"
+    ],
+    "objectCount": 4
+  },
+  "ownershipEvidence": [
+    {
+      "phase": "initial two managed desktops",
+      "runnerPid": 39,
+      "studios": [
+        {
+          "pid": 70,
+          "parent": 39,
+          "projectId": "c201704f-ef69-4cda-b2a4-dfd141725872"
+        },
+        {
+          "pid": 72,
+          "parent": 39,
+          "projectId": "6d0e56e1-63d6-47f1-b2a1-15c9af1f5c6a"
+        }
+      ]
+    },
+    {
+      "phase": "after Runner crash, explicit owned-runtime cleanup and reopen",
+      "runnerPid": 768,
+      "studios": [
+        {
+          "pid": 785,
+          "parent": 768,
+          "projectId": "6d0e56e1-63d6-47f1-b2a1-15c9af1f5c6a"
+        },
+        {
+          "pid": 829,
+          "parent": 768,
+          "projectId": "c201704f-ef69-4cda-b2a4-dfd141725872"
+        }
+      ]
+    }
+  ],
+  "faultScenarios": {
+    "orphanStartupRefused": true,
+    "gatewayRunId": "19444bef-408c-4972-9296-d20bb1501f1a",
+    "interruptedRunId": "21dbcb5f-1088-4f8c-ac4c-41f2b807144f",
+    "uncertainModelRequests": 1,
+    "runnerChildrenEnumerated": 0,
+    "scope": "Runner Node SIGKILL leaves unknown orphans, which are refused; only test-manifest-owned processes are explicitly cleaned before saved scenes reopen; Docker container restart not exercised",
+    "ownedRuntimePidsRecordedForCleanup": 24
+  },
+  "screenshots": [
+    "workspaces-dark.png",
+    "workspaces-light.png",
+    "library-dark.png",
+    "library-light.png",
+    "workspaces-1280.png",
+    "console.png",
+    "settings.png",
+    "snapshots.png"
+  ]
+}

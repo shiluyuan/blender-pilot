@@ -8,6 +8,12 @@
 
 机器证据见 [本轮汇总](validation/release-readiness-2026-10-24.json)、[双 Blender 原生场景](validation/release-workspaces-2026-10-24.json)、[真实模型核心](validation/release-core-model-2026-10-24.json)、[组合重测](validation/release-template-model-2026-10-24.json)、[受阻记录](validation/release-live-blocked-2026-10-24.json) 和 [固定镜像标签检查](validation/release-image-manifests-2026-10-24.json)。镜像标签检查只读取了官方 Registry manifest，没有运行镜像。
 
+## 界面与状态补充验收
+
+本日追加界面一致性与系统状态检查，修复状态过期仍保留绿色、单项探测失败丢失其他状态、构建版本与运行版本混淆、项目切换中的编辑保护，以及桌面启动失败被异步回调覆盖为就绪的问题。托管实例在场景变更前核对本次启动身份，拒绝连接遗留桌面。最新场景、截图与证据见 [界面与系统状态验收](interface-acceptance.md)。
+
+此轮新增检查使用本地模型协议夹具，没有重跑受阻的外部真实模型阶段，正式发布缺口不变。
+
 ## 本轮场景
 
 | 用户场景 / 故障                | 本轮验证                                                          |

@@ -34,6 +34,11 @@ const env = {
   PILOT_RUNNER_URL: "http://127.0.0.1:18191",
   PILOT_RUNNER_LOCAL_URL: "http://127.0.0.1:18191",
   CODEX_BIN: path.join(root, "node_modules/.bin/codex"),
+  XVFB_BIN: process.env.XVFB_BIN || "Xvfb",
+  OPENBOX_BIN: process.env.OPENBOX_BIN || "openbox",
+  BLENDER_BIN: process.env.BLENDER_BIN || "blender",
+  X11VNC_BIN: process.env.X11VNC_BIN || "x11vnc",
+  MCP_BIN: process.env.MCP_BIN || "mcp-for-blender",
 };
 const children: ChildProcess[] = [],
   upstreams: Upstream[] = [],
@@ -129,13 +134,125 @@ async function api(route: string, body?: any, method?: string, expected = 200) {
   assert.equal(res.status, expected, route + ": " + JSON.stringify(value));
   return value;
 }
+// Instrument only binaries launched by this disposable test. exec preserves
+// PID and the production handshake; the manifest lets restricted hosts clean
+// their own desktops after an intentional parent SIGKILL without /proc scans.
+const runtimePidFile = path.join(dir, "owned-runtime-pids.tsv");
+const shellQuote = (value: string) =>
+  "'" + value.replaceAll("'", "'\"'\"'") + "'";
+const ownedRuntimePids = async () => {
+  const rows = (await readFile(runtimePidFile, "utf8").catch(() => ""))
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((row) => {
+      const [pid, name] = row.split("\t");
+      assert(/^[1-9][0-9]*$/.test(pid));
+      assert(
+        ["xvfb", "openbox", "blender", "vnc", "codex", "mcp"].includes(name),
+      );
+      return { pid: Number(pid), name };
+    });
+  return [...new Map(rows.map((row) => [row.pid, row])).values()];
+};
+const cleanOwnedRuntime = async () => {
+  const owned = await ownedRuntimePids();
+  for (const signal of ["SIGTERM", "SIGKILL"] as const) {
+    for (const { pid } of owned) {
+      try {
+        process.kill(pid, signal);
+      } catch (error: any) {
+        if (error.code !== "ESRCH") throw error;
+      }
+    }
+    await delay(700);
+  }
+  return owned.length;
+};
+const ownershipEvidence: Array<Record<string, unknown>> = [];
 const checks: string[] = [];
 const pass = (s: string) => {
   checks.push(s);
   console.log("PASS " + s);
 };
 try {
+  const wrapperDir = path.join(dir, "process-wrappers");
+  await mkdir(wrapperDir, { recursive: true });
+  for (const [key, name] of [
+    ["XVFB_BIN", "xvfb"],
+    ["OPENBOX_BIN", "openbox"],
+    ["BLENDER_BIN", "blender"],
+    ["X11VNC_BIN", "vnc"],
+    ["CODEX_BIN", "codex"],
+    ["MCP_BIN", "mcp"],
+  ] as const) {
+    const binary = env[key];
+    const wrapper = path.join(wrapperDir, name + ".sh");
+    await writeFile(
+      wrapper,
+      `#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\t%s\\n' "$$" ${shellQuote(name)} >> ${shellQuote(runtimePidFile)}\nexec ${shellQuote(binary)} "$@"\n`,
+      { mode: 0o700 },
+    );
+    env[key] = wrapper;
+  }
   let runnerProcess = launch("runner", ["dist/server/apps/runner/index.js"]);
+  const assertReadyOwnership = async (phase: string) => {
+    const health = await api("/health");
+    const ready = health.execution.studios.filter(
+      (studio: any) => studio.status === "ready",
+    );
+    assert.equal(
+      ready.length,
+      2,
+      "ownership checks require two known managed slots",
+    );
+    for (const studio of ready)
+      assert.equal(
+        studio.error,
+        undefined,
+        "ready must not overwrite a startup failure",
+      );
+    const observed: Array<{ pid: number; parent: number; projectId: string }> =
+      [];
+    for (const port of [19900, 19901]) {
+      const upstream = new Upstream({ BLENDER_PORT: String(port) });
+      try {
+        const state = await upstream.json(
+          "import os,json\nprint('PILOT_JSON:'+json.dumps({'pid':os.getpid(),'parent':os.getppid(),'file':bpy.data.filepath}))",
+        );
+        const studio = ready.find((item: any) =>
+          state.file.includes(item.projectId),
+        );
+        assert(
+          studio,
+          "only projects owned by the current Runner may answer managed MCP",
+        );
+        assert.equal(
+          state.parent,
+          runnerProcess.pid,
+          "ready Blender must be a child of this Runner, not an orphan or stale endpoint",
+        );
+        observed.push({
+          pid: state.pid,
+          parent: state.parent,
+          projectId: studio.projectId,
+        });
+      } finally {
+        await upstream.close();
+      }
+    }
+    assert.equal(
+      new Set(observed.map((item) => item.pid)).size,
+      2,
+      "project desktops must be distinct Blender processes",
+    );
+    assert.equal(new Set(observed.map((item) => item.projectId)).size, 2);
+    ownershipEvidence.push({
+      phase,
+      runnerPid: runnerProcess.pid,
+      studios: observed,
+    });
+  };
   const appProcess = launch("app", ["dist/server/apps/server/index.js"]);
   await wait(async () => (await fetch(base + "/api/auth/status")).ok, "web");
   await api("/auth/login", { password: env.PILOT_PASSWORD });
@@ -155,6 +272,7 @@ try {
     2,
   );
   await api(`/projects/${c.id}/activate`, {}, undefined, 409);
+  await assertReadyOwnership("initial two managed desktops");
   const ua = new Upstream({ BLENDER_PORT: "19900" }),
     ub = new Upstream({ BLENDER_PORT: "19901" });
   upstreams.push(ua, ub);
@@ -372,6 +490,31 @@ try {
     }),
     errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  // A project tab is visible before its asynchronous activation/session load is
+  // complete. Wait for ownership before typing; an empty composer alone can
+  // still belong to the previous project.
+  const selectionTrace: Array<Record<string, unknown>> = [];
+  const chooseTab = async (name: string) => {
+    const tab = page.getByRole("tab", { name, exact: true });
+    await tab.click();
+    await wait(
+      async () =>
+        (await tab.getAttribute("aria-selected")) === "true" &&
+        (await page.locator(".opening-project").count()) === 0,
+      "project activation and session ownership: " + name,
+    );
+    selectionTrace.push({
+      name,
+      active: await tab.getAttribute("aria-selected"),
+      draft: await page.locator(".composer textarea").inputValue(),
+      attachments: await page.locator(".attachments > div").count(),
+      context: await page.locator(".chat-context").textContent(),
+    });
+    await writeFile(
+      path.join(dir, "selection-trace.json"),
+      JSON.stringify(selectionTrace, null, 2),
+    );
+  };
   await page.goto(base);
   await page
     .getByPlaceholder("部署时设置的 PILOT_PASSWORD")
@@ -387,7 +530,7 @@ try {
     0,
     "login reuses an open project instead of attempting to exceed capacity",
   );
-  await page.getByRole("tab", { name: a.name, exact: true }).click();
+  await chooseTab(a.name);
   await page
     .locator(".project-viewport:not(.hidden) .rfb-host canvas")
     .waitFor();
@@ -397,14 +540,14 @@ try {
   await page.getByLabel("选择 外部纹理方块", { exact: true }).check();
   await page.getByRole("button", { name: "引用选中素材" }).click();
   assert.equal(await page.locator(".attachments > div").count(), 2);
-  await page.getByRole("tab", { name: b.name, exact: true }).click();
+  await chooseTab(b.name);
   await wait(
     async () => (await page.locator(".composer textarea").inputValue()) === "",
     "B empty draft",
   );
   assert.equal(await page.locator(".attachments > div").count(), 0);
   await page.locator(".composer textarea").fill("角色项目草稿");
-  await page.getByRole("tab", { name: a.name, exact: true }).click();
+  await chooseTab(a.name);
   await wait(
     async () =>
       (await page.locator(".composer textarea").inputValue()) ===
@@ -445,7 +588,7 @@ try {
     path: path.join(dir, "library-light.png"),
     animations: "disabled",
   });
-  await page.getByRole("tab", { name: b.name, exact: true }).click();
+  await chooseTab(b.name);
   await page.getByRole("button", { name: "工作台", exact: true }).click();
   await page.screenshot({
     path: path.join(dir, "workspaces-light.png"),
@@ -604,13 +747,6 @@ try {
   );
   const oldProcesses = await descendants(runnerProcess.pid!);
   await stop(runnerProcess, "SIGKILL");
-  for (const pid of oldProcesses.reverse()) {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch (error: any) {
-      if (error.code !== "ESRCH") throw error;
-    }
-  }
   await Promise.all(
     upstreams.map((upstream) => upstream.close().catch(() => {})),
   );
@@ -636,6 +772,41 @@ try {
     1,
     "uncertain execution must not automatically call the model again",
   );
+  // The old desktop processes are deliberately still alive after the parent
+  // crash. A restarted Runner must refuse those endpoints before any scene
+  // activation, rather than treating a failed new Xvfb as a ready old desktop.
+  const orphanRefusal = await api(
+    `/projects/${b.id}/activate`,
+    {},
+    undefined,
+    503,
+  );
+  assert.match(orphanRefusal.error, /端口已被占用/);
+  const refusedHealth = await api("/health");
+  assert.equal(
+    refusedHealth.execution.studios.find(
+      (studio: any) => studio.projectId === b.id,
+    )?.status,
+    "failed",
+  );
+  assert.equal(
+    refusedHealth.execution.studios.filter(
+      (studio: any) => studio.status === "ready",
+    ).length,
+    0,
+  );
+  assert.equal(crashFixture.requests.length, 1);
+  const ownedRuntimePidsRecordedForCleanup = await cleanOwnedRuntime();
+  assert(
+    ownedRuntimePidsRecordedForCleanup >= 8,
+    "this test records its own two desktop process groups before cleanup",
+  );
+  await api(`/projects/${b.id}/close`, {});
+  await api(`/projects/${b.id}/activate`, {});
+  await api(`/projects/${a.id}/activate`, {});
+  await assertReadyOwnership(
+    "after Runner crash, explicit owned-runtime cleanup and reopen",
+  );
   assert.deepEqual(
     (await info(b)).objects.sort((left: any, right: any) =>
       left.name.localeCompare(right.name),
@@ -654,7 +825,7 @@ try {
   );
   await api(`/projects/${a.id}/close`, {});
   pass(
-    "forced Runner process crash interrupts the active task; restart does not replay it, persisted scene and earlier completed runs survive, and another project reopens independently",
+    "forced Runner crash interrupts without replay; unknown orphan endpoints are refused, explicit test-owned cleanup permits fresh owned desktops and saved scene recovery",
   );
   assert.equal((await api("/projects")).length, 3);
   assert(
@@ -695,7 +866,11 @@ try {
   );
   await page.reload();
   await page.getByRole("button", { name: "运行控制台", exact: true }).click();
-  await page.getByText("PostgreSQL", { exact: true }).waitFor();
+  await page
+    .getByTestId("metric-database")
+    .getByText("已连接", { exact: true })
+    .waitFor();
+  assert.equal((await api("/health")).database.engine, "PostgreSQL");
   await page.screenshot({
     path: path.join(dir, "console.png"),
     animations: "disabled",
@@ -739,13 +914,16 @@ try {
           sourceAssetIds: composite.sourceAssetIds,
           objectCount: composite.objectNames.length,
         },
+        ownershipEvidence,
         faultScenarios: {
+          orphanStartupRefused: true,
+          ownedRuntimePidsRecordedForCleanup,
           gatewayRunId: gatewayRun.id,
           interruptedRunId: crashedRun.id,
           uncertainModelRequests: crashFixture.requests.length,
           runnerChildrenEnumerated: oldProcesses.length,
           scope:
-            "Runner Node process SIGKILL; separate earlier Blender process failure; Docker container restart not exercised",
+            "Runner Node SIGKILL leaves unknown orphans, which are refused; only test-manifest-owned processes are explicitly cleaned before saved scenes reopen; Docker container restart not exercised",
         },
         screenshots: [
           "workspaces-dark.png",
@@ -778,5 +956,6 @@ try {
   for (const child of children.reverse()) {
     await stop(child);
   }
+  await cleanOwnedRuntime();
   for (const f of fixtures) await f.close();
 }

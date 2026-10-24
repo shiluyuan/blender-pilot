@@ -32,9 +32,11 @@ sudo ./docker-up.sh --install-docker
 
 启动后自动验证 **PostgreSQL → 登录 → 启动 Blender → MCP 读取场景 → 截图下载 → 保存**，失败会以非零状态退出。首次进入会创建一个入门项目。默认打开 `http://服务器IP:8090`，使用终端打印的密码登录，在「模型设置」中填写接口和模型。
 
-**应用/协议/故障检查 72 项、部署脚本检查 11 项、浏览器交互检查 44 项、双 Blender 原生场景检查 12 组及生产构建通过。** 覆盖重新登录恢复、丢失回执、挂起隔离、进程故障与重启。真实 Key 的模板与素材组合、尺寸回读、跨项目复用和快照恢复单独验收；范围和限制见 [上线前验收](docs/release-readiness.md) 与 [验收记录](docs/validation.md)。
+**应用/协议/故障检查 79 项、部署脚本检查 11 项、浏览器交互检查 60 项、双 Blender 原生场景检查 12 组及生产构建通过。** 覆盖重新登录恢复、丢失回执、挂起隔离、状态失效与恢复、项目切换保护、桌面启动故障及重启。真实 Key 的模板与素材组合、尺寸回读、跨项目复用和快照恢复单独验收；范围和限制见 [上线前验收](docs/release-readiness.md) 与 [验收记录](docs/validation.md)。
 
-本轮真实模型核心与模板子套件已通过；最终真实模型浏览器阶段因自动审批中断待补，没有计作通过。正式发布还需完成实际主机的 Docker / 原生 PostgreSQL 验收。
+本轮对照 VoiceStudio 的实际截图统一深浅主题、导航、输入区与主要页面，新增逐组件系统状态和检查时间。详见 [界面与系统状态验收](docs/interface-acceptance.md)。
+
+此前真实模型核心与模板子套件已通过；最终真实模型浏览器阶段因自动审批中断待补，没有计作通过。正式发布还需完成实际主机的 Docker / 原生 PostgreSQL 验收。
 
 > 当前云端已完成的验证与限制详见 [验收记录](docs/validation.md)。生产配置使用 PostgreSQL；云端数据库检查使用明确标识的 PostgreSQL WASM / TCP 协议环境，Docker 整机启动与原生 PostgreSQL 18 尚未在此云端实测，不能将其称为 Docker 全量验收完成。
 
@@ -103,9 +105,10 @@ docker compose --env-file .env exec -T web node dist/server/apps/server/readines
 ![聊天侧栏浅色](docs/screenshots/chat-light.png)
 ![聊天侧栏深色](docs/screenshots/chat-dark.png)
 
-**真实 Blender 与真实模型：参考图与 Markdown 组件说明驱动的合成验收场景，右侧显示工具、截图检查和结构化回复。**
+**历史真实模型验收：参考图与 Markdown 组件说明驱动的合成场景。以下截图保留升级前界面，用于记录当时的真实推理结果。**
 
-![真实模型与 Blender 聊天链路](docs/screenshots/chat-blender-live.png)
+![历史真实模型与 Blender 聊天链路](docs/screenshots/chat-blender-live.png)
+![历史真实模型对话与场景修改](docs/screenshots/workbench-light.png)
 
 **共享素材库：分类、预览、多选引用、批量导入与外部素材上传。**
 
@@ -120,7 +123,7 @@ docker compose --env-file .env exec -T web node dist/server/apps/server/readines
 
 ![浅色多项目工作区](docs/screenshots/workspaces-light.png)
 
-**控制台：执行环境、PostgreSQL、模型版本与本地存储。**
+**控制台：检查时间、执行端、模型配置、PostgreSQL、本地存储与每个 Blender 实例。过期状态和组件故障单独提示。**
 
 ![运行控制台](docs/screenshots/console.png)
 
@@ -128,7 +131,6 @@ docker compose --env-file .env exec -T web node dist/server/apps/server/readines
 <summary>更多截图：素材库浅色、资源、模型配置与快照</summary>
 
 ![素材库浅色](docs/screenshots/library-light.png)
-![真实模型对话与场景修改](docs/screenshots/workbench-light.png)
 ![项目资源](docs/screenshots/assets.png)
 ![模型设置](docs/screenshots/settings.png)
 ![快照与恢复](docs/screenshots/snapshots.png)

@@ -8,17 +8,17 @@
 
 ## VoiceStudio 参考依据
 
-本轮实际读取了 [VoiceStudio](https://github.com/debpalash/VoiceStudio) 的源码，参考定位到 commit [`48e85106`](https://github.com/debpalash/VoiceStudio/tree/48e85106eb00a69c9beea3bdbf0a23692c7aa8ca)。重点查看：
+本轮对照 [VoiceStudio](https://github.com/debpalash/VoiceStudio) commit [`80a01e5`](https://github.com/debpalash/VoiceStudio/tree/80a01e595b5ae060e47fdeaa128d21f3a38de0df) 的真实 README 界面截图与 Electron 源码，重点查看：
 
-- `electron/src/renderer/src/styles/globals.css`
-- `electron/src/renderer/src/styles/t3-theme.css`
-- `electron/src/renderer/src/components/app-shell/workspace-sidebar.tsx`
-- `electron/src/renderer/src/components/app-shell/top-bar.tsx`
-- `electron/src/renderer/src/components/app-shell/app-shell.tsx`
+- 当前 README 的 `voice-cloning.png` 截图：紫黑主画布、深色侧栏、玫红主要操作、底部圆角输入区。
+- `electron/src/renderer/src/styles/globals.css`：14px 界面正文、13px 标签、12px 辅助信息、52px 标题栏。
+- `electron/src/renderer/src/styles/t3-palettes.ts`：Original / `signal` 主题的紫色表面层次。
+- `electron/src/renderer/src/styles/tauri-palette.ts`：Classic / `heritage` 的配套浅色主题。
+- 工作区 `workspace-sidebar.tsx`、`top-bar.tsx`、`app-shell.tsx` 与 `status-bar.tsx`：可收起导航、细分隔线、分区标题和独立状态区。
 
-参考当前 Electron 界面的中性色、蓝色主要操作、52px 顶栏、可收起导航、细分隔线、紧凑文字和工作区结构。Blender Pilot 使用自己的 React/CSS 实现，并针对 Blender 画面与右侧对话布局调整：左栏 224px / 收起 48px，项目标签 38px。没有复制 VoiceStudio 的源码、商标图形或业务功能。
+Blender Pilot 的深色视觉以该 README 截图为目标：主画布约 `#211a25`、侧栏 `#1a131c`、主要按钮 `#a3004c`。链接和键盘焦点采用当前源码较亮的玫瑰色 `#f09bb8`，保证深色背景上可读；绿色、琥珀色和红色分别表示正常、待处理和异常，不与品牌主色混用。浅色采用 Classic 源码的浅紫表面与 `#8f3f71` 操作色。项目、素材、模板、对话、设置和控制台共用这些 CSS 变量。
 
-仓库里的 `docs/screenshot-studio.png` 是早期 v0.3.9 黑色/玫红界面，和当前 Electron 样式不同。本轮按当前源代码方向调整，不宣称与旧截图逐像素一致。Blender 原生界面使用自己的主题，不随外层工作台的浅深主题重新着色。
+这是一套针对 Blender 工作台的实现，不是 VoiceStudio 的完整克隆。参考项目支持多套主题，当前默认的中性蓝色主题、Original 当前源码的浅玫瑰按钮与 README 截图的深玫红按钮也存在差异；这里明确选择截图的可见风格，不把截图当成默认主题或宣称逐像素一致。保留 Blender Pilot 的中央原生 Blender、右侧可收起助手与项目标签：左栏 255px / 收起 48px，顶栏 52px，项目标签 38px，小屏自适应收缩。Blender 原生画面保持自身主题。
 
 ## 并发边界
 

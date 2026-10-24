@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-24",
+  "scope": "Source-grounded visual consistency review of rendered application regression screenshots",
+  "reference": {
+    "repository": "https://github.com/debpalash/VoiceStudio",
+    "commit": "80a01e595b5ae060e47fdeaa128d21f3a38de0df",
+    "screenshot": {
+      "file": "https://github.com/debpalash/VoiceStudio/blob/80a01e595b5ae060e47fdeaa128d21f3a38de0df/docs/media/electron/voice-cloning.png",
+      "stage": "reference",
+      "width": 1440,
+      "height": 960,
+      "sha256": "fcbfbfcc8f6af1cc33a8b7ef67dea30b86edc21114ea57cbd3f143ee260ea431",
+      "note": "Actual current README Electron screenshot; Original / signal visual lineage. Current source action tokens differ from the screenshot."
+    },
+    "selectedTarget": "Visible plum / magenta screenshot, current source brighter rose links and focus, complementary light palette adapted from Classic / heritage."
+  },
+  "changes": [
+    "Shared plum canvas, chrome and surface hierarchy across studio, library, templates, settings and console.",
+    "Separate magenta action from bright rose links and focus; semantic success, warning and error colors are independent of the brand accent.",
+    "Readable 14px chat body, 13px primary controls and 12px shared captions.",
+    "255px expandable navigation, 52px outer header and rounded composer.",
+    "Removed green hardcoded offline viewport chrome; native Blender content remains unchanged.",
+    "Narrow viewport footer clipping fixed with nowrap / ellipsis and verified in the final 1024px screenshot."
+  ],
+  "acceptedEvidence": [
+    {
+      "file": "docs/screenshots/interface/08-studio-dark.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "5ae0c7b019540357a23db21fbe3581266d5ba3336005b3fb1c7ee7d0ad50159e",
+      "note": "Studio dark: shared plum chrome, readable chat and rounded composer; no leftover fault toast."
+    },
+    {
+      "file": "docs/screenshots/interface/08-studio-light.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "7d305f273275acafba7d791eba3e0d74701c04de38d2380e5353f0cd740cbeb9",
+      "note": "Studio light: complementary Classic palette and readable controls."
+    },
+    {
+      "file": "docs/screenshots/interface/08-library-dark.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "121137c68c37bc389038e3014e61fcc792caaeae495f8f2e7fe98c11157548b7",
+      "note": "Library dark: four loaded fixture assets; categories, metadata and actions fit."
+    },
+    {
+      "file": "docs/screenshots/interface/08-library-light.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "dc99fa0d6513533d7d4e9d79bc2be20fb210527999f52a7efe6644abd810404f",
+      "note": "Library light: consistent surfaces, readable category and card controls."
+    },
+    {
+      "file": "docs/screenshots/interface/08-templates-dark.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "44c0b6511dcdd42b301c3f2469f0dbd9308514313743afd1301d1947d7b1ac0d",
+      "note": "Templates dark: six loaded recipes, readable parameters and sticky use action."
+    },
+    {
+      "file": "docs/screenshots/interface/08-templates-light.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "2f52a7c0e539c3e21b84603cbe7c539b838dd227c07efdc2413a7db73017ffe9",
+      "note": "Templates light: selected state, parameters and use action remain readable."
+    },
+    {
+      "file": "docs/screenshots/interface/08-console-dark.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "553a7d97a2333b3cfb4a913f22d725dcd752851d8b9a209d91d413f62a700416",
+      "note": "Console dark: semantic status dots, component metrics, timestamp and project rows fit."
+    },
+    {
+      "file": "docs/screenshots/interface/08-console-light.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "4cba066e64c73c563b5e76b9a34639a953ff5a0a8365040452ff2ad1eaa5ee51",
+      "note": "Console light: metrics, project rows and build/runtime version labels fit."
+    },
+    {
+      "file": "docs/screenshots/interface/08-settings-dark.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "047c63ff0e70563e85e3cded082c7c96866bd2a9e6e79c91a60cf36cd1a40535",
+      "note": "Settings dark: key / URL / model controls share primary action theme."
+    },
+    {
+      "file": "docs/screenshots/interface/08-settings-light.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "3e41f66f3cce248020012d858934b6e801098918385192e988e2c86d44cde461",
+      "note": "Settings light: form labels, fields and action contrast remain readable."
+    },
+    {
+      "file": "docs/screenshots/interface/08-studio-reference-size-dark.png",
+      "width": 1440,
+      "height": 960,
+      "sha256": "3eda6f43abeb253245981bdc755be94ba1da463ed46e84b6c8be273696870729",
+      "note": "Compared together with actual VoiceStudio reference at 1440 × 960; accepted plum hierarchy, chrome proportions and rounded composer."
+    },
+    {
+      "file": "docs/screenshots/interface/08-studio-reference-size-light.png",
+      "width": 1440,
+      "height": 960,
+      "sha256": "002809c8d162a3f32157fdae9bd99d90111d22154cc105b823930afa79e62206",
+      "note": "Complementary light theme at 1440 × 960; all core controls fit."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1024-工作台.png",
+      "width": 1024,
+      "height": 900,
+      "sha256": "16fded43c0c0d8ba4d259336500b45cce8d67d1047efb276bbbbb8ddf6f0c4bb",
+      "note": "1024px: Studio controls fit; native footer stays on one line with ellipsis."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1024-素材库.png",
+      "width": 1024,
+      "height": 900,
+      "sha256": "1910497faaf003c8135189eb77e5178ae68a7d24fc1c4b8997054f6b4cceb004",
+      "note": "1024px: Loaded library adapts columns; item metadata and actions fit."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1024-运行控制台.png",
+      "width": 1024,
+      "height": 900,
+      "sha256": "2f357faa0ec73fe912be90f0b3d16a579cb2cce35acc8bd321b4b374bfc8382f",
+      "note": "1024px: System metrics and project statuses adapt to available width."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1024-模型设置.png",
+      "width": 1024,
+      "height": 900,
+      "sha256": "e403b044aad070ea486ebb8f56e228c499b5c598a7bceded074a528bc815d7e7",
+      "note": "1024px: Model fields and actions remain readable and reachable."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1280-工作台.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "a4ca3da8ce164f8cabff0b6b288f351bee4d9c6fcaa2db72897c1775c0891c92",
+      "note": "1280px: Studio controls fit; native footer stays on one line with ellipsis."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1280-素材库.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "1dcba257edf6bfdfda1884c3d15f16f6e667193f4d92239abb0ba4576f5ad259",
+      "note": "1280px: Loaded library adapts columns; item metadata and actions fit."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1280-运行控制台.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "4efe27ae86f026f1bbd856438e75a6d971307e28a763f297c5011f8e3f177328",
+      "note": "1280px: System metrics and project statuses adapt to available width."
+    },
+    {
+      "file": "docs/screenshots/interface/09-1280-模型设置.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "5aec9e04a79e5eeec29ffe2ef9ca0f388802a905c53c9af33110d255143fe69d",
+      "note": "1280px: Model fields and actions remain readable and reachable."
+    }
+  ],
+  "rejectedEvidence": [
+    {
+      "file": ".data/interface-acceptance/09-1280-素材库.png",
+      "reason": "Earlier loading state; superseded by fully loaded final capture."
+    },
+    {
+      "file": ".data/interface-acceptance/09-1024-素材库.png",
+      "reason": "Earlier loading state; superseded by fully loaded final capture."
+    },
+    {
+      "file": ".data/interface-acceptance/09-1024-工作台.png",
+      "reason": "Reproduced fixed-height footer clipping; superseded by corrected final capture."
+    },
+    {
+      "file": ".data/interface-final-verified/08-studio-reference-size-dark.png",
+      "reason": "Valid fault-context capture with expected activation-failure toast; superseded by clean visual-only source-comparison capture."
+    }
+  ],
+  "sampledContrastRatios": {
+    "darkActionText": 5.74,
+    "darkFaintOnCanvas": 6.54,
+    "darkLinkOnPanel": 7.63,
+    "lightMutedOnChrome": 4.8,
+    "lightActionText": 6.74
+  },
+  "limits": [
+    "Model and Runner responses are regression fixtures in these screenshots, not live inference or Blender geometry verification.",
+    "Screenshot review and selected contrast pairs do not establish full accessibility compliance.",
+    "The product retains central native Blender and right-side chat; this is not a pixel-perfect VoiceStudio clone."
+  ],
+  "narrowFooterFixVerified": true,
+  "verdict": "Accepted: shared VoiceStudio-inspired visual language, all five pages in both themes, and corrected 1280 / 1024 layouts. No new blocking visual defect in the reviewed states.",
+  "comparison": {
+    "viewport": {
+      "width": 1440,
+      "height": 960
+    },
+    "referenceFile": "../references/voice-audit/voice-cloning.png",
+    "implementationFile": ".data/interface-visual-final/08-studio-reference-size-dark.png",
+    "method": "Actual reference and implementation screenshots inspected together in the same view_image tool call.",
+    "matched": [
+      "plum canvas and darker sidebar",
+      "magenta primary actions",
+      "rounded bottom composer",
+      "52px outer header",
+      "compact collapsible left navigation",
+      "quiet borders and readable interface text"
+    ],
+    "intentionalDifferences": [
+      "central native Blender and right-side chat",
+      "project tabs and asset/template tools",
+      "bright rose links/focus separate from magenta action",
+      "semantic green/warning/error states"
+    ],
+    "screenshotCaveat": "Visual-only follow-up captures cleared the preceding expected fault toast and include only fully loaded gallery pages. Functional fault acceptance remains in the separate final verified run."
+  },
+  "functionalAcceptance": {
+    "passed": true,
+    "scope": "interface-and-system-status",
+    "time": "2026-10-24T03:32:30.945Z",
+    "environment": {
+      "api": "real Fastify",
+      "database": "explicit PostgreSQL WASM over TCP/pg driver; not native PostgreSQL",
+      "runner": "explicit health/scene fixture; no native Blender or model inference",
+      "browser": "Chromium/Playwright"
+    },
+    "checks": [
+      "首次状态检查完成前显示待确认，不伪造离线、0字节或就绪状态",
+      "真实健康接口驱动执行器、数据库与存储显示，未配置模型明确提示且有检查时间",
+      "已保存的模型配置只标记已配置，不冒称真实推理或连接测试通过",
+      "手动刷新真实请求健康接口，等待期间有忙碌状态并防止重复点击",
+      "Runner503保留结构化健康信息，单项目Blender故障可见并有恢复入口",
+      "故障恢复后重新读取当前状态，旧故障提示不残留",
+      "执行服务不可用时数据库仍单独展示，10秒轮询可自动恢复无需整页刷新",
+      "网络检查失败不会永久显示旧绿色状态，明确标记过期并可手动恢复",
+      "磁盘探测失败显示未知而非0字节，数据库等独立状态仍能读取",
+      "模型配置读取失败与尚未配置分开显示，恢复后保留原有模型配置",
+      "健康接口字段缺失或数组格式损坏时不崩溃、不覆盖上次有效状态，恢复后可继续更新",
+      "项目激活期间暂停编辑，完成后草稿归属正确；激活失败保留原项目草稿，重试可恢复",
+      "工作台、素材库、模板中心、控制台、设置五个页面深浅主题均可显示且无整页横向溢出",
+      "导航和右侧助手均可收起再展开，当前工作区保持可操作",
+      "1280和1024桌面宽度下核心页面无整页横向溢出，操作入口可达",
+      "界面与系统状态全部新增场景没有未捕获的浏览器错误"
+    ],
+    "screenshots": [
+      "00-console-first-check-dark.png",
+      "01-console-model-missing-dark.png",
+      "02-console-healthy-dark.png",
+      "03-console-refreshing-dark.png",
+      "04-console-degraded-dark.png",
+      "05-project-failure-dark.png",
+      "05b-console-runner-unavailable-dark.png",
+      "06-console-stale-dark.png",
+      "07-console-storage-unknown-dark.png",
+      "07b-console-model-unreadable-dark.png",
+      "08a-project-switch-pending-dark.png",
+      "08-studio-dark.png",
+      "08-library-dark.png",
+      "08-templates-dark.png",
+      "08-console-dark.png",
+      "08-settings-dark.png",
+      "08-studio-light.png",
+      "08-library-light.png",
+      "08-templates-light.png",
+      "08-console-light.png",
+      "08-settings-light.png",
+      "08-studio-reference-size-light.png",
+      "08-studio-reference-size-dark.png",
+      "09-1280-工作台.png",
+      "09-1280-素材库.png",
+      "09-1280-运行控制台.png",
+      "09-1280-模型设置.png",
+      "09-1024-工作台.png",
+      "09-1024-素材库.png",
+      "09-1024-运行控制台.png",
+      "09-1024-模型设置.png"
+    ],
+    "runnerHealthReads": 20,
+    "uncaughtBrowserErrors": []
+  },
+  "functionalAcceptanceFile": ".data/interface-final-verified/result.json",
+  "visualCaptureRun": {
+    "passed": true,
+    "scope": "interface-visual-capture",
+    "time": "2026-10-24T03:33:15.660Z",
+    "environment": {
+      "api": "real Fastify",
+      "database": "explicit PostgreSQL WASM over TCP/pg driver; not native PostgreSQL",
+      "runner": "explicit health/scene fixture; no native Blender or model inference",
+      "browser": "Chromium/Playwright"
+    },
+    "checks": [
+      "工作台、素材库、模板中心、控制台、设置五个页面深浅主题均可显示且无整页横向溢出",
+      "导航和右侧助手均可收起再展开，当前工作区保持可操作",
+      "1280和1024桌面宽度下核心页面无整页横向溢出，操作入口可达",
+      "界面与系统状态全部新增场景没有未捕获的浏览器错误"
+    ],
+    "screenshots": [
+      "08-studio-dark.png",
+      "08-library-dark.png",
+      "08-templates-dark.png",
+      "08-console-dark.png",
+      "08-settings-dark.png",
+      "08-studio-light.png",
+      "08-library-light.png",
+      "08-templates-light.png",
+      "08-console-light.png",
+      "08-settings-light.png",
+      "08-studio-reference-size-light.png",
+      "08-studio-reference-size-dark.png",
+      "09-1280-工作台.png",
+      "09-1280-素材库.png",
+      "09-1280-运行控制台.png",
+      "09-1280-模型设置.png",
+      "09-1024-工作台.png",
+      "09-1024-素材库.png",
+      "09-1024-运行控制台.png",
+      "09-1024-模型设置.png"
+    ],
+    "runnerHealthReads": 5,
+    "uncaughtBrowserErrors": []
+  },
+  "publishedEvidence": {
+    "screenshotDirectory": "docs/screenshots/interface",
+    "functionalReport": "docs/validation/interface-browser-2026-10-24.json",
+    "visualCaptureReport": "docs/validation/interface-visual-2026-10-24.json"
+  }
+}
