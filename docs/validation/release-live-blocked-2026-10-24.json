@@ -1,0 +1,43 @@
+{
+  "passed": false,
+  "status": "blocked",
+  "scope": "final real-model browser task",
+  "reason": "Automatic approval review rejected continuing the model test session because specific consent to send local scene/screenshot data to coding.smartpaipai.com was not recognized. No final full profile report was produced.",
+  "reviewedAction": "write_stdin on existing execution session45763",
+  "destination": "https://coding.smartpaipai.com",
+  "provenance": {
+    "syntheticOnly": true,
+    "newTestDirectory": true,
+    "capturePathsConstrainedToTestDirectory": true,
+    "userUploadedScenesUsed": false,
+    "seed": "default Blender scene, generated geometry and32x32testtexture"
+  },
+  "lastPersistedJobs": [
+    {
+      "id": "90108d38-4f9d-491e-9fdb-4847ccf7aa57",
+      "projectId": "24e7d099-a73a-43bd-b8de-b3ce2966f7e8",
+      "sessionId": "6ceec7f8-c464-45f1-b56f-198a66077c11",
+      "status": "running",
+      "seq": 57,
+      "createdAt": "2026-10-24T03:00:07.021Z",
+      "updatedAt": "2026-10-24T03:00:17.940Z",
+      "error": null
+    },
+    {
+      "id": "adf9ed08-814f-4be2-bdfc-f5a5e227a155",
+      "projectId": "24e7d099-a73a-43bd-b8de-b3ce2966f7e8",
+      "sessionId": "6ceec7f8-c464-45f1-b56f-198a66077c11",
+      "status": "succeeded",
+      "seq": 474,
+      "createdAt": "2026-10-24T02:58:36.316Z",
+      "updatedAt": "2026-10-24T02:59:56.926Z",
+      "error": null
+    }
+  ],
+  "templateSubsuitePassed": true,
+  "browserFinalAcceptancePassed": false,
+  "separateEarlierFullAttempt": {
+    "outcome": "test harness wait timed out at240000ms during template task; teardown interrupted that task",
+    "correction": "template wait follows Codex15minute turn plus teardown; a focused fresh template subsuite passed; final browser remains blocked"
+  }
+}

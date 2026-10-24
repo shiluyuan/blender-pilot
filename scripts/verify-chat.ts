@@ -477,6 +477,9 @@ try {
   const holdId = submissions[2].runId;
   const scrollable = page.locator(".chat-timeline");
   await scrollable.dispatchEvent("wheel", { deltaY: -1200 });
+  // Reproduce a queued scroll from the preceding automatic follow before the
+  // wheel's actual movement; it must not erase the user's newer upward intent.
+  await scrollable.dispatchEvent("scroll");
   await scrollable.evaluate((el) => {
     el.scrollTop = 0;
     el.dispatchEvent(new Event("scroll"));
@@ -496,7 +499,20 @@ try {
     (await scrollable.evaluate((el) => el.scrollTop)) < 50,
     "new events must not pull a reader back to the bottom",
   );
-  pass("用户向上回看时保持滚动位置，新事件不会强制拉到底部");
+  await page.getByRole("button", { name: "回到最新消息", exact: true }).click();
+  emit(jobs.get(holdId)!, "message.completed", {
+    itemId: "follow-resumed",
+    text: "用户明确回到最新消息后，后续回复恢复跟随。",
+    phase: "commentary",
+  });
+  await delay(1100);
+  assert(
+    await scrollable.evaluate(
+      (el) => el.scrollHeight - el.clientHeight - el.scrollTop < 24,
+    ),
+    "explicit jump must resume following future messages",
+  );
+  pass("用户向上回看时新事件保持位置；明确回到最新后恢复跟随");
   await openHistory(page, "独立草稿 B");
   assert.equal(await input.inputValue(), "B 会话独立草稿");
   emit(jobs.get(holdId)!, "message.completed", {

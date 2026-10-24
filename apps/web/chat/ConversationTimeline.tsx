@@ -20,6 +20,7 @@ export function ConversationTimeline({
     content = useRef<HTMLDivElement>(null);
   const follow = useRef(true),
     userScroll = useRef(false),
+    direction = useRef<"up" | "down" | undefined>(undefined),
     lastTop = useRef(0);
   const [away, setAway] = useState(false);
   const goBottom = () => {
@@ -31,6 +32,7 @@ export function ConversationTimeline({
   };
   useLayoutEffect(() => {
     follow.current = true;
+    direction.current = undefined;
     setAway(false);
     goBottom();
   }, [sessionId]);
@@ -56,21 +58,48 @@ export function ConversationTimeline({
         onWheel={(e) => {
           userScroll.current = true;
           if (e.deltaY < 0) {
+            direction.current = "up";
             follow.current = false;
             setAway(true);
+          } else if (e.deltaY > 0) {
+            direction.current = "down";
+            const node = viewport.current;
+            if (
+              node &&
+              node.scrollHeight - node.clientHeight - node.scrollTop < 24
+            ) {
+              follow.current = true;
+              setAway(false);
+            }
           }
         }}
         onTouchStart={() => {
           userScroll.current = true;
+          direction.current = undefined;
+        }}
+        onTouchMove={() => {
+          userScroll.current = true;
+          direction.current = undefined;
         }}
         onPointerDown={() => {
           userScroll.current = true;
+          direction.current = undefined;
+        }}
+        onPointerMove={(e) => {
+          if (e.buttons) {
+            userScroll.current = true;
+            direction.current = undefined;
+          }
         }}
         onKeyDown={(e) => {
           if (["PageUp", "Home", "ArrowUp"].includes(e.key)) {
             userScroll.current = true;
+            direction.current = "up";
             follow.current = false;
             setAway(true);
+          } else if (["PageDown", "End", "ArrowDown"].includes(e.key)) {
+            userScroll.current = true;
+            direction.current = "down";
           }
         }}
         onScroll={() => {
@@ -78,12 +107,13 @@ export function ConversationTimeline({
           if (!node) return;
           const bottom =
             node.scrollHeight - node.clientHeight - node.scrollTop < 24;
-          if (userScroll.current && node.scrollTop < lastTop.current)
-            follow.current = false;
-          if (
-            bottom &&
-            !(userScroll.current && node.scrollTop < lastTop.current)
-          )
+          const moved = node.scrollTop - lastTop.current;
+          if (userScroll.current && moved < 0) follow.current = false;
+          if (userScroll.current && !direction.current && moved !== 0)
+            direction.current = moved > 0 ? "down" : "up";
+          // A queued programmatic scroll can arrive after an upward wheel but
+          // before its movement. Being at the old bottom is not new user intent.
+          if (bottom && direction.current === "down" && moved >= 0)
             follow.current = true;
           lastTop.current = node.scrollTop;
           userScroll.current = false;
@@ -99,6 +129,7 @@ export function ConversationTimeline({
           aria-label="回到最新消息"
           onClick={() => {
             follow.current = true;
+            direction.current = undefined;
             setAway(false);
             goBottom();
           }}

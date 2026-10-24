@@ -19,6 +19,14 @@ const configPath = process.env.PILOT_MODEL_CONFIG_FILE;
 const liveSettings = configPath
   ? modelSettingsSchema.parse(JSON.parse(await readFile(configPath, "utf8")))
   : undefined;
+const liveScope = process.env.PILOT_LIVE_SCOPE || "full";
+if (
+  !["full", "template"].includes(liveScope) ||
+  (liveScope === "template" && !liveSettings)
+)
+  throw new Error(
+    "PILOT_LIVE_SCOPE supports full or template; template requires a real model configuration",
+  );
 if (
   liveSettings &&
   (!liveSettings.apiKey || process.env.PILOT_SKIP_CODEX === "true")
@@ -240,6 +248,8 @@ try {
   );
   assert((await api("/settings/test", {})).ok);
   const reuseLiveResult = process.env.PILOT_REUSE_LIVE_RESULT === "true";
+  if (reuseLiveResult && liveScope !== "full")
+    throw new Error("Focused checks must use a fresh project");
   if (reuseLiveResult && !liveSettings)
     throw new Error("Reusing live results requires live model configuration");
   const previousLive = reuseLiveResult
@@ -273,6 +283,14 @@ try {
   let liveReport: Awaited<ReturnType<typeof verifyRealModel>> | undefined;
   let templateReport:
     Awaited<ReturnType<typeof verifyTemplateRealModel>> | undefined;
+  let browserReport:
+    | {
+        passed: boolean;
+        runId: string;
+        visualReport: unknown;
+        checks: string[];
+      }
+    | undefined;
   const skipCodex = process.env.PILOT_SKIP_CODEX === "true";
   if (previousLive) {
     assert.equal(session.nativeThreadId, previousLive.nativeThreadId);
@@ -286,13 +304,14 @@ try {
       "REUSE previously passed live-model assertions; rerun browser checks after service restart",
     );
   } else if (liveSettings) {
-    liveReport = await verifyRealModel({
-      api,
-      projectId: project.id,
-      sessionId: session.id,
-      dir,
-      secret: liveSettings.apiKey!,
-    });
+    if (liveScope === "full")
+      liveReport = await verifyRealModel({
+        api,
+        projectId: project.id,
+        sessionId: session.id,
+        dir,
+        secret: liveSettings.apiKey!,
+      });
     templateReport = await verifyTemplateRealModel({
       api,
       projectId: project.id,
@@ -453,7 +472,9 @@ try {
       await page
         .locator("textarea")
         .fill(
-          "浏览器对话验收：保持场景不变，查看当前截图，简短描述两个新增物体的颜色与相对位置，并提交视觉检查结论。",
+          liveScope === "template"
+            ? "浏览器对话验收：保持当前场景不变，读取当前场景信息，查看本轮的真实截图，简短描述当前可见物体与构图，并提交视觉检查结论。"
+            : "浏览器对话验收：保持场景不变，查看当前截图，简短描述两个新增物体的颜色与相对位置，并提交视觉检查结论。",
         );
       await page.getByRole("button", { name: "发送消息", exact: true }).click();
       const browserRun = await waitFor(
@@ -486,21 +507,35 @@ try {
         .split("\n")
         .filter(Boolean)
         .map((line) => JSON.parse(line));
-      liveReport!.runIds.push(browserRun.id);
-      liveReport!.captures += browserEvents.filter(
-        (e) => e.type === "capture.created",
-      ).length;
-      liveReport!.toolCalls += browserEvents.filter(
-        (e) => e.type === "tool.started",
-      ).length;
-      liveReport!.visualReports.push(
-        browserEvents
-          .filter((e) => e.type === "verification" && e.payload.passed)
-          .at(-1).payload,
-      );
-      liveReport!.checks.push(
-        "browser composer → real model → screenshot report → streamed completion",
-      );
+      const browserVerification = browserEvents
+        .filter((e) => e.type === "verification" && e.payload.passed)
+        .at(-1)?.payload;
+      assert(browserVerification?.captureId);
+      browserReport = {
+        passed: true,
+        runId: browserRun.id,
+        visualReport: browserVerification,
+        checks: [
+          "browser composer → real model → screenshot report → streamed completion",
+        ],
+      };
+      if (liveReport) {
+        liveReport.runIds.push(browserRun.id);
+        liveReport.captures += browserEvents.filter(
+          (e) => e.type === "capture.created",
+        ).length;
+        liveReport.toolCalls += browserEvents.filter(
+          (e) => e.type === "tool.started",
+        ).length;
+        liveReport.visualReports.push(
+          browserEvents
+            .filter((e) => e.type === "verification" && e.payload.passed)
+            .at(-1).payload,
+        );
+        liveReport.checks.push(
+          "browser composer → real model → screenshot report → streamed completion",
+        );
+      }
       console.log(
         "PASS browser conversation with the real model and screenshot verification",
       );
@@ -683,24 +718,32 @@ try {
             ? "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised"
             : "PostgreSQL server",
         mode: liveSettings ? "live-model" : "protocol-fixture",
+        liveCheckScope: liveSettings ? liveScope : undefined,
         reusedLiveChecks: reuseLiveResult,
         imageInputs: liveSettings ? undefined : images,
         live: liveReport,
         library: libraryReport,
         templates: templateReport,
+        browser: browserReport,
         checks: [
           "native MCP",
           "snapshots",
           "GLB/glTF/blend exports",
           ...(skipCodex
             ? []
-            : [
-                "Codex tool calls",
-                "image input",
-                "idempotency",
-                "thread resume",
-                "cancel",
-              ]),
+            : liveSettings && liveScope === "template"
+              ? [
+                  "Codex tool calls",
+                  "template composition",
+                  "browser real-model verification",
+                ]
+              : [
+                  "Codex tool calls",
+                  "image input",
+                  "idempotency",
+                  "thread resume",
+                  "cancel",
+                ]),
           "browser VNC",
         ],
       },

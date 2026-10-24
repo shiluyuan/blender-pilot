@@ -52,5 +52,10 @@ RUN /opt/mcp/bin/python -c "from importlib.resources import files; import shutil
     (getent group 1000 >/dev/null || groupadd -g 1000 pilot) && \
     useradd -m -u 1000 -g 1000 -s /bin/bash pilot && mkdir /data && \
     chown pilot:1000 /data && chmod +x studio-entrypoint.sh studio-session.sh
+# Fail image construction if a copied native binary cannot load its target
+# distro's runtime libraries. These checks require no model credentials or GUI.
+RUN node --version && codex --version && blender --background --version && \
+    /opt/mcp/bin/python -c "import blender_mcp"
 EXPOSE 8091
 ENTRYPOINT ["/usr/bin/tini", "--", "/opt/pilot/studio-entrypoint.sh"]
+

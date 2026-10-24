@@ -39,6 +39,7 @@ import {
   MAX_CHAT_ATTACHMENTS,
 } from "../../packages/contracts/chat-limits.js";
 import { Vault, validPassword } from "./security.js";
+import { AuthSessions } from "./auth-sessions.js";
 import {
   idSchema,
   modelSettingsSchema,
@@ -92,6 +93,7 @@ export async function buildApp(options: AppOptions) {
 
   const vault = new Vault(path.join(options.dataRoot, "config"));
   await vault.init();
+  const authentication = new AuthSessions(store.db, vault);
   const app = Fastify({ logger: false, bodyLimit: 5 * 1024 * 1024 });
   await app.register(cookie);
   app.addContentTypeParser(
@@ -119,10 +121,11 @@ export async function buildApp(options: AppOptions) {
     if (
       req.url === "/api/auth/login" ||
       req.url === "/api/auth/status" ||
+      req.url === "/api/auth/logout" ||
       req.url === "/api/ready"
     )
       return;
-    if (!vault.valid(req.cookies.pilot_session))
+    if (!(await authentication.valid(req.cookies.pilot_session)))
       return reply.code(401).send({ error: "请先登录" });
   });
   app.setErrorHandler((error: any, _req, reply) =>
@@ -161,7 +164,11 @@ export async function buildApp(options: AppOptions) {
   const streams = new Set<import("node:http").ServerResponse>();
   const fail = (message: string, statusCode = 400) =>
     Object.assign(new Error(message), { statusCode });
-  const runner = async (endpoint: string, body?: unknown) => {
+  const runner = async (
+    endpoint: string,
+    body?: unknown,
+    timeoutMs = endpoint === "/health" ? 10000 : 180000,
+  ) => {
     const res = await fetch(options.runnerUrl + endpoint, {
       method: body ? "POST" : "GET",
       headers: {
@@ -171,7 +178,7 @@ export async function buildApp(options: AppOptions) {
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.any([
         shutdownController.signal,
-        AbortSignal.timeout(endpoint === "/health" ? 10000 : 180000),
+        AbortSignal.timeout(timeoutMs),
       ]),
     });
     const json = (await res.json()) as any;
@@ -255,7 +262,7 @@ export async function buildApp(options: AppOptions) {
     }
   });
   app.get("/api/auth/status", async (req) => ({
-    authenticated: vault.valid(req.cookies.pilot_session),
+    authenticated: await authentication.valid(req.cookies.pilot_session),
   }));
   app.post("/api/auth/login", async (req, reply) => {
     const body = z.object({ password: z.string().max(500) }).parse(req.body);
@@ -271,7 +278,7 @@ export async function buildApp(options: AppOptions) {
       throw fail("访问密码不正确", 401);
     }
     authAttempts.delete(ip);
-    reply.setCookie("pilot_session", vault.session(), {
+    reply.setCookie("pilot_session", await authentication.create(), {
       path: "/",
       httpOnly: true,
       sameSite: "strict",
@@ -280,7 +287,8 @@ export async function buildApp(options: AppOptions) {
     });
     return { ok: true };
   });
-  app.post("/api/auth/logout", async (_req, reply) => {
+  app.post("/api/auth/logout", async (req, reply) => {
+    await authentication.revoke(req.cookies.pilot_session);
     reply.clearCookie("pilot_session", { path: "/" });
     return { ok: true };
   });
@@ -592,12 +600,28 @@ export async function buildApp(options: AppOptions) {
         const asset = projectAsset || (await store.get<any>("capture", id));
         if (!asset || asset.projectId !== session.projectId)
           throw fail("引用资源不属于当前项目");
+        let file: string;
+        try {
+          file = await existingSafePath(
+            safePath(options.dataRoot, "projects", session.projectId),
+            asset.path,
+          );
+          const handle = await open(file, "r");
+          try {
+            const info = await handle.stat();
+            if (!info.isFile() || !info.size)
+              throw new Error("内容文件为空或不是文件");
+          } finally {
+            await handle.close();
+          }
+        } catch {
+          throw fail(
+            `引用资源「${asset.name || "场景截图"}」的本地文件缺失或不可读，请恢复文件或重新上传`,
+            409,
+          );
+        }
         if (documentMime(asset.path)) {
           try {
-            const file = await existingSafePath(
-              safePath(options.dataRoot, "projects", session.projectId),
-              asset.path,
-            );
             await readDocumentFile(path.basename(file), file);
           } catch (e) {
             throw fail(`文档 ${asset.name} 无法读取：${(e as Error).message}`);
@@ -678,7 +702,9 @@ export async function buildApp(options: AppOptions) {
         await store.updateRun(run.id, (current) => {
           if (terminal.has(current.status) || current.status === "running")
             return;
-          if (current.status !== "cancelling") current.status = "interrupted";
+          // The worker may have admitted the request before its reply was lost.
+          // Keep the project reservation until reconciliation proves a terminal
+          // outcome; another message must not overtake uncertain scene writes.
           current.error =
             "任务提交未能确认：" + redact(String(e), [settings.apiKey || ""]);
           current.updatedAt = now();
@@ -747,10 +773,12 @@ export async function buildApp(options: AppOptions) {
     let closed = false,
       busy = false,
       lastHeartbeat = Date.now();
+    let stopAuthentication = () => {};
     const cleanup = () => {
       closed = true;
       streams.delete(reply.raw);
       clearInterval(timer);
+      stopAuthentication();
     };
     const write = async (data: string) => {
       if (closed || reply.raw.destroyed) return;
@@ -802,6 +830,12 @@ export async function buildApp(options: AppOptions) {
     };
     const timer = setInterval(() => void flush(), 800);
     reply.raw.once("close", cleanup);
+    stopAuthentication = authentication.watch(req.cookies.pilot_session, () => {
+      if (!closed && !reply.raw.destroyed)
+        reply.raw.write("event: auth.expired\ndata: {}\n\n");
+      reply.raw.end();
+      cleanup();
+    });
     await flush();
   });
   // Resumable uploads: sequential 4 MiB chunks, server offset is authoritative.
@@ -1246,42 +1280,70 @@ export async function buildApp(options: AppOptions) {
     syncing = true;
     try {
       const runs = await store.list<Run>("run");
-      for (const run of runs.filter(
+      const pending = runs.filter(
         (r) =>
           !terminal.has(r.status) ||
           (r.status === "interrupted" && r.error?.startsWith("任务提交")),
-      )) {
+      );
+      // Status/event reads and idempotent cancellation messages should be quick.
+      // They must not inherit the longer deadline for Blender scene mutations.
+      const reconcileTimeoutMs = 5000;
+      const reconcile = async (run: Run) => {
         try {
           let remote;
+          let missingWorker =
+            run.error?.startsWith("执行端任务记录缺失") || false;
           try {
             if (run.cancelRequestedAt)
-              await runner(`/jobs/${run.id}/cancel`, {
+              await runner(
+                `/jobs/${run.id}/cancel`,
+                {
+                  projectId: run.projectId,
+                  sessionId: run.sessionId,
+                },
+                reconcileTimeoutMs,
+              );
+            remote = await runner(
+              "/jobs/" + run.id,
+              undefined,
+              reconcileTimeoutMs,
+            );
+          } catch (e) {
+            if ((e as any).statusCode !== 404 || dispatches.has(run.id)) return;
+            // A gateway restart can lose its HTTP dispatch owner while the old
+            // request is still delayed in the worker's handler. A bare 404 does
+            // not prove that it can never arrive. Persist cancellation first so
+            // a late admission is an idempotent cancelled receipt, not a write.
+            await runner(
+              `/jobs/${run.id}/cancel`,
+              {
                 projectId: run.projectId,
                 sessionId: run.sessionId,
-              });
-            remote = await runner("/jobs/" + run.id);
-          } catch (e) {
-            if (
-              (e as any).statusCode === 404 &&
-              run.status === "queued" &&
-              !dispatches.has(run.id)
-            ) {
-              await store.updateRun(run.id, (current) => {
-                if (current.status !== "queued") return;
-                current.status = "interrupted";
-                current.error =
-                  "任务提交未能确认：执行端未记录该任务；为避免重复操作，没有自动重新执行。";
-                current.updatedAt = now();
-              });
-            }
-            continue;
+              },
+              reconcileTimeoutMs,
+            );
+            remote = await runner(
+              "/jobs/" + run.id,
+              undefined,
+              reconcileTimeoutMs,
+            );
+            missingWorker = true;
           }
+          if (
+            (remote.projectId !== undefined &&
+              remote.projectId !== run.projectId) ||
+            (remote.sessionId !== undefined &&
+              remote.sessionId !== run.sessionId)
+          )
+            throw new Error("执行状态归属与任务不一致");
           let cursor = await store.latestSequence(run.id);
           const expected = Number(remote.seq || 0);
           let incomplete = false;
           while (true) {
             const events = await runner(
               `/jobs/${run.id}/events?after=${cursor}&limit=500`,
+              undefined,
+              reconcileTimeoutMs,
             );
             if (!Array.isArray(events)) throw new Error("执行事件响应无效");
             if (!events.length) {
@@ -1291,10 +1353,27 @@ export async function buildApp(options: AppOptions) {
             for (const e of events) {
               if (
                 e.runId !== run.id ||
+                (e.projectId !== undefined && e.projectId !== run.projectId) ||
+                (e.sessionId !== undefined && e.sessionId !== run.sessionId) ||
                 !Number.isSafeInteger(e.seq) ||
                 e.seq !== cursor + 1
               )
                 throw new Error("执行事件顺序不完整，等待恢复后重试");
+              for (const [eventType, property] of [
+                ["capture.created", "capture"],
+                ["snapshot.created", "snapshot"],
+                ["artifact.created", "artifact"],
+              ] as const) {
+                if (e.type !== eventType) continue;
+                const resource = e.payload?.[property];
+                if (
+                  !resource ||
+                  !idSchema.safeParse(resource.id).success ||
+                  resource.projectId !== run.projectId ||
+                  (resource.runId !== undefined && resource.runId !== run.id)
+                )
+                  throw new Error("执行资源归属与任务不一致");
+              }
               await store.db.transaction(async (tx) => {
                 await store.event(e, tx);
                 if (e.type === "capture.created")
@@ -1335,24 +1414,44 @@ export async function buildApp(options: AppOptions) {
             if (events.length < 500 && cursor >= expected) break;
           }
           // Do not publish a terminal state until every advertised event is durable.
-          if (incomplete) continue;
+          if (incomplete) return;
           await store.updateRun(run.id, (current) =>
             Object.assign(current, {
               status:
-                current.cancelRequestedAt && !terminal.has(remote.status)
-                  ? "cancelling"
-                  : remote.status,
+                missingWorker &&
+                !current.cancelRequestedAt &&
+                remote.status === "cancelled"
+                  ? "interrupted"
+                  : current.cancelRequestedAt && !terminal.has(remote.status)
+                    ? "cancelling"
+                    : remote.status,
               verification: remote.verification,
-              error: remote.error,
+              error:
+                missingWorker &&
+                !current.cancelRequestedAt &&
+                remote.status !== "succeeded"
+                  ? "执行端任务记录缺失，已阻止迟到提交；请检查当前场景后重新发送，没有自动重新执行。"
+                  : remote.error,
               nativeThreadId: remote.nativeThreadId,
               updatedAt: remote.updatedAt,
             }),
           );
         } catch {
           // Keep the cursor and retry this project without starving other studios.
-          continue;
+          return;
         }
-      }
+      };
+      let next = 0;
+      // A delayed response for one project cannot hold up the other studios.
+      // Bound fan-out rather than starting a request for every historical run.
+      await Promise.all(
+        Array.from({ length: Math.min(3, pending.length) }, async () => {
+          while (next < pending.length && !shutdownController.signal.aborted) {
+            const run = pending[next++];
+            await reconcile(run);
+          }
+        }),
+      );
     } finally {
       syncing = false;
     }
@@ -1375,14 +1474,16 @@ export async function buildApp(options: AppOptions) {
     if (
       desktop.pathname !== "/desktop" ||
       !idSchema.safeParse(pid).success ||
-      !validOrigin ||
-      !vault.valid(cookies.pilot_session)
+      !validOrigin
     ) {
       socket.destroy();
       return;
     }
     try {
-      if (!(await store.get("project", pid))) {
+      if (
+        !(await authentication.valid(cookies.pilot_session)) ||
+        !(await store.get("project", pid))
+      ) {
         socket.destroy();
         return;
       }
@@ -1398,21 +1499,40 @@ export async function buildApp(options: AppOptions) {
         { headers: { authorization: `Bearer ${options.internalToken}` } },
       );
       const pending: Buffer[] = [];
-      let pendingBytes = 0;
+      let pendingBytes = 0,
+        authenticationEnded = false;
+      const stopAuthentication = authentication.watch(
+        cookies.pilot_session,
+        () => {
+          authenticationEnded = true;
+          pending.length = 0;
+          client.close(1008, "登录已过期，请重新登录");
+          remote.terminate();
+        },
+      );
       client.on("message", (d) => {
+        if (authenticationEnded) return;
         const b = Buffer.isBuffer(d) ? d : Buffer.from(d as ArrayBuffer);
         if (remote.readyState === 1) remote.send(b);
         else if ((pendingBytes += b.length) < 4 * 1024 * 1024) pending.push(b);
         else client.close();
       });
-      remote.on("open", () => pending.forEach((d) => remote.send(d)));
+      remote.on("open", () => {
+        if (!authenticationEnded) pending.forEach((d) => remote.send(d));
+      });
       remote.on("message", (d) => {
-        if (client.readyState === 1) client.send(d);
+        if (!authenticationEnded && client.readyState === 1) client.send(d);
       });
       remote.on("error", () => client.close());
       client.on("error", () => remote.close());
-      remote.on("close", () => client.close());
-      client.on("close", () => remote.close());
+      remote.on("close", () => {
+        stopAuthentication();
+        client.close();
+      });
+      client.on("close", () => {
+        stopAuthentication();
+        remote.close();
+      });
     });
   });
   if (options.webRoot) {
@@ -1426,6 +1546,7 @@ export async function buildApp(options: AppOptions) {
   app.addHook("preClose", async () => {
     if (poll) clearInterval(poll);
     shutdownController.abort();
+    authentication.close();
     for (const stream of streams) stream.end();
     for (const client of ws.clients) client.terminate();
     await Promise.allSettled([...operations.values()]);

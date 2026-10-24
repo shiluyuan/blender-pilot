@@ -57,7 +57,18 @@ export async function verifyTemplateRealModel(options: {
   };
   const run = await api(`/sessions/${sessionId}/turns`, body);
   assert.equal((await api(`/sessions/${sessionId}/turns`, body)).id, run.id);
-  const deadline = Date.now() + 240000;
+  // Codex permits a 15-minute turn. Complex combinations can keep producing
+  // valid tool receipts after four minutes, so allow that turn plus teardown.
+  const modelWaitBudgetMs = Number(
+    process.env.PILOT_LIVE_TASK_TIMEOUT_MS || 16 * 60_000,
+  );
+  if (
+    !Number.isSafeInteger(modelWaitBudgetMs) ||
+    modelWaitBudgetMs < 30000 ||
+    modelWaitBudgetMs > 20 * 60_000
+  )
+    throw new Error("PILOT_LIVE_TASK_TIMEOUT_MS must be 30000–1200000");
+  const deadline = Date.now() + modelWaitBudgetMs;
   let finished: any;
   while (Date.now() < deadline) {
     const current = (await api(`/sessions/${sessionId}/runs`)).find(
@@ -72,6 +83,12 @@ export async function verifyTemplateRealModel(options: {
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!finished) {
+    await api(`/runs/${run.id}/cancel`, {});
+    throw new Error(
+      `Template model acceptance exceeded ${modelWaitBudgetMs}ms; cancellation requested before service teardown`,
+    );
   }
   assert.equal(
     finished?.status,
@@ -182,6 +199,7 @@ export async function verifyTemplateRealModel(options: {
   const report = {
     passed: true,
     mode: "live-model",
+    modelWaitBudgetMs,
     time: new Date().toISOString(),
     runId: run.id,
     templateId: template.id,

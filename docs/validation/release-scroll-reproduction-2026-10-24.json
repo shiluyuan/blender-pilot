@@ -1,0 +1,80 @@
+{
+  "reproduced": true,
+  "testResult": "failed before fix",
+  "cause": "negative wheel was overwritten by a queued scroll at the previous bottom before movement; later new content forced goBottom",
+  "events": [
+    {
+      "kind": "begin",
+      "top": 899,
+      "max": 899,
+      "time": 8740.699999999255
+    },
+    {
+      "kind": "wheel",
+      "detail": -1200,
+      "top": 899,
+      "max": 899,
+      "time": 8742.900000000373
+    },
+    {
+      "kind": "scroll",
+      "top": 899,
+      "max": 899,
+      "time": 8744.799999998882
+    },
+    {
+      "kind": "resize",
+      "top": 899,
+      "max": 899,
+      "time": 8746.900000000373
+    },
+    {
+      "kind": "set",
+      "detail": {
+        "value": 0,
+        "stack": "Error\n    at HTMLDivElement.set (eval at evaluate (:234:30), <anonymous>:7:133)\n    at eval (eval at evaluate (:234:30), <anonymous>:1:18)\n    at UtilityScript.evaluate (<anonymous>:236:17)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+      },
+      "top": 899,
+      "max": 899,
+      "time": 8751.099999999627
+    },
+    {
+      "kind": "scroll",
+      "top": 0,
+      "max": 899,
+      "time": 8751.199999999255
+    },
+    {
+      "kind": "scroll",
+      "top": 0,
+      "max": 899,
+      "time": 8763.699999999255
+    },
+    {
+      "kind": "set",
+      "detail": {
+        "value": 1746,
+        "stack": "Error\n    at HTMLDivElement.set (eval at evaluate (:234:30), <anonymous>:7:133)\n    at u (http://127.0.0.1:45217/assets/index-D7lktbVI.js:68:10692)\n    at http://127.0.0.1:45217/assets/index-D7lktbVI.js:68:10832\n    at Dl (http://127.0.0.1:45217/assets/index-D7lktbVI.js:8:95183)\n    at Su (http://127.0.0.1:45217/assets/index-D7lktbVI.js:8:104667)\n    at Vu (http://127.0.0.1:45217/assets/index-D7lktbVI.js:8:115987)\n    at Su (http://127.0.0.1:45217/assets/index-D7lktbVI.js:8:105228)\n    at Vu (http://127.0.0.1:45217/assets/index-D7lktbVI.js:8:115987)\n    at Su (http://127.0.0.1:45217/assets/index-D7lktbVI.js:8:105730)\n    at Vu (http://127.0.0.1:45217/assets/index-D7lktbVI.js:8:115987)"
+      },
+      "top": 0,
+      "max": 1111,
+      "time": 9484.900000000373
+    },
+    {
+      "kind": "scroll",
+      "top": 1111,
+      "max": 1111,
+      "time": 9497.099999999627
+    },
+    {
+      "kind": "set",
+      "detail": {
+        "value": 1746,
+        "stack": "Error\n    at HTMLDivElement.set (eval at evaluate (:234:30), <anonymous>:7:133)\n    at u (http://127.0.0.1:45217/assets/index-D7lktbVI.js:68:10692)\n    at ResizeObserver.<anonymous> (http://127.0.0.1:45217/assets/index-D7lktbVI.js:68:10933)"
+      },
+      "top": 1111,
+      "max": 1111,
+      "time": 9497.299999998882
+    }
+  ]
+}

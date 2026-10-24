@@ -78,4 +78,16 @@ CREATE TABLE creation_template_assets (
 CREATE INDEX creation_template_assets_asset ON creation_template_assets(asset_id);
 `,
   },
+  {
+    version: 3,
+    sql: `
+CREATE TABLE auth_sessions (
+ token_hash text PRIMARY KEY CHECK(length(token_hash)=64),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ expires_at timestamptz NOT NULL,
+ revoked_at timestamptz
+);
+CREATE INDEX auth_sessions_expiry ON auth_sessions(expires_at);
+`,
+  },
 ];

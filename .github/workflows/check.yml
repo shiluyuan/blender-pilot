@@ -53,7 +53,7 @@ jobs:
           set -a
           . ./.env
           set +a
-          PILOT_FIXTURE_BIND=0.0.0.0 PILOT_FIXTURE_HOST=host.docker.internal npm run test:e2e
+          PILOT_TEST_DISPOSABLE=1 PILOT_FIXTURE_BIND=0.0.0.0 PILOT_FIXTURE_HOST=host.docker.internal npm run test:e2e
       - name: Logs
         if: always()
         run: docker compose --profile bundled-db logs --no-color --tail=160
@@ -65,3 +65,4 @@ jobs:
           if-no-files-found: ignore
       - if: always()
         run: docker compose --profile bundled-db down
+

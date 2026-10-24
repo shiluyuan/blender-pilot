@@ -1,5 +1,13 @@
 # 验证方法与记录
 
+## 最新：发布前多场景（2026-10-24）
+
+当前通过 **72 项 Node + 11 项 Python 自动检查、44 项浏览器检查、12 组真实双 Blender 场景**。修复并覆盖了丢失回执、迟到提交、登录过期恢复、退出撤销、挂起隔离、缺失文件和滚动竞态。新增 [已部署实例健康命令](deployment.md#检查已部署实例)，使用独立临时登录，保留模型配置、场景和其他登录。
+
+真实模型核心 5 个任务和独立组合重测通过。一次组合等待超过测试脚本 4 分钟上限的尝试保留为失败记录；等待策略已校正。最终真实模型浏览器阶段被自动审批中断，尚未计为通过。Docker 构建/启动与原生 PostgreSQL 部署在本云端仍未执行。结论为**受控试运行，正式发布验收未完成**，详细范围见 [上线前验收](release-readiness.md) 和 [机器汇总](validation/release-readiness-2026-10-24.json)。
+
+原生恢复注入实际为 Runner Node 进程 SIGKILL，子进程枚举在本环境返回 0；报告没有将其描述为 Docker 容器重启。官方镜像 manifest 可拉取和应用二进制在原生环境可运行，也不能替代实际 Docker 镜像运行。
+
 ## 当前版本：模板、素材组合与稳定性（2026-10-24）
 
 对照 [Blender Copilot 固定版本源码与测试](competitor-review.md)，落实模板、恢复点与工具回执，并针对实际连接、取消和存储异常增加防护。没有以测试数量宣称双方整体性能或稳定性排名。
@@ -106,7 +114,7 @@ npm run verify:blender
 
 ```bash
 # 仅在测试实例运行，会创建项目并把模型配置切换到协议夹具
-PILOT_PASSWORD=your-test-password npm run test:e2e
+PILOT_TEST_DISPOSABLE=1 PILOT_PASSWORD=your-test-password npm run test:e2e
 ```
 
 容器中的模型请求需要访问测试主机：设置 `PILOT_FIXTURE_BIND=0.0.0.0`、`PILOT_FIXTURE_HOST=host.docker.internal`，并给 studio 添加 `extra_hosts: ["host.docker.internal:host-gateway"]`。不要对正在使用的实例运行此测试。

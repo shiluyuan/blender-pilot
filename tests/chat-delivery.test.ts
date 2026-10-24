@@ -123,7 +123,9 @@ test("accepted sends survive an unknown runner acknowledgement; retries are idem
     assert.equal(first.json().status, "queued");
     const until = Date.now() + 5000;
     while (
-      (await store.get<any>("run", first.json().id)).status !== "interrupted"
+      !(await store.get<any>("run", first.json().id)).error?.startsWith(
+        "任务提交",
+      )
     ) {
       if (Date.now() > until)
         throw new Error("Background dispatch did not settle");

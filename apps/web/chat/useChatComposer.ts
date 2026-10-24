@@ -67,6 +67,7 @@ const safeStore = (key: string, value: unknown) => {
 export function useChatComposer(options: {
   projectId?: string;
   sessionId?: string;
+  authenticated?: boolean;
   onAccepted: (run: Run) => void;
   onError: (message: string) => void;
 }) {
@@ -77,7 +78,7 @@ export function useChatComposer(options: {
   const controllers = useRef(new Map<string, AbortController>());
   const sending = useRef(new Set<string>());
   const [, redraw] = useState(0);
-  const { projectId, sessionId } = options;
+  const { projectId, sessionId, authenticated = true } = options;
   const get = (id: string, pid?: string): DraftRecord => {
     const cached = records.current.get(id);
     if (cached) return cached;
@@ -131,7 +132,7 @@ export function useChatComposer(options: {
   };
   const current = sessionId ? get(sessionId, projectId) : empty();
   useEffect(() => {
-    if (!sessionId || !projectId) return;
+    if (!authenticated || !sessionId || !projectId) return;
     try {
       localStorage.setItem("pilot-chat-active:" + projectId, sessionId);
     } catch {}
@@ -169,7 +170,7 @@ export function useChatComposer(options: {
       .catch(() => {
         if (!cancelled)
           change(sessionId, (r) =>
-            r.outbox
+            r.outbox?.clientRequestId === pending.clientRequestId
               ? {
                   ...r,
                   outbox: {
@@ -185,7 +186,7 @@ export function useChatComposer(options: {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, projectId]);
+  }, [sessionId, projectId, authenticated]);
   useEffect(() => () => controllers.current.forEach((c) => c.abort()), []);
 
   const setDraft: Dispatch<SetStateAction<string>> = (value) => {
@@ -260,6 +261,7 @@ export function useChatComposer(options: {
       ...r,
       outbox: { ...pending, status: "sending", error: undefined },
     }));
+    let receiptUnconfirmed = pending.uncertain === true;
     try {
       if (pending.uncertain) {
         const found = await api<{ run: Run | null }>(
@@ -269,6 +271,7 @@ export function useChatComposer(options: {
           accepted(id, pending, found.run);
           return;
         }
+        receiptUnconfirmed = false;
       }
       const run = await post<Run>(`/sessions/${id}/turns`, {
         text: pending.text,
@@ -282,17 +285,28 @@ export function useChatComposer(options: {
       });
       accepted(id, pending, run);
     } catch (e) {
-      const uncertain = !(
-        e instanceof ApiError &&
-        e.status >= 400 &&
-        e.status < 500 &&
-        e.status !== 408 &&
-        e.status !== 429
+      const uncertain =
+        receiptUnconfirmed ||
+        !(
+          e instanceof ApiError &&
+          e.status >= 400 &&
+          e.status < 500 &&
+          e.status !== 408 &&
+          e.status !== 429
+        );
+      change(id, (r) =>
+        r.outbox?.clientRequestId === pending.clientRequestId
+          ? {
+              ...r,
+              outbox: {
+                ...pending,
+                status: "error",
+                uncertain,
+                error: messageOf(e),
+              },
+            }
+          : r,
       );
-      change(id, (r) => ({
-        ...r,
-        outbox: { ...pending, status: "error", uncertain, error: messageOf(e) },
-      }));
     } finally {
       sending.current.delete(id);
     }

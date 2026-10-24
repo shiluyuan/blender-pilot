@@ -5,6 +5,10 @@ import { responsesFixture } from "../tests/fixtures/responses.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "@playwright/test";
 const base = process.env.PILOT_TEST_URL || "http://127.0.0.1:8090";
+if (process.env.PILOT_TEST_DISPOSABLE !== "1")
+  throw new Error(
+    "This test overwrites model settings and creates Blender data. Use a disposable instance and explicitly set PILOT_TEST_DISPOSABLE=1. Existing model keys cannot be restored by this test.",
+  );
 const password = process.env.PILOT_PASSWORD;
 if (!password) throw new Error("Set PILOT_PASSWORD for the test deployment");
 const fixture = await responsesFixture(
@@ -35,6 +39,27 @@ const poll = async (fn: () => Promise<any>, ms = 180000) => {
 };
 try {
   await api("/auth/login", { password });
+  const health = await api("/health");
+  assert(
+    health.database?.ok && health.execution?.ok,
+    "Deployment is not ready; no model settings were changed",
+  );
+  assert(
+    !health.execution.activeRuns?.length,
+    "Active worker tasks exist; no model settings were changed",
+  );
+  // A queued gateway admission may not yet appear in worker health. Inspect
+  // durable conversation runs too before replacing the global model config.
+  for (const project of await api("/projects"))
+    for (const session of await api(`/projects/${project.id}/sessions`))
+      assert(
+        (await api(`/sessions/${session.id}/runs`)).every((run: any) =>
+          ["succeeded", "failed", "interrupted", "cancelled"].includes(
+            run.status,
+          ),
+        ),
+        "Active or queued application tasks exist; no model settings were changed",
+      );
   const url = new URL(fixture.url);
   if (process.env.PILOT_FIXTURE_HOST)
     url.hostname = process.env.PILOT_FIXTURE_HOST;

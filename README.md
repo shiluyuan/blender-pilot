@@ -10,6 +10,8 @@
 
 ![真实 Blender 多项目工作区](docs/screenshots/workspaces-dark.png)
 
+上图来自真实双 Blender 的隔离与恢复验收，模型响应由受控协议夹具提供；真实模型测试单独记录，见 [上线前验收](docs/release-readiness.md)。
+
 ## 一条命令部署
 
 支持 **Linux x86_64**。服务器无需预先安装 Blender、Node.js、Python 插件或 PostgreSQL；Blender 与应用依赖安装在 Docker 镜像内，数据库独立运行。宿主机需要 Bash、Python 3.9+、curl 和 Docker Engine / Compose v2。
@@ -30,7 +32,9 @@ sudo ./docker-up.sh --install-docker
 
 启动后自动验证 **PostgreSQL → 登录 → 启动 Blender → MCP 读取场景 → 截图下载 → 保存**，失败会以非零状态退出。首次进入会创建一个入门项目。默认打开 `http://服务器IP:8090`，使用终端打印的密码登录，在「模型设置」中填写接口和模型。
 
-**应用/协议自动检查 51 项、部署脚本检查 7 项、浏览器交互检查 35 项及生产构建通过。** 真实 Key 已跑通模板与素材组合、尺寸回读、跨项目复用和快照恢复。实际执行范围、结果和限制见 [验收记录](docs/validation.md)。
+**应用/协议/故障检查 72 项、部署脚本检查 11 项、浏览器交互检查 44 项、双 Blender 原生场景检查 12 组及生产构建通过。** 覆盖重新登录恢复、丢失回执、挂起隔离、进程故障与重启。真实 Key 的模板与素材组合、尺寸回读、跨项目复用和快照恢复单独验收；范围和限制见 [上线前验收](docs/release-readiness.md) 与 [验收记录](docs/validation.md)。
+
+本轮真实模型核心与模板子套件已通过；最终真实模型浏览器阶段因自动审批中断待补，没有计作通过。正式发布还需完成实际主机的 Docker / 原生 PostgreSQL 验收。
 
 > 当前云端已完成的验证与限制详见 [验收记录](docs/validation.md)。生产配置使用 PostgreSQL；云端数据库检查使用明确标识的 PostgreSQL WASM / TCP 协议环境，Docker 整机启动与原生 PostgreSQL 18 尚未在此云端实测，不能将其称为 Docker 全量验收完成。
 
@@ -81,6 +85,14 @@ sudo ./docker-up.sh --install-docker
 ```
 
 模型接口需支持 **Responses API、流式响应、工具调用和图片输入**。填写服务商要求的 API 根地址，不追加 `/responses`。工作台会加密保存 Key；「测试连接」只验证协议连通，真实任务再验证视觉和工具能力。
+
+配置完成后可检查正在运行的实例，宿主机无需 Node：
+
+```bash
+docker compose --env-file .env exec -T web node dist/server/apps/server/readiness.js
+```
+
+此命令使用独立临时登录，检查服务、数据库、执行端、模型配置和空间，保留已有模型配置、场景和其他登录。升级后旧 Cookie 需重新登录一次，已保存模型 Key 保留。
 
 ## 实际界面
 

@@ -1,6 +1,8 @@
 import shutil
 import subprocess
 import importlib.util, pathlib, tempfile, unittest, unittest.mock as mock, os
+import io
+import json
 
 spec = importlib.util.spec_from_file_location(
     "pilot_deploy", pathlib.Path(__file__).parents[1] / "scripts" / "deploy.py"
@@ -115,6 +117,22 @@ class DeploymentTests(unittest.TestCase):
             self.assertEqual(os.environ["DATABASE_URL"], c["DATABASE_URL"])
             self.assertEqual(os.environ.get("PATH"), old_path)
 
+    def test_ipv6_bind_uses_valid_service_and_matching_loopback_addresses(self):
+        for bind, hostname in [
+            ("::1", "::1"), ("::", "::1"), ("0.0.0.0", "127.0.0.1")
+        ]:
+            with self.subTest(bind=bind):
+                _, _, (_, c, _) = self.configure(["--bind", bind])
+                url = deploy.urllib.parse.urlsplit(
+                    deploy.service_url(c, loopback=True)
+                )
+                self.assertEqual(url.hostname, hostname)
+                self.assertEqual(url.port, 8090)
+                if bind == "::1":
+                    public = deploy.urllib.parse.urlsplit(deploy.service_url(c))
+                    self.assertEqual(public.hostname, "::1")
+                    self.assertEqual(public.port, 8090)
+
     def test_latest_excludes_beta_and_verifies_checksum(self):
         def fetch(url):
             if url == deploy.OFFICIAL + "/":
@@ -135,6 +153,8 @@ class DeploymentTests(unittest.TestCase):
                 deploy.resolve_blender("5.2.3")
 
     def test_model_key_is_not_saved_in_dotenv(self):
+        keyfile = pathlib.Path(tempfile.mkdtemp(prefix="pilot-model-key-")) / "key.txt"
+        keyfile.write_text("cr-fixture-key-no-real-inference\n")
         _, _, (env, c, _) = self.configure(
             [
                 "--model-url",
@@ -142,11 +162,101 @@ class DeploymentTests(unittest.TestCase):
                 "--model",
                 "example",
                 "--api-key-file",
-                "/tmp/key-file",
+                str(keyfile),
             ]
         )
         self.assertNotIn("API_KEY", env.read_text())
         self.assertNotIn("api-key-file", env.read_text())
+        self.assertNotIn(keyfile.read_text().strip(), env.read_text())
+
+    def test_model_bootstrap_fails_before_config_write_for_missing_or_invalid_key(self):
+        folder = pathlib.Path(tempfile.mkdtemp(prefix="pilot-bootstrap-preflight-"))
+        key = folder / "key.txt"
+        for contents in [None, "", "line-one\nline-two", "x" * 2001]:
+            with self.subTest(contents="missing" if contents is None else len(contents)):
+                if key.exists():
+                    key.unlink()
+                if contents is not None:
+                    key.write_text(contents)
+                env = folder / "config.env"
+                args = deploy.parser().parse_args([
+                    "--configure-only", "--env-file", str(env),
+                    "--model-url", "https://model.example", "--model", "fixture",
+                    "--api-key-file", str(key),
+                ])
+                with self.assertRaises(RuntimeError):
+                    deploy.configure(args)
+                self.assertFalse(env.exists())
+
+    def test_model_bootstrap_rejects_wrong_endpoint_before_config_write(self):
+        folder = pathlib.Path(tempfile.mkdtemp(prefix="pilot-bootstrap-url-"))
+        key = folder / "key.txt"
+        key.write_text("fixture-key-only")
+        for url in [
+            "https://model.example/responses",
+            "https://model.example/chat/completions",
+            "https://model.example?key=private",
+            "https://name:password@model.example",
+            "https://model.example:bad",
+            "ftp://model.example",
+            "https://model.example/\nresponses",
+        ]:
+            with self.subTest(url=url):
+                env = folder / "config.env"
+                args = deploy.parser().parse_args([
+                    "--configure-only", "--env-file", str(env),
+                    "--model-url", url, "--model", "fixture",
+                    "--api-key-file", str(key),
+                ])
+                with self.assertRaises((RuntimeError, ValueError)):
+                    deploy.configure(args)
+                self.assertFalse(env.exists())
+
+    def test_smoke_refuses_active_tasks_before_changing_model_settings(self):
+        for queued in [False, True]:
+            with self.subTest(queued=queued):
+                requests = []
+
+                def open_request(req, timeout):
+                    route = req.full_url.split("/api", 1)[1]
+                    requests.append(route)
+                    responses = {
+                        "/auth/login": {},
+                        "/health": {
+                            "database": {"ok": True},
+                            "execution": {
+                                "ok": True,
+                                "activeRuns": [] if queued else [{"id": "active"}],
+                            },
+                        },
+                        "/projects": [{"id": "project-fixture"}],
+                        "/projects/project-fixture/sessions": [{"id": "session"}],
+                        "/sessions/session/runs": [{"status": "queued"}],
+                    }
+                    response = io.BytesIO(json.dumps(responses[route]).encode())
+                    response.headers = {}
+                    return response
+
+                opener = mock.Mock()
+                opener.open.side_effect = open_request
+                args = deploy.parser().parse_args([
+                    "--model-url", "https://model.example", "--model", "fixture",
+                    "--api-key-file", "/unused-because-active",
+                ])
+                args._model_key = "fixture-only-key"
+                with mock.patch.object(
+                    deploy.urllib.request, "build_opener", return_value=opener
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "active tasks"):
+                        deploy.smoke({
+                            "PILOT_BIND": "127.0.0.1", "PILOT_PORT": "8090",
+                            "PILOT_PASSWORD": "test-password-1234",
+                        }, args)
+                self.assertNotIn("/settings", requests)
+                if queued:
+                    self.assertIn("/sessions/session/runs", requests)
+                else:
+                    self.assertEqual(requests, ["/auth/login", "/health"])
 
     def test_legacy_volume_is_read_only_and_nonempty_target_is_preserved(self):
         folder = pathlib.Path(tempfile.mkdtemp(prefix="pilot-volume-"))
@@ -174,3 +284,4 @@ class DeploymentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import RFB from "@novnc/novnc";
 import { Monitor, RefreshCw, Maximize2, MousePointer2 } from "lucide-react";
+import { checkAuthentication } from "./api";
 export function Viewport({
   busy,
   projectId,
@@ -16,6 +17,7 @@ export function Viewport({
     [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!host.current) return;
+    let disposed = false;
     const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/desktop?projectId=${encodeURIComponent(projectId)}`;
     const client = new RFB(host.current, url, { shared: true });
     rfb.current = client;
@@ -24,9 +26,15 @@ export function Viewport({
     client.background = "#1c1e20";
     client.viewOnly = busy;
     client.addEventListener("connect", () => setStatus("connected"));
-    client.addEventListener("disconnect", () => setStatus("disconnected"));
-    client.addEventListener("securityfailure", () => setStatus("disconnected"));
+    const disconnected = () => {
+      if (disposed) return;
+      setStatus("disconnected");
+      void checkAuthentication();
+    };
+    client.addEventListener("disconnect", disconnected);
+    client.addEventListener("securityfailure", disconnected);
     return () => {
+      disposed = true;
       client.disconnect();
       rfb.current = null;
     };

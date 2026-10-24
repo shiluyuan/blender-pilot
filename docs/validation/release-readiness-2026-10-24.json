@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-24",
+  "releaseDecision": "controlled-trial-only; production signoff incomplete",
+  "productionReady": false,
+  "completedChecksPassed": true,
+  "applicationProtocolFaultTests": 72,
+  "deploymentScriptTests": 11,
+  "browserChecks": 44,
+  "nativeWorkspaceGroups": 12,
+  "productionBuild": "passed",
+  "liveModel": {
+    "coreSuite": {
+      "passed": true,
+      "tasks": 5,
+      "expectedStatuses": {
+        "succeeded": 4,
+        "cancelled": 1
+      }
+    },
+    "freshTemplateRetry": {
+      "passed": true,
+      "tasks": 1,
+      "runId": "adf9ed08-814f-4be2-bdfc-f5a5e227a155"
+    },
+    "finalBrowserAcceptance": "blocked by automatic approval review; not counted as passed",
+    "harnessTimeoutAttempt": 1,
+    "noFalseFullSuitePass": true
+  },
+  "databaseValidation": "explicit PostgreSQL WASM over TCP/pg; native PostgreSQL deployment not exercised",
+  "requiredGates": [
+    {
+      "name": "Docker image build/start plus native PostgreSQL on deployment host",
+      "status": "not-exercised",
+      "reason": "cloud host has no Docker daemon and no Linux process capabilities"
+    },
+    {
+      "name": "final real-model browser acceptance",
+      "status": "blocked",
+      "reason": "specific-destination consent requested by automated approval review"
+    }
+  ],
+  "evidence": {
+    "chat": "release-chat-2026-10-24.json",
+    "templates": "release-templates-2026-10-24.json",
+    "journeys": "release-journeys-2026-10-24.json",
+    "workspaces": "release-workspaces-2026-10-24.json",
+    "coreModel": "release-core-model-2026-10-24.json",
+    "templateModel": "release-template-model-2026-10-24.json",
+    "blocked": "release-live-blocked-2026-10-24.json",
+    "imageTags": "release-image-manifests-2026-10-24.json"
+  },
+  "newOomKills": 0,
+  "plaintextKeyMatches": 0,
+  "privateTestConfigDeleted": true
+}

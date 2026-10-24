@@ -69,7 +69,16 @@ import type {
   Snapshot,
 } from "../../packages/contracts/index";
 import { terminal } from "../../packages/contracts/index";
-import { api, post, fileUrl, bytes, date, upload } from "./api";
+import {
+  api,
+  post,
+  fileUrl,
+  bytes,
+  date,
+  upload,
+  AUTHENTICATION_REQUIRED,
+  checkAuthentication,
+} from "./api";
 import { LibraryPanel } from "./LibraryPanel";
 import { TemplatesPanel } from "./TemplatesPanel";
 import { Viewport } from "./Viewport";
@@ -138,7 +147,7 @@ function Modal({
     </dialog>
   );
 }
-function Login({ onLogin }: { onLogin: () => void }) {
+function Login({ onLogin, notice }: { onLogin: () => void; notice?: string }) {
   const [password, setPassword] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -169,6 +178,11 @@ function Login({ onLogin }: { onLogin: () => void }) {
             }
           }}
         >
+          {notice && (
+            <p className="login-notice" role="status">
+              {notice}
+            </p>
+          )}
           <label>
             工作台访问密码
             <input
@@ -225,6 +239,7 @@ function App() {
     [assetKind, setAssetKind] = useState("all"),
     [assetView, setAssetView] = useState("grid"),
     [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [authExpired, setAuthExpired] = useState(false);
   const [panel, setPanel] = useState(true),
     [panelWidth, setPanelWidth] = useState(
       Number(localStorage.getItem("pilot-panel-width")) || 400,
@@ -268,6 +283,7 @@ function App() {
   const [streamStates, setStreamStates] = useState<Record<string, string>>({});
   const notify = (s: string) => setToast(s);
   const chat = useChatComposer({
+    authenticated: auth === true,
     projectId: project?.id,
     sessionId: session?.id,
     onError: notify,
@@ -299,6 +315,14 @@ function App() {
       return undefined;
     }
   };
+  useEffect(() => {
+    const expired = () => {
+      setAuthExpired(true);
+      setAuth(false);
+    };
+    window.addEventListener(AUTHENTICATION_REQUIRED, expired);
+    return () => window.removeEventListener(AUTHENTICATION_REQUIRED, expired);
+  }, []);
   useEffect(() => {
     api("/auth/status")
       .then((s) => setAuth(s.authenticated))
@@ -378,7 +402,7 @@ function App() {
     setRuns([]);
     setEvents({});
     if (session) void loadRuns();
-  }, [session?.id]);
+  }, [session]);
   const chooseProject = async (p: Project, resumeSession?: string) => {
     const request = ++projectRequest.current;
     setOpening(p.id);
@@ -470,8 +494,9 @@ function App() {
     void loadSnapshots().catch(() => {});
   }, [loadAssets, loadSnapshots]);
   useEffect(() => {
-    if (!session) return;
+    if (!auth || !session) return;
     const sourceList: EventSource[] = [];
+    let disposed = false;
     const boundSession = session.id;
     for (const run of runs) {
       if (
@@ -490,8 +515,10 @@ function App() {
           setStreamStates((s) => ({ ...s, [run.id]: "live" }));
       };
       es.onerror = () => {
+        if (disposed) return;
         if (sessionRef.current === boundSession)
           setStreamStates((s) => ({ ...s, [run.id]: "reconnecting" }));
+        void checkAuthentication();
       };
       es.onmessage = (e) => {
         if (sessionRef.current !== boundSession) return;
@@ -519,6 +546,10 @@ function App() {
           );
         }
       };
+      es.addEventListener("auth.expired", () => {
+        es.close();
+        if (!disposed) void checkAuthentication();
+      });
       es.addEventListener("done", (event) => {
         // A dispatch failure can finish a queued run before worker events exist.
         try {
@@ -540,8 +571,11 @@ function App() {
         void loadHealth();
       });
     }
-    return () => sourceList.forEach((s) => s.close());
-  }, [runs.map((r) => r.id).join(","), session?.id]);
+    return () => {
+      disposed = true;
+      sourceList.forEach((s) => s.close());
+    };
+  }, [runs.map((r) => r.id).join(","), session?.id, auth]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.altKey && e.key.toLowerCase() === "j") {
@@ -628,7 +662,20 @@ function App() {
         <Loader2 className="spin" size={16} />
       </div>
     );
-  if (!auth) return <Login onLogin={() => setAuth(true)} />;
+  if (!auth)
+    return (
+      <Login
+        notice={
+          authExpired
+            ? "登录已过期，请重新登录。对话草稿、附件和待确认消息已保留。"
+            : undefined
+        }
+        onLogin={() => {
+          setAuthExpired(false);
+          setAuth(true);
+        }}
+      />
+    );
   const nav = [
     ["projects", "项目", FolderOpen],
     ["studio", "工作台", Box],
@@ -737,7 +784,13 @@ function App() {
           <button
             className="avatar"
             title="退出登录"
-            onClick={() => void post("/auth/logout").then(() => setAuth(false))}
+            onClick={() =>
+              void action(async () => {
+                await post("/auth/logout");
+                setAuthExpired(false);
+                setAuth(false);
+              })
+            }
           >
             P
           </button>

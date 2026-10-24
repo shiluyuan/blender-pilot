@@ -168,7 +168,53 @@ def parser():
     return p
 
 
+def validate_model_bootstrap(args):
+    provided = [args.model_url, args.model, args.api_key_file]
+    if not any(provided):
+        return None
+    if not all(provided):
+        fail("Model bootstrap requires --model-url, --model and --api-key-file together.")
+    url = urllib.parse.urlsplit(args.model_url)
+    if (
+        len(args.model_url) > 500
+        or re.search(r"[\x00-\x20]", args.model_url)
+        or url.scheme not in ["http", "https"]
+        or not url.hostname
+        or url.username
+        or url.password
+        or url.query
+        or url.fragment
+    ):
+        fail("Model URL must be an HTTP(S) API root without credentials, query or fragment.")
+    try:
+        url.port
+    except ValueError:
+        fail("Model URL contains an invalid port.")
+    if re.search(r"/(responses|chat/completions)/?$", url.path):
+        fail("Model URL must be the API root, without /responses or /chat/completions.")
+    args.model = args.model.strip()
+    if not args.model or len(args.model.encode("utf-16-le")) // 2 > 160:
+        fail("Model ID must contain 1..160 characters.")
+    file = pathlib.Path(args.api_key_file).expanduser()
+    try:
+        if not file.is_file() or file.stat().st_size > 16 * 1024:
+            fail("API key file must be a small readable text file.")
+        key = file.read_text().strip()
+    except (OSError, UnicodeError):
+        fail("API key file must be a readable UTF-8 text file.")
+    if (
+        not key
+        or len(key.encode("utf-16-le")) // 2 > 2000
+        or any(x in key for x in ["\x00", "\r", "\n"])
+    ):
+        fail("API key file must contain a single nonempty key of at most 2000 characters.")
+    return key
+
+
 def configure(args):
+    # Validate before persisting configuration, building images or changing
+    # running services. Keep this one-time bootstrap credential in memory only.
+    args._model_key = validate_model_bootstrap(args)
     envfile = pathlib.Path(args.env_file).expanduser().resolve()
     old = read_env(envfile)
     c = dict(old)
@@ -315,12 +361,6 @@ def configure(args):
         "[0-9a-f]{64}", c["BLENDER_SHA256"]
     ):
         fail("Invalid pinned Blender version/checksum.")
-    if any([args.model_url, args.model, args.api_key_file]) and not all(
-        [args.model_url, args.model, args.api_key_file]
-    ):
-        fail(
-            "Model bootstrap requires --model-url, --model and --api-key-file together."
-        )
     write_env(envfile, c)
     return envfile, c, created_password
 
@@ -485,12 +525,19 @@ def import_legacy_volume(cmd, c, args):
     print("Copied legacy volume into the local data directory; source volume retained.")
 
 
-def smoke(c, args):
+def service_url(c, loopback=False):
     host = c["PILOT_BIND"]
-    host = "127.0.0.1" if host in ["0.0.0.0", "::"] else host
+    if loopback:
+        host = {"0.0.0.0": "127.0.0.1", "::": "::1"}.get(host, host)
+    elif host in ["0.0.0.0", "::"]:
+        host = "<server-ip>"
     if ":" in host:
         host = "[" + host + "]"
-    base = "http://" + host + ":" + c["PILOT_PORT"]
+    return "http://" + host + ":" + c["PILOT_PORT"]
+
+
+def smoke(c, args):
+    base = service_url(c, loopback=True)
     cookie = ""
 
     def api(route, payload=None, method=None):
@@ -521,10 +568,27 @@ def smoke(c, args):
     h = api("/health")
     if not h.get("database", {}).get("ok"):
         fail("PostgreSQL readiness check failed.")
+    if not h.get("execution", {}).get("ok"):
+        fail("Blender execution service readiness check failed.")
+    if h.get("execution", {}).get("activeRuns"):
+        fail(
+            "Deployment smoke found active tasks. Wait for them to finish, "
+            "or explicitly rerun with --skip-smoke."
+        )
+    projects = api("/projects")
+    for project in projects:
+        for session in api("/projects/" + project["id"] + "/sessions"):
+            if any(
+                run.get("status")
+                not in ["succeeded", "failed", "interrupted", "cancelled"]
+                for run in api("/sessions/" + session["id"] + "/runs")
+            ):
+                fail(
+                    "Deployment smoke found active tasks queued by the application. "
+                    "Wait for them to finish, or explicitly rerun with --skip-smoke."
+                )
     if args.api_key_file:
-        key = pathlib.Path(args.api_key_file).read_text().strip()
-        if not key:
-            fail("API key file is empty.")
+        key = getattr(args, "_model_key", None) or validate_model_bootstrap(args)
         api(
             "/settings",
             {
@@ -537,7 +601,6 @@ def smoke(c, args):
         )
         if not api("/settings/test", {}).get("ok"):
             fail("Model connection check failed.")
-    projects = api("/projects")
     idle_ids = [
         s["projectId"]
         for s in h.get("execution", {}).get("studios", [])
@@ -663,10 +726,7 @@ def main(argv=None):
     )
     if not args.skip_smoke:
         smoke(c, args)
-    host = (
-        c["PILOT_BIND"] if c["PILOT_BIND"] not in ["0.0.0.0", "::"] else "<server-ip>"
-    )
-    print(f'Ready: http://{host}:{c["PILOT_PORT"]}')
+    print("Ready: " + service_url(c))
     if created:
         print("Workspace password: " + c["PILOT_PASSWORD"])
     print(
@@ -690,3 +750,4 @@ if __name__ == "__main__":
             file=sys.stderr,
         )
         sys.exit(1)
+

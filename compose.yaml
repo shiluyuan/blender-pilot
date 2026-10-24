@@ -68,7 +68,10 @@ services:
       studio:
         condition: service_healthy
     ports:
-      - "${PILOT_BIND:-0.0.0.0}:${PILOT_PORT:-8090}:8090"
+      - target: 8090
+        published: "${PILOT_PORT:-8090}"
+        host_ip: "${PILOT_BIND:-0.0.0.0}"
+        protocol: tcp
     environment:
       DATABASE_URL: ${DATABASE_URL:?Run ./docker-up.sh first}
       PILOT_PASSWORD: ${PILOT_PASSWORD:?Run ./docker-up.sh first}

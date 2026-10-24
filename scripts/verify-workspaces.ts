@@ -7,10 +7,11 @@ import { createWriteStream } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { Upstream } from "../packages/blender-bridge/upstream.js";
 import { responsesFixture } from "../tests/fixtures/responses.js";
 import { chromium } from "@playwright/test";
+import { verifyReadiness } from "./verify-readiness.js";
 const root = process.cwd(),
   dir = path.resolve(process.env.PILOT_TEST_DATA || ".data/workspaces");
 await mkdir(dir, { recursive: true });
@@ -65,11 +66,47 @@ function launch(name: string, args: string[]) {
     env,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  c.stdout!.pipe(log);
-  c.stderr!.pipe(log);
-  c.once("exit", () => log.end());
+  c.stdout!.pipe(log, { end: false });
+  c.stderr!.pipe(log, { end: false });
+  c.once("close", () => log.end());
   children.push(c);
   return c;
+}
+async function stop(child: ChildProcess, signal: NodeJS.Signals = "SIGTERM") {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise<void>((resolve) =>
+    child.once("exit", () => resolve()),
+  );
+  child.kill(signal);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      exited,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          child.kill("SIGKILL");
+          resolve();
+        }, 20000);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+async function descendants(pid: number): Promise<number[]> {
+  // Only follow the Runner child owned by this test. Where /proc permits enumeration, also reap its
+  // desktops and model subprocesses; this is not a Docker restart test.
+  let ids: number[] = [];
+  try {
+    ids = (await readFile(`/proc/${pid}/task/${pid}/children`, "utf8"))
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(Number);
+  } catch {
+    return [];
+  }
+  return [...ids, ...(await Promise.all(ids.map(descendants))).flat()];
 }
 async function api(route: string, body?: any, method?: string, expected = 200) {
   const binary = Buffer.isBuffer(body);
@@ -98,7 +135,7 @@ const pass = (s: string) => {
   console.log("PASS " + s);
 };
 try {
-  launch("runner", ["dist/server/apps/runner/index.js"]);
+  let runnerProcess = launch("runner", ["dist/server/apps/runner/index.js"]);
   const appProcess = launch("app", ["dist/server/apps/server/index.js"]);
   await wait(async () => (await fetch(base + "/api/auth/status")).ok, "web");
   await api("/auth/login", { password: env.PILOT_PASSWORD });
@@ -235,6 +272,33 @@ try {
     effort: "low",
   });
   await api("/settings", settings(fa.url), "PUT");
+  const healthBeforeProbe = await api("/health");
+  const settingsBeforeProbe = await api("/settings");
+  const sceneBeforeProbe = (await info(a)).objects;
+  const readiness = await verifyReadiness({
+    baseUrl: base,
+    password: env.PILOT_PASSWORD,
+    minimumFreeBytes: 0,
+  });
+  assert(readiness.passed, JSON.stringify(readiness));
+  assert.equal(
+    (await api("/health")).execution.studios.length,
+    healthBeforeProbe.execution.studios.length,
+    "readiness logout must preserve the caller's separate authenticated session",
+  );
+  assert.deepEqual(
+    await api("/settings"),
+    settingsBeforeProbe,
+    "readiness must not replace model configuration",
+  );
+  assert.deepEqual(
+    (await info(a)).objects,
+    sceneBeforeProbe,
+    "readiness must not change the Blender scene",
+  );
+  pass(
+    "non-destructive installed-workspace readiness check uses an independent temporary session and preserves the caller, configuration and scenes",
+  );
   const ra = await api(`/sessions/${sa.id}/turns`, {
     text: "A 的独立任务",
     assetIds: [],
@@ -463,16 +527,134 @@ try {
   pass(
     "injected Blender process failure is reported per project; B remains operational and failed A can be closed",
   );
-  appProcess.kill("SIGTERM");
-  await new Promise<void>((resolve) => {
-    if (appProcess.exitCode !== null || appProcess.signalCode !== null)
-      return resolve();
-    appProcess.once("exit", () => resolve());
-  });
+  await api(`/projects/${a.id}/activate`, {});
+  assert.equal((await info(a)).objects.length, beforeClose);
+  assert((await info(a)).objects.some((o: any) => o.name === "Only_A"));
+  assert((await info(b)).objects.some((o: any) => o.name === "Only_B"));
+  pass(
+    "failed Blender instance reopens from its saved scene while the second desktop remains operational",
+  );
+
+  await api("/settings", settings(fa.url), "PUT");
+  const gatewayRequests = fa.requests.length;
+  const gatewayBody = {
+    text: "网关重启期间仍属于 A 的等待任务",
+    assetIds: [],
+    libraryAssetIds: [],
+    clientRequestId: randomUUID(),
+  };
+  const gatewayRun = await api(`/sessions/${sa.id}/turns`, gatewayBody);
+  await wait(
+    async () => fa.requests.length > gatewayRequests,
+    "held request before gateway restart",
+  );
+  const heldGatewayRequests = fa.requests.length;
+  await stop(appProcess);
   launch("app-restarted", ["dist/server/apps/server/index.js"]);
   await wait(
     async () => (await fetch(base + "/api/ready")).ok,
     "restarted gateway",
+  );
+  assert.equal(
+    (await api(`/sessions/${sa.id}/requests/${gatewayBody.clientRequestId}`))
+      .run.id,
+    gatewayRun.id,
+  );
+  assert.equal(
+    (await api(`/sessions/${sa.id}/turns`, gatewayBody)).id,
+    gatewayRun.id,
+  );
+  assert.equal(
+    fa.requests.length,
+    heldGatewayRequests,
+    "gateway restart/retry must not resubmit an accepted model request",
+  );
+  assert(
+    (await api("/health")).execution.activeRuns.some(
+      (run: any) => run.id === gatewayRun.id,
+    ),
+  );
+  await api(`/runs/${gatewayRun.id}/cancel`, {});
+  await wait(
+    async () =>
+      (await api(`/sessions/${sa.id}/runs`)).find(
+        (run: any) => run.id === gatewayRun.id,
+      )?.status === "cancelled",
+    "cancellation after gateway restart",
+  );
+  pass(
+    "gateway restart during a live held model request preserves its receipt and ownership; same-ID retry does not duplicate execution and cancellation remains usable",
+  );
+
+  const crashFixture = await responsesFixture();
+  fixtures.push(crashFixture);
+  crashFixture.setHold(true);
+  await api("/settings", settings(crashFixture.url), "PUT");
+  const beforeCrash = (await info(b)).objects;
+  const crashBody = {
+    text: "执行容器崩溃前保持场景不变，等待取消或恢复",
+    assetIds: [],
+    libraryAssetIds: [],
+    clientRequestId: randomUUID(),
+  };
+  const crashedRun = await api(`/sessions/${sb.id}/turns`, crashBody);
+  await wait(
+    async () => crashFixture.requests.length === 1,
+    "held request before runner crash",
+  );
+  const oldProcesses = await descendants(runnerProcess.pid!);
+  await stop(runnerProcess, "SIGKILL");
+  for (const pid of oldProcesses.reverse()) {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch (error: any) {
+      if (error.code !== "ESRCH") throw error;
+    }
+  }
+  await Promise.all(
+    upstreams.map((upstream) => upstream.close().catch(() => {})),
+  );
+  runnerProcess = launch("runner-restarted", [
+    "dist/server/apps/runner/index.js",
+  ]);
+  await wait(async () => {
+    const health = await api("/health");
+    return health.execution.ok && health.execution.studios.length === 0;
+  }, "restarted runner journal recovery");
+  const recovered = await wait(async () => {
+    const run = (await api(`/sessions/${sb.id}/runs`)).find(
+      (item: any) => item.id === crashedRun.id,
+    );
+    return run?.status === "interrupted" && run;
+  }, "runner crash interrupted receipt");
+  assert.equal(
+    (await api(`/sessions/${sb.id}/turns`, crashBody)).id,
+    recovered.id,
+  );
+  assert.equal(
+    crashFixture.requests.length,
+    1,
+    "uncertain execution must not automatically call the model again",
+  );
+  assert.deepEqual(
+    (await info(b)).objects.sort((left: any, right: any) =>
+      left.name.localeCompare(right.name),
+    ),
+    beforeCrash.sort((left: any, right: any) =>
+      left.name.localeCompare(right.name),
+    ),
+    "restart restores the saved scene without replaying uncertain mutations",
+  );
+  assert((await info(a)).objects.some((o: any) => o.name === "Only_A"));
+  assert.equal(
+    (await api(`/sessions/${sb.id}/runs`)).find(
+      (item: any) => item.id === rb.id,
+    ).status,
+    "succeeded",
+  );
+  await api(`/projects/${a.id}/close`, {});
+  pass(
+    "forced Runner process crash interrupts the active task; restart does not replay it, persisted scene and earlier completed runs survive, and another project reopens independently",
   );
   assert.equal((await api("/projects")).length, 3);
   assert(
@@ -537,19 +719,33 @@ try {
     JSON.stringify(
       {
         date: new Date().toISOString(),
+        passed: true,
         databaseValidation:
           process.env.PILOT_TEST_POSTGRES_MODE === "wasm-wire"
             ? "PostgreSQL WASM engine over TCP wire protocol; native PostgreSQL not exercised"
             : "PostgreSQL server",
         mode: "real two-process Blender + native Codex protocol fixtures (not AI inference)",
+        readiness,
         checks,
         projects: [a.id, b.id],
         sourceUrl,
+        externalFixture: {
+          bytes: data.length,
+          sha256: createHash("sha256").update(data).digest("hex"),
+        },
         textures,
         composite: {
           id: composite.id,
           sourceAssetIds: composite.sourceAssetIds,
           objectCount: composite.objectNames.length,
+        },
+        faultScenarios: {
+          gatewayRunId: gatewayRun.id,
+          interruptedRunId: crashedRun.id,
+          uncertainModelRequests: crashFixture.requests.length,
+          runnerChildrenEnumerated: oldProcesses.length,
+          scope:
+            "Runner Node process SIGKILL; separate earlier Blender process failure; Docker container restart not exercised",
         },
         screenshots: [
           "workspaces-dark.png",
@@ -580,11 +776,7 @@ try {
   await browser?.close();
   await Promise.all(upstreams.map((u) => u.close().catch(() => {})));
   for (const child of children.reverse()) {
-    child.kill("SIGTERM");
-    await Promise.race([
-      new Promise((r) => child.once("exit", r)),
-      delay(20000).then(() => child.kill("SIGKILL")),
-    ]);
+    await stop(child);
   }
   for (const f of fixtures) await f.close();
 }

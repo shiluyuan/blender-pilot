@@ -55,7 +55,8 @@ export class Vault {
     return Buffer.concat([c.update(b.subarray(12, -16)), c.final()]).toString();
   }
   session() {
-    const payload = String(Date.now() + 7 * 86400000);
+    const payload =
+      String(Date.now() + 7 * 86400000) + ":" + randomBytes(24).toString("hex");
     return (
       payload +
       "." +
@@ -63,16 +64,24 @@ export class Vault {
     );
   }
   valid(cookie: string | undefined) {
-    if (!cookie) return false;
-    const [payload, sig] = cookie.split(".");
-    return (
-      Number(payload) > Date.now() &&
-      Number(payload) < Date.now() + 8 * 86400000 &&
-      equal(
-        sig ?? "",
-        createHmac("sha256", this.key).update(payload).digest("hex"),
-      )
-    );
+    return this.expiresAt(cookie) !== undefined;
+  }
+  expiresAt(cookie: string | undefined): number | undefined {
+    if (!cookie || cookie.length > 256) return undefined;
+    const parts = cookie.split(".");
+    if (parts.length !== 2) return undefined;
+    const [payload, sig] = parts;
+    // Recognize old signed cookies for signature validation, but they have no
+    // registered database session and therefore require login after upgrade.
+    if (!/^\d{13}(?::[a-f0-9]{48})?$/.test(payload)) return undefined;
+    const expiry = Number(payload.split(":")[0]);
+    if (expiry <= Date.now() || expiry >= Date.now() + 8 * 86400000)
+      return undefined;
+    if (
+      !equal(sig, createHmac("sha256", this.key).update(payload).digest("hex"))
+    )
+      return undefined;
+    return expiry;
   }
 }
 export function validPassword(input: string, expected: string) {

@@ -46,6 +46,23 @@ PostgreSQL 18 的本地目录挂载到 `/var/lib/postgresql`，使用该主版�
 
 代理保留 Host，支持 `/desktop` WebSocket；`/api/` 关闭 SSE 缓冲，允许长连接，API 超时大于 180 秒。分块上传 4 MiB，代理单请求限制至少 5 MiB。HTTP 直连保留 `--no-secure-cookie`；默认访问密码由脚本生成。
 
+浏览器登录由 PostgreSQL 保存令牌哈希。退出只撤销当前登录；正在打开的 SSE 与桌面连接会关闭。登录过期后页面要求重新登录，保留本地草稿、附件和待确认消息，继续核对原发送编号。升级到迁移 v3 后旧 Cookie 需重新登录一次，vault 加密密钥和已保存模型 Key 不变。
+
+## 检查已部署实例
+
+配置模型后，在已有容器中执行：
+
+```bash
+docker compose --env-file .env exec -T web \
+  node dist/server/apps/server/readiness.js
+```
+
+检查服务就绪、独立登录、PostgreSQL 连接、Runner、故障实例、可用空间和模型配置。命令使用独立临时登录，结束时只退出该登录，不改写模型配置或场景；宿主机无需安装 Node。可用 `--url https://your-host.example` 检查反向代理地址，`--min-free-gb 2` 调整空间阈值。
+
+开发环境可执行 `PILOT_PASSWORD_FILE=/secure/password.txt npm run verify:readiness -- --url https://your-host.example --output .data/readiness.json`。输出仅包含过滤后的健康信息，没有模型 Key、登录 Cookie 或密码。健康通过表示实例基础服务可用；模型视觉、建模和导出能力继续通过真实任务验收。
+
+`npm run test:e2e` 会切换为协议夹具并创建场景，只允许明确指定的可丢弃测试实例。须设置 `PILOT_TEST_DISPOSABLE=1`；检测到活动或排队任务时，会在改写模型配置前退出。正常部署实例使用上面的健康检查。
+
 ## 并发与 GPU
 
 每个打开的项目拥有独立 Blender / Xvfb / VNC，切换标签不释放内存。`--max-studios` 默认 3，上限 16 是并发控制，不是内存保障；8 GB 主机可从 1 个实例起步。关闭项目会保存并释放进程，运行中的任务先停止。

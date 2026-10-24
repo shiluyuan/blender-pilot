@@ -7,10 +7,35 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+export const AUTHENTICATION_REQUIRED = "pilot:authentication-required";
+let authenticationGeneration = 0;
+let authenticationProbe: Promise<void> | undefined;
+function requireAuthentication(generation: number) {
+  // A delayed 401 from an old request must not dismiss a new login.
+  if (generation === authenticationGeneration && typeof window !== "undefined")
+    window.dispatchEvent(new Event(AUTHENTICATION_REQUIRED));
+}
+/** Distinguish an expired cookie from an offline SSE/desktop connection. */
+export function checkAuthentication() {
+  if (authenticationProbe) return authenticationProbe;
+  const generation = authenticationGeneration;
+  authenticationProbe = api<{ authenticated: boolean }>("/auth/status")
+    .then((status) => {
+      if (!status.authenticated) requireAuthentication(generation);
+    })
+    .catch(() => {
+      // A network outage is not evidence that the login expired.
+    })
+    .finally(() => {
+      authenticationProbe = undefined;
+    });
+  return authenticationProbe;
+}
 export async function api<T = any>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const generation = authenticationGeneration;
   const response = await fetch("/api" + path, {
     ...options,
     headers: {
@@ -20,6 +45,13 @@ export async function api<T = any>(
     credentials: "same-origin",
     signal: options.signal || AbortSignal.timeout(180000),
   });
+  if (response.ok && ["/auth/login", "/auth/logout"].includes(path))
+    authenticationGeneration++;
+  if (
+    response.status === 401 &&
+    !["/auth/login", "/auth/status"].includes(path)
+  )
+    requireAuthentication(generation);
   const body = await response.text();
   let data: any;
   try {
@@ -106,6 +138,7 @@ export async function upload(
   }
   while (offset < file.size) {
     const chunk = file.slice(offset, offset + 4 * 1024 * 1024);
+    const generation = authenticationGeneration;
     const response = await fetch(`/api/uploads/${id}`, {
       method: "PATCH",
       headers: {
@@ -115,6 +148,7 @@ export async function upload(
       body: chunk,
       signal: signal(),
     });
+    if (response.status === 401) requireAuthentication(generation);
     const result = await response.json();
     if (!response.ok)
       throw new ApiError(result.error || "上传失败", response.status);
