@@ -19,6 +19,7 @@
     "format": "prettier --write apps packages scripts tests docs README.md THIRD_PARTY_NOTICES.md compose*.yaml",
     "doctor:codex": "node --import tsx scripts/doctor-codex.ts",
     "verify:workspaces": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-workspaces.ts",
+    "verify:chat": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-chat.ts",
     "test:deploy": "python3 -m unittest discover -s tests -p 'test_*.py' -v"
   },
   "dependencies": {
@@ -32,6 +33,8 @@
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
     "sharp": "0.35.5",
     "ws": "8.22.0",
     "zod": "4.6.7"

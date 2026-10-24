@@ -3,12 +3,14 @@ import { WebSocketServer } from "ws";
 import { connect } from "node:net";
 import { mkdir } from "node:fs/promises";
 import { StudioPool } from "./pool.js";
+import { StartupJobs } from "./dispatch.js";
 import { saveLibrarySchema } from "../../packages/blender-bridge/library.js";
 import { toolDefinitions } from "./jobs.js";
 import { equal } from "../server/security.js";
 import {
   idSchema,
   modelSettingsSchema,
+  terminal,
 } from "../../packages/contracts/index.js";
 import { z } from "zod";
 import { existingSafePath } from "../../packages/contracts/fs.js";
@@ -24,6 +26,7 @@ import {
 await sharedDatabase().init();
 const pool = new StudioPool(dataRoot);
 await pool.init();
+const queuedJobs = new StartupJobs(pool);
 const app = Fastify({ bodyLimit: 3 * 1024 * 1024, logger: false });
 app.addHook("onRequest", async (req, reply) => {
   const value = req.headers.authorization?.replace(/^Bearer /, "") || "";
@@ -42,39 +45,56 @@ app.setErrorHandler((e: any, req, reply) => {
     )
     .send({ error: e.message || "Runner failed" });
 });
-app.get("/health", async () => ({
-  ok: true,
-  blender: pool.status().some((s) => s.status === "ready"),
-  mode: pool.external ? "external-desktop" : "project-pool",
-  maxStudios: pool.external ? 1 : pool.max,
-  studios: pool.status(),
-  activeRuns: pool
-    .status()
-    .filter((s) => s.runId)
-    .map((s) => ({
-      id: s.runId,
-      projectId: s.projectId,
-      sessionId: s.sessionId,
-    })),
-}));
+app.get("/health", async (_req, reply) => {
+  const failedStorage =
+    pool.history.storageFailure ||
+    [...pool.studios.values()].find((s) => s.jobs.storageFailure)?.jobs
+      .storageFailure;
+  if (failedStorage) reply.code(503);
+  return {
+    ok: !failedStorage,
+    storage: {
+      ok: !failedStorage,
+      ...(failedStorage
+        ? { error: "执行事件存储不可用，请修复磁盘并重启执行服务" }
+        : {}),
+    },
+    blender: pool.status().some((s) => s.status === "ready"),
+    mode: pool.external ? "external-desktop" : "project-pool",
+    maxStudios: pool.external ? 1 : pool.max,
+    studios: pool.status(),
+    activeRuns: queuedJobs
+      .all()
+      .filter((s) => !terminal.has(s.status))
+      .map((s) => ({
+        id: s.id,
+        projectId: s.projectId,
+        sessionId: s.sessionId,
+      })),
+  };
+});
 app.post("/projects/:id/close", async (req) => {
   await pool.close(idSchema.parse((req.params as any).id));
   return { ok: true };
 });
-app.get("/jobs", async () =>
-  [...pool.history.states.keys()].map((id) => pool.byRun(id).get(id)),
-);
+app.get("/jobs", async () => queuedJobs.all());
 app.get("/jobs/:id", async (req) => {
   const id = idSchema.parse((req.params as any).id);
-  const state = pool.byRun(id).get(id);
-  if (!state) throw new Error("任务不存在");
+  const state = queuedJobs.get(id);
+  if (!state) throw Object.assign(new Error("任务不存在"), { statusCode: 404 });
   return state;
 });
-app.get("/jobs/:id/events", async (req) =>
-  (
-    pool.history.events.get(idSchema.parse((req.params as any).id)) || []
-  ).filter((e) => e.seq > Number((req.query as any).after || 0)),
-);
+app.get("/jobs/:id/events", async (req) => {
+  const query = z
+    .object({
+      after: z.coerce.number().int().min(0).default(0),
+      limit: z.coerce.number().int().min(1).max(500).default(500),
+    })
+    .parse(req.query);
+  return (pool.history.events.get(idSchema.parse((req.params as any).id)) || [])
+    .filter((e) => e.seq > query.after)
+    .slice(0, query.limit);
+});
 app.post("/jobs", async (req) => {
   const input = z
     .object({
@@ -100,13 +120,17 @@ app.post("/jobs", async (req) => {
         .max(12),
     })
     .parse(req.body);
-  return (await pool.open(input.projectId)).jobs.start(input);
+  return queuedJobs.submit(input);
 });
-app.post("/jobs/:id/cancel", async (req) =>
-  pool
-    .byRun(idSchema.parse((req.params as any).id))
-    .cancel(idSchema.parse((req.params as any).id)),
-);
+app.post("/jobs/:id/cancel", async (req) => {
+  const owner = z
+    .object({ projectId: idSchema, sessionId: idSchema })
+    .optional()
+    .parse(
+      req.body && Object.keys(req.body as any).length ? req.body : undefined,
+    );
+  return queuedJobs.cancel(idSchema.parse((req.params as any).id), owner);
+});
 app.get("/mcp/tools", async () => ({ tools: toolDefinitions }));
 app.post("/mcp/call", async (req) => {
   const body = z
@@ -218,12 +242,16 @@ await app.listen({
   port: Number(process.env.RUNNER_PORT || 8091),
 });
 console.log("Blender Pilot runner ready");
-const shutdown = async () => {
-  for (const client of ws.clients) client.terminate();
-  await pool.shutdown();
-  await closeSharedDatabase();
-  await app.close();
-  process.exit(0);
-};
+let shutdownPromise: Promise<void> | undefined;
+const shutdown = () =>
+  (shutdownPromise ||= (async () => {
+    for (const client of ws.clients) client.terminate();
+    const queuedShutdown = queuedJobs.shutdown();
+    await pool.shutdown();
+    await queuedShutdown;
+    await closeSharedDatabase();
+    await app.close();
+    process.exit(0);
+  })());
 process.on("SIGTERM", () => void shutdown());
 process.on("SIGINT", () => void shutdown());

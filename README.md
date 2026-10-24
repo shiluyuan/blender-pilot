@@ -4,6 +4,8 @@
 
 独立项目空间、可收起的 AI 侧栏、共享素材库、截图检查、快照和控制台。采用 **Codex CLI app-server + 自研 Blender Pilot MCP + mcp-for-blender**。前后端使用 TypeScript，Blender 场景操作使用 Python。
 
+聊天按 **Loom、AionUi、ComfyUI MCP Panel** 的协议与交互设计重构：独立会话草稿、附件直接引用、Markdown 与代码块、按顺序展示工具和截图、稳定发送回执、断线续传和取消。详见 [对话协议与附件](docs/chat-protocol.md)。
+
 ![真实 Blender 多项目工作区](docs/screenshots/workspaces-dark.png)
 
 ## 一条命令部署
@@ -26,7 +28,7 @@ sudo ./docker-up.sh --install-docker
 
 启动后自动验证 **PostgreSQL → 登录 → 启动 Blender → MCP 读取场景 → 截图下载 → 保存**，失败会以非零状态退出。首次进入会创建一个入门项目。默认打开 `http://服务器IP:8090`，使用终端打印的密码登录，在「模型设置」中填写接口和模型。
 
-**本轮检查：15 项应用测试 + 7 项部署测试、生产构建、Blender 5.2.3 双实例验收，以及真实 `gpt-5.6-luna` 的视觉创作、续聊、取消和浏览器对话均已通过。**
+**聊天重构检查：40 项应用/协议测试 + 7 项部署脚本测试、15 项浏览器交互验收及生产构建通过。真实模型已验证图片创作、Markdown 正文驱动建模、续聊与取消后继续；详细范围和当前结果见验收记录。**
 
 > 当前云端已完成的验证与限制详见 [验收记录](docs/validation.md)。生产配置使用 PostgreSQL；云端数据库检查使用明确标识的 PostgreSQL WASM / TCP 协议环境，Docker 整机启动与原生 PostgreSQL 18 尚未在此云端实测，不能将其称为 Docker 全量验收完成。
 
@@ -82,6 +84,15 @@ sudo ./docker-up.sh --install-docker
 
 以下均为真实运行截图。演示对象是验收用合成素材与公开 GLB 示例，不代表成品角色或场景质量。部分截图来自显式数据库协议测试环境。
 
+**聊天侧栏：输入、文档引用、计划、工具与 Markdown 回复。以下两张是明确标注的协议验收界面，用于展示交互，不代表真实模型生成。**
+
+![聊天侧栏浅色](docs/screenshots/chat-light.png)
+![聊天侧栏深色](docs/screenshots/chat-dark.png)
+
+**真实 Blender 与真实模型：参考图与 Markdown 组件说明驱动的合成验收场景，右侧显示工具、截图检查和结构化回复。**
+
+![真实模型与 Blender 聊天链路](docs/screenshots/chat-blender-live.png)
+
 **共享素材库：分类、预览、多选引用、批量导入与外部素材上传。**
 
 ![素材库深色界面](docs/screenshots/library-dark.png)
@@ -108,7 +119,7 @@ sudo ./docker-up.sh --install-docker
 ## 创作与复用
 
 1. 创建或打开一个项目，中央显示服务器上的原生 Blender，可键鼠操作；右侧助手支持收起、调宽和 `Alt+J` 切换。
-2. 上传场景或人物参考图并引用到对话；图片作为视觉输入提供给模型。
+2. 在对话输入区选择、拖拽或粘贴参考图，上传后自动成为当前消息附件。也可上传 Markdown、TXT、JSON、CSV 说明，正文会提供给 Codex；单文档最大 2 MiB，超出上下文预算会明确提示截断。
 3. 在共享素材库选择人物、道具和场景部件，批量引用到当前项目，描述摆放与修改要求。
 4. Codex 通过我们的 MCP 搜索素材、读取预览、导入独立副本并编写 bpy 脚本。每次场景修改后回读对象信息、自动截图，并要求模型检查当前截图。
 5. 新对象与现有素材组合后保存回库，保留源素材关系，再到另一个项目复用。
@@ -139,12 +150,13 @@ npm run check
 PILOT_TEST_DATABASE_URL='postgresql://postgres:test@127.0.0.1:5432/pilot_test' npm run check
 npm run verify:workspaces
 npm run verify:blender
+npm run verify:chat
 ```
 
 原生验收还需要 Blender / MCP / Xvfb / openbox / x11vnc 与 Playwright 浏览器，具体设置见 [验证文档](docs/validation.md)。Web 开发使用 `npm run dev`、`npm run runner`、`npm run web`；进程需要相同的 `DATABASE_URL`、`PILOT_DATA` 和内部 token。
 
 ## 文档与边界
 
-[部署与升级](docs/deployment.md) · [数据库设计](docs/database.md) · [架构与维护](docs/architecture.md) · [素材库指南](docs/asset-library.md) · [项目与界面参考](docs/workspaces.md) · [使用边界](docs/product.md) · [实际验收记录](docs/validation.md) · [第三方说明](THIRD_PARTY_NOTICES.md)
+[部署与升级](docs/deployment.md) · [对话协议与附件](docs/chat-protocol.md) · [数据库设计](docs/database.md) · [架构与维护](docs/architecture.md) · [素材库指南](docs/asset-library.md) · [项目与界面参考](docs/workspaces.md) · [使用边界](docs/product.md) · [实际验收记录](docs/validation.md) · [第三方说明](THIRD_PARTY_NOTICES.md)
 
 面向单个可信操作者。Python 可访问执行容器与挂载数据，项目隔离用于避免误操作，不是多租户安全沙箱。当前不支持多人实时协作、资产回收站、完整世界/渲染设置素材预设、通用游戏编程或原生语音。大型场景、复杂绑定、模拟缓存和 NVIDIA 渲染需按实际资源继续验证。

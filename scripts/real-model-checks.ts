@@ -37,7 +37,15 @@ export async function verifyRealModel(options: {
     throw new Error("Live acceptance timed out: " + label);
   };
   const journal = async (id: string): Promise<any[]> => {
-    const text = await readFile(path.join(dir, "jobs", id + ".ndjson"), "utf8");
+    // The gateway acknowledges durable admission before the worker creates its
+    // journal. A polling read during that queued window is an empty snapshot.
+    const text = await readFile(
+      path.join(dir, "jobs", id + ".ndjson"),
+      "utf8",
+    ).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return "";
+      throw error;
+    });
     assert(!text.includes(secret), "secret must not enter the event journal");
     return text
       .split("\n")
@@ -199,6 +207,54 @@ export async function verifyRealModel(options: {
   console.log(
     "PASS real model: native thread resumed and contextual follow-up modified the correct object",
   );
+  // Ground truth is only in the uploaded Markdown, never repeated in the chat
+  // prompt. A model receiving metadata alone cannot satisfy this assertion.
+  const documentObject =
+    "Brief_" + randomUUID().replaceAll("-", "").slice(0, 10);
+  const brief = Buffer.from(
+    `# Component brief\n\nCreate one mesh cube named ${documentObject}.\n` +
+      "Its location must be (1.75, -2.25, 0.65), dimensions (0.6, 0.8, 1.3).\n" +
+      "Keep every existing object unchanged. Give the new object a yellow material, " +
+      "make it visible in the viewport and verify the current screenshot.\n",
+    "utf8",
+  );
+  const documentUpload = await api("/uploads", {
+    projectId,
+    name: "component-brief.md",
+    size: brief.length,
+  });
+  await api(`/uploads/${documentUpload.id}`, brief, "PATCH", {
+    "upload-offset": "0",
+  });
+  const documentAsset = await api(`/uploads/${documentUpload.id}/complete`, {});
+  const documentTurn = await turn(
+    "请阅读本轮附件 Markdown 中的组件要求并在当前 Blender 项目中完成，核对实际尺寸和位置，查看最新截图并提交视觉检查结论。",
+    [documentAsset.id],
+  );
+  const docReadback = new Upstream();
+  let documentResult: any;
+  try {
+    documentResult = await docReadback.json(
+      `import json\no=bpy.data.objects.get(${JSON.stringify(documentObject)})\nprint('PILOT_JSON:'+json.dumps(None if o is None else {'name':o.name,'location':list(o.location),'dimensions':list(o.dimensions)}))`,
+    );
+  } finally {
+    await docReadback.close();
+  }
+  assert(documentResult, "uploaded Markdown body must reach the real model");
+  for (const [property, expected] of [
+    ["location", [1.75, -2.25, 0.65]],
+    ["dimensions", [0.6, 0.8, 1.3]],
+  ] as const)
+    expected.forEach((value, i) =>
+      assert(Math.abs(documentResult[property][i] - value) < 0.01),
+    );
+  assert(documentTurn.events.some((e) => e.type === "attachment.context"));
+  checks.push(
+    "uploaded Markdown body drives independently verified Blender component",
+  );
+  console.log(
+    "PASS real model: Markdown upload → Codex input → independently verified Blender geometry",
+  );
   const cancelled = await api(`/sessions/${sessionId}/turns`, {
     text: "保持场景不变。请分30项详细解释当前场景中每个对象的布局、颜色、光照和可以改进的方向，先开始逐段说明，不要执行任何修改。",
     assetIds: [],
@@ -232,9 +288,15 @@ export async function verifyRealModel(options: {
     nativeThreadId: nativeThread,
     referenceGroundTruth: { left: palette[left], right: palette[right] },
     blenderReadback: moved!,
+    documentReadback: documentResult,
     captures: allEvents.filter((e) => e.type === "capture.created").length,
     toolCalls: allEvents.filter((e) => e.type === "tool.started").length,
-    visualReports: [first.report, resumed.report, afterCancel.report],
+    visualReports: [
+      first.report,
+      resumed.report,
+      documentTurn.report,
+      afterCancel.report,
+    ],
     checks,
   };
   await writeFile(

@@ -23,6 +23,9 @@ export type RunStatus =
 export interface PilotEvent {
   schemaVersion: 1;
   runId: string;
+  /** Present on new events. Legacy stored events remain replayable. */
+  projectId?: string;
+  sessionId?: string;
   seq: number;
   type: string;
   payload: Record<string, unknown>;
@@ -51,6 +54,7 @@ export interface Asset {
   kind: "reference" | "model" | "texture" | "capture" | "export" | "snapshot";
   path: string;
   previewPath?: string;
+  documentInfo?: import("./attachments.js").DocumentInfo;
   tags: string[];
   folder: string;
   createdAt: string;
@@ -77,6 +81,14 @@ export interface Snapshot {
 }
 export interface Run {
   id: string;
+  clientRequestId?: string;
+  cancelRequestedAt?: string;
+  attachmentRefs?: Array<{
+    id: string;
+    name: string;
+    kind: "asset" | "capture" | "library";
+    mime?: string;
+  }>;
   sessionId: string;
   projectId: string;
   prompt: string;

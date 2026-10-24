@@ -1,0 +1,61 @@
+{
+  "passed": true,
+  "date": "2026-10-24",
+  "applicationTests": 40,
+  "deploymentTests": 7,
+  "browserChecks": 15,
+  "native": {
+    "model": "gpt-5.6-luna",
+    "blender": "5.2.3 LTS",
+    "codex": "0.164.0",
+    "mcp": "2.2.2",
+    "runs": 6,
+    "expectedCompleted": 5,
+    "expectedCancelled": 1,
+    "reusedLiveChecks": false,
+    "checks": [
+      "reference-image colors independently verified in real Blender materials",
+      "mutation receipts",
+      "current screenshot visual report",
+      "request idempotency",
+      "native process restart and conversation resume",
+      "uploaded Markdown body drives independently verified Blender component",
+      "interruption during real streamed model output",
+      "successful continuation after cancellation",
+      "browser composer → real model → screenshot report → streamed completion"
+    ],
+    "documentReadback": {
+      "name": "Brief_cfb3445d9f",
+      "location": [1.75, -2.25, 0.6499999761581421],
+      "dimensions": [0.6000000238418579, 0.800000011920929, 1.2999999523162842]
+    },
+    "captures": 13,
+    "toolCalls": 19,
+    "actualStatuses": {
+      "succeeded": 5,
+      "cancelled": 1
+    }
+  },
+  "database": "Explicit PostgreSQL WASM over TCP/pg driver; native PostgreSQL and Docker image startup not verified in this host",
+  "earlierAttempts": [
+    {
+      "reason": "Native VNC runtime dependencies were missing; local test dependencies repaired."
+    },
+    {
+      "reason": "Legacy test polling assumed Runner journal existed at API admission; updated for asynchronous queued admission."
+    },
+    {
+      "reason": "Legacy resource-upload selector matched both chat and project pickers; scoped to project picker."
+    },
+    {
+      "reason": "Parallel native test suites exceeded the 8 GiB cloud cgroup limit (one OOM kill); final complete suite rerun serially, no reused checks."
+    }
+  ],
+  "evidence": {
+    "browser": "chat-protocol-2026-10-24.json",
+    "native": "chat-native-2026-10-24.json"
+  },
+  "secrets": "Test key excluded from committed files and reports; exact plaintext scan before publication.",
+  "plaintextKeyMatches": 0,
+  "privateTestConfigDeleted": true
+}

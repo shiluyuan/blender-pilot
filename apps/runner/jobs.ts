@@ -14,6 +14,13 @@ import {
   type CodexInput,
 } from "../../packages/runtime-adapters/codex.js";
 import { terminal } from "../../packages/contracts/index.js";
+import {
+  MAX_TOTAL_DOCUMENT_CONTEXT_CHARS,
+  documentMime,
+  formatDocumentReference,
+} from "../../packages/contracts/attachments.js";
+import { readDocumentFile } from "../../packages/contracts/document-files.js";
+import { normalizeCodexEvent } from "../../packages/contracts/chat-events.js";
 import type {
   StartJob,
   PilotEvent,
@@ -54,13 +61,15 @@ export class Jobs {
   states = new Map<string, JobState>();
   events = new Map<string, PilotEvent[]>();
   private persistence = Promise.resolve();
+  storageFailure?: string;
   constructor(
     public root: string,
     public scene: SceneBridge,
   ) {}
   async init() {
     await mkdir(path.join(this.root, "jobs"), { recursive: true });
-    for (const f of await readdir(path.join(this.root, "jobs"))) {
+    const files = await readdir(path.join(this.root, "jobs"));
+    for (const f of files) {
       if (!f.endsWith(".json")) continue;
       const state = JSON.parse(
         await readFile(path.join(this.root, "jobs", f), "utf8"),
@@ -98,13 +107,67 @@ export class Jobs {
         });
       }
     }
+    // An admission can append its event but fail the atomic state rename.
+    // Recover that uncertain receipt as interrupted, never as a new job to run.
+    for (const file of files.filter(
+      (f) =>
+        f.endsWith(".ndjson") &&
+        !files.includes(f.replace(/\.ndjson$/, ".json")),
+    )) {
+      const id = file.slice(0, -7);
+      const events = (
+        await readFile(path.join(this.root, "jobs", file), "utf8")
+      )
+        .split("\n")
+        .filter(Boolean)
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line) as PilotEvent];
+          } catch {
+            return [];
+          }
+        });
+      const owner = events.find(
+        (event) => event.runId === id && event.projectId && event.sessionId,
+      );
+      if (!owner) {
+        this.storageFailure =
+          "发现无法确定项目归属的未完成任务日志，请修复日志后重启执行服务";
+        continue;
+      }
+      const recovered: JobState = {
+        id,
+        projectId: owner.projectId!,
+        sessionId: owner.sessionId!,
+        status: "interrupted",
+        verification: "unavailable",
+        seq: Math.max(...events.map((event) => event.seq), 0),
+        error: "任务状态写入未完成，已恢复执行记录；没有自动重新操作场景。",
+        createdAt: events[0]?.time || now(),
+        updatedAt: now(),
+      };
+      this.states.set(id, recovered);
+      this.events.set(id, events);
+      await this.emit(recovered, "run.status", {
+        status: recovered.status,
+        verification: recovered.verification,
+        error: recovered.error,
+      });
+    }
   }
   async emit(state: JobState, type: string, payload: Record<string, unknown>) {
+    if (this.storageFailure)
+      throw Object.assign(
+        new Error("执行事件存储不可用，请修复磁盘并重启执行服务"),
+        { statusCode: 503 },
+      );
     const secret = this.active?.input.settings.apiKey || "";
     const safePayload = JSON.parse(redact(JSON.stringify(payload), [secret]));
     const event: PilotEvent = {
       schemaVersion: 1,
       runId: state.id,
+      projectId: state.projectId,
+      sessionId: state.sessionId,
       seq: ++state.seq,
       type,
       payload: safePayload,
@@ -112,29 +175,46 @@ export class Jobs {
     };
     state.updatedAt = event.time;
     const persistedState = { ...state };
-    this.persistence = this.persistence.then(async () => {
-      await appendFile(
-        path.join(this.root, "jobs", state.id + ".ndjson"),
-        JSON.stringify(event) + "\n",
-        { mode: 0o600 },
-      );
-      await atomicJson(
-        path.join(this.root, "jobs", state.id + ".json"),
-        persistedState,
-      );
-      (
-        this.events.get(state.id) ||
-        this.events.set(state.id, []).get(state.id)!
-      ).push(event);
-    });
+    this.persistence = this.persistence
+      .then(async () => {
+        await appendFile(
+          path.join(this.root, "jobs", state.id + ".ndjson"),
+          JSON.stringify(event) + "\n",
+          { mode: 0o600 },
+        );
+        await atomicJson(
+          path.join(this.root, "jobs", state.id + ".json"),
+          persistedState,
+        );
+        (
+          this.events.get(state.id) ||
+          this.events.set(state.id, []).get(state.id)!
+        ).push(event);
+      })
+      .catch((error) => {
+        // A partial journal write has uncertain durability. Fail closed instead
+        // of silently skipping a sequence or automatically replaying mutations.
+        this.storageFailure = redact(String(error), [secret]);
+        throw error;
+      });
     await this.persistence;
     return event;
   }
-  async start(input: StartJob) {
+  async start(input: StartJob, registeredState?: JobState) {
     const prior = this.states.get(input.runId);
-    if (prior) return prior;
+    if (prior && prior !== registeredState) return prior;
+    if (
+      registeredState &&
+      (prior !== registeredState ||
+        registeredState.id !== input.runId ||
+        registeredState.projectId !== input.projectId ||
+        registeredState.sessionId !== input.sessionId)
+    )
+      throw new Error("任务队列归属不匹配");
+    if (registeredState && registeredState.status !== "queued")
+      return registeredState;
     if (this.active) throw new Error("已有任务正在操作 Blender");
-    const state: JobState = {
+    const state: JobState = registeredState || {
       id: input.runId,
       projectId: input.projectId,
       sessionId: input.sessionId,
@@ -154,7 +234,8 @@ export class Jobs {
       mutations: 0,
       calls: 0,
     };
-    await this.emit(state, "run.status", { status: "queued" });
+    if (!registeredState)
+      await this.emit(state, "run.status", { status: "queued" });
     void this.execute().catch((e) =>
       console.error(
         "Job cleanup failed",
@@ -210,28 +291,11 @@ export class Jobs {
               proxyPath.replace(/\.js$/, ".ts"),
             ]
           : [proxyPath],
-        onEvent: (method, params) => {
+        onEvent: async (method, params) => {
           if (method === "diagnostic" && process.env.PILOT_DEBUG === "true")
             console.error(params.message);
-          if (method === "item/agentMessage/delta")
-            void this.emit(state, "message.delta", {
-              itemId: params.itemId,
-              delta: params.delta,
-            });
-          else if (
-            method === "item/completed" &&
-            params.item?.type === "agentMessage"
-          )
-            void this.emit(state, "message.completed", {
-              itemId: params.item.id,
-              text: params.item.text,
-            });
-          else if (method === "thread/tokenUsage/updated")
-            void this.emit(state, "usage", { usage: params.tokenUsage });
-          else if (method === "error")
-            void this.emit(state, "diagnostic", {
-              message: params.error?.message || "Codex error",
-            });
+          for (const event of normalizeCodexEvent(method, params))
+            await this.emit(state, event.type, event.payload);
         },
       });
       a.runtime = runtime;
@@ -262,9 +326,23 @@ export class Jobs {
         },
         { type: "localImage", path: baseline.capture.path },
       ];
+      let documentBudget = MAX_TOTAL_DOCUMENT_CONTEXT_CHARS;
       for (const asset of a.input.assets) {
         const actual = await existingSafePath(root, asset.path);
-        if (/^image\/(png|jpeg|webp)$/.test(asset.mime)) {
+        if (documentMime(actual)) {
+          const document = formatDocumentReference(
+            asset,
+            await readDocumentFile(path.basename(actual), actual),
+            documentBudget,
+          );
+          documentBudget -= document.info.contextCharacters;
+          input.push({ type: "text", text: document.text });
+          await this.emit(state, "attachment.context", {
+            assetId: asset.id,
+            name: asset.name,
+            ...document.info,
+          });
+        } else if (/^image\/(png|jpeg|webp)$/.test(asset.mime)) {
           const imageDir = path.join(
             this.root,
             "runtime",

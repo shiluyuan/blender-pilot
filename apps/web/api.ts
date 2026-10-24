@@ -1,3 +1,12 @@
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 export async function api<T = any>(
   path: string,
   options: RequestInit = {},
@@ -9,6 +18,7 @@ export async function api<T = any>(
       ...options.headers,
     },
     credentials: "same-origin",
+    signal: options.signal || AbortSignal.timeout(180000),
   });
   const body = await response.text();
   let data: any;
@@ -17,7 +27,11 @@ export async function api<T = any>(
   } catch {
     throw new Error("服务返回了无效响应");
   }
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  if (!response.ok)
+    throw new ApiError(
+      data.error || `HTTP ${response.status}`,
+      response.status,
+    );
   return data;
 }
 export const post = <T = any>(path: string, data: unknown = {}) =>
@@ -50,29 +64,42 @@ export async function upload(
     license?: string;
     author?: string;
   },
+  options: { signal?: AbortSignal; scope?: string } = {},
 ) {
-  const key = `pilot-upload:${library ? "library" : projectId}:${file.name}:${file.size}:${file.lastModified}`;
+  const key = `pilot-upload:${library ? "library" : projectId}:${options.scope || "project"}:${file.name}:${file.size}:${file.lastModified}`;
+  const signal = () =>
+    options.signal
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(60000)])
+      : AbortSignal.timeout(60000);
   let id = localStorage.getItem(key);
   let offset = 0;
   if (id) {
     try {
-      const state = await api(`/uploads/${id}`);
+      const state = await api(`/uploads/${id}`, { signal: signal() });
       if (state.assetId) {
-        localStorage.removeItem(key);
-        return { id: state.assetId, name: file.name };
+        // Replaying completion returns the authoritative metadata too, including
+        // document truncation information; an ID-only receipt loses that context.
+        offset = file.size;
+      } else {
+        offset = state.offset;
       }
-      offset = state.offset;
-    } catch {
+    } catch (e) {
+      if (options.signal?.aborted) throw e;
+      if (!(e instanceof ApiError) || e.status !== 404) throw e;
       id = null;
     }
   }
   if (!id) {
-    const state = await post("/uploads", {
-      projectId,
-      destination: library ? "library" : "project",
-      library: library ? { name: file.name, ...library } : undefined,
-      name: file.name,
-      size: file.size,
+    const state = await api("/uploads", {
+      method: "POST",
+      signal: signal(),
+      body: JSON.stringify({
+        projectId,
+        destination: library ? "library" : "project",
+        library: library ? { name: file.name, ...library } : undefined,
+        name: file.name,
+        size: file.size,
+      }),
     });
     id = state.id;
     localStorage.setItem(key, id!);
@@ -86,13 +113,25 @@ export async function upload(
         "Upload-Offset": String(offset),
       },
       body: chunk,
+      signal: signal(),
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "上传失败");
+    if (!response.ok)
+      throw new ApiError(result.error || "上传失败", response.status);
+    if (
+      !Number.isSafeInteger(result.offset) ||
+      result.offset <= offset ||
+      result.offset > file.size
+    )
+      throw new Error("上传服务返回了无效分片位置，请重试");
     offset = result.offset;
     progress(Math.round((offset / file.size) * 100));
   }
-  const asset = await post(`/uploads/${id}/complete`);
+  const asset = await api(`/uploads/${id}/complete`, {
+    method: "POST",
+    body: "{}",
+    signal: signal(),
+  });
   localStorage.removeItem(key);
   return asset;
 }

@@ -3,6 +3,29 @@ import {
   Database,
   type DatabaseOptions,
 } from "../../packages/storage/database.js";
+import type { Run } from "../../packages/contracts/index.js";
+
+export type TurnInput = Pick<
+  Run,
+  "sessionId" | "projectId" | "prompt" | "assetIds" | "libraryAssetIds"
+>;
+function assertSameTurn(existing: TurnInput, requested: TurnInput) {
+  const ids = (values: string[] | undefined) =>
+    [...new Set(values || [])].sort();
+  if (
+    existing.sessionId !== requested.sessionId ||
+    existing.projectId !== requested.projectId ||
+    existing.prompt !== requested.prompt ||
+    JSON.stringify(ids(existing.assetIds)) !==
+      JSON.stringify(ids(requested.assetIds)) ||
+    JSON.stringify(ids(existing.libraryAssetIds)) !==
+      JSON.stringify(ids(requested.libraryAssetIds))
+  )
+    throw Object.assign(
+      new Error("该发送编号已用于不同内容，请重新发送新消息"),
+      { statusCode: 409 },
+    );
+}
 const tables: Record<string, string> = {
   project: "projects",
   session: "sessions",
@@ -94,13 +117,29 @@ export class Store {
   async delete(kind: string, id: string) {
     await this.db.query(`DELETE FROM ${this.table(kind)} WHERE id=$1`, [id]);
   }
-  async events(runId: string, after = 0) {
+  async events(runId: string, after = 0, limit?: number) {
     return (
       await this.db.query<{ data: any }>(
-        `SELECT data FROM ${this.db.table("events")} WHERE run_id=$1 AND seq>$2 ORDER BY seq`,
-        [runId, after],
+        `SELECT data FROM ${this.db.table("events")} WHERE run_id=$1 AND seq>$2 ORDER BY seq${limit ? " LIMIT $3" : ""}`,
+        limit ? [runId, after, limit] : [runId, after],
       )
     ).rows.map((r) => r.data);
+  }
+  async latestSequence(runId: string) {
+    const result = await this.db.query<{ seq: number | null }>(
+      `SELECT max(seq) AS seq FROM ${this.db.table("events")} WHERE run_id=$1`,
+      [runId],
+    );
+    return result.rows[0]?.seq || 0;
+  }
+  async requestedRun(key: string, input?: TurnInput): Promise<Run | undefined> {
+    const result = await this.db.query<{ data: Run }>(
+      `SELECT r.data FROM ${this.db.table("requests")} q JOIN ${this.db.table("runs")} r ON r.id=q.run_id WHERE q.key=$1`,
+      [key],
+    );
+    const run = result.rows[0]?.data;
+    if (run && input) assertSameTurn(run, input);
+    return run;
   }
   async event(e: any, tx?: PoolClient) {
     const sql = `INSERT INTO ${this.db.table("events")}(run_id,seq,type,data) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`;
@@ -120,19 +159,40 @@ export class Store {
           [key],
         )
       ).rows[0];
-      if (existing)
-        return (
+      if (existing) {
+        const previous = (
           await tx.query(
             `SELECT data FROM ${this.db.table("runs")} WHERE id=$1`,
             [existing.run_id],
           )
         ).rows[0].data;
+        assertSameTurn(previous, run);
+        return previous;
+      }
+      // Serialize distinct sends for a project across API processes as well.
+      await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        "pilot-project:" + this.db.schema + ":" + run.projectId,
+      ]);
       await this.put("run", run.id, run, tx);
       await tx.query(
         `INSERT INTO ${this.db.table("requests")}(key,run_id) VALUES($1,$2)`,
         [key, run.id],
       );
       return run;
+    });
+  }
+  async updateRun(id: string, update: (run: Run) => void) {
+    return this.db.transaction(async (tx) => {
+      const current = (
+        await tx.query<{ data: Run }>(
+          `SELECT data FROM ${this.db.table("runs")} WHERE id=$1 FOR UPDATE`,
+          [id],
+        )
+      ).rows[0]?.data;
+      if (!current) return undefined;
+      update(current);
+      await this.put("run", id, current, tx);
+      return current;
     });
   }
 }

@@ -1,0 +1,117 @@
+{
+  "passed": true,
+  "codex": "passed",
+  "time": "2026-10-24T00:41:48.582Z",
+  "blender": "5.2.3 LTS",
+  "model": "gpt-5.6-luna",
+  "provider": "https://coding.smartpaipai.com",
+  "databaseValidation": "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised",
+  "mode": "live-model",
+  "reusedLiveChecks": false,
+  "live": {
+    "passed": true,
+    "runIds": [
+      "170ad287-d1c5-4443-b2dc-76f2ae8a7af8",
+      "f2a28bf4-d4b9-4178-8068-14f35ad98597",
+      "41b6216f-8d92-436c-af02-967adc6ec7f7",
+      "05008ac9-082d-4a98-b7a0-2a698580410c",
+      "570f5fe6-c2b1-4c0c-8d43-f760d77f1089",
+      "dbd7a362-cb38-4450-9baa-dd4333d12968"
+    ],
+    "nativeThreadId": "01a16b52-5a88-7083-b4a9-31c77be538b8",
+    "referenceGroundTruth": {
+      "left": "#25bb48",
+      "right": "#264fe0"
+    },
+    "blenderReadback": [
+      {
+        "name": "Live_Reference_Sphere",
+        "location": [-3, 0, 2],
+        "dimensions": [1.9999988079071045, 1.9999992847442627, 2],
+        "color": [0.07500000298023224, 0.699999988079071, 0.2199999988079071, 1]
+      },
+      {
+        "name": "Live_Reference_Cube",
+        "location": [3, 0, 1],
+        "dimensions": [2, 2, 2],
+        "color": [0.07500000298023224, 0.25, 0.8199999928474426, 1]
+      }
+    ],
+    "documentReadback": {
+      "name": "Brief_cfb3445d9f",
+      "location": [1.75, -2.25, 0.6499999761581421],
+      "dimensions": [0.6000000238418579, 0.800000011920929, 1.2999999523162842]
+    },
+    "captures": 13,
+    "toolCalls": 19,
+    "visualReports": [
+      {
+        "captureId": "d411bb80-e629-496e-adb6-1e5a09e62313",
+        "passed": true,
+        "observations": "当前截图中清楚可见三个网格物体：左侧为绿色 UV 球体 Live_Reference_Sphere，中间为默认白色 Cube，右侧为蓝色立方体 Live_Reference_Cube。球体位于 (-3,0,1)，尺寸约 2；新立方体位于 (3,0,1)，尺寸 2。默认 Camera 和 Light 保留，视口已显示材质颜色，未导入参考图片。"
+      },
+      {
+        "captureId": "b2c49961-9f49-4383-b9bf-1355e59ec408",
+        "passed": true,
+        "observations": "最新截图中绿色球体 Live_Reference_Sphere 已清楚可见并位于默认立方体左上方；实际位置为 (-3,0,2)，相对原位置沿 Z 轴上移 1 米。球体尺寸仍约为 2、材质仍为 Reference_Green；默认 Cube 与蓝色 Live_Reference_Cube 的位置、尺寸和材质未改变，三者均清晰可见。"
+      },
+      {
+        "captureId": "2ceecfd5-34f1-45ff-9f30-af95b73eabf1",
+        "passed": true,
+        "observations": "最新截图中黄色立方体 Brief_cfb3445d9f 在视口内清晰可见，位于默认白色立方体前方偏右。场景回读确认其位置为 (1.75, -2.25, 0.65)，实际尺寸为 (0.6, 0.8, 1.3)，材质为 Brief_Yellow。现有 Cube、Camera、Light、Live_Reference_Sphere 和 Live_Reference_Cube 的位置、尺寸与材质保持不变。"
+      },
+      {
+        "captureId": "5a816ba0-07b4-423e-9c50-d330bcb80b6c",
+        "passed": true,
+        "observations": "当前截图显示两个新增参考物体均可见：绿色 Live_Reference_Sphere 位于 (-3,0,2)，材质为 Reference_Green；蓝色 Live_Reference_Cube 位于 (3,0,1)，材质为 Reference_Blue。场景未作修改。"
+      },
+      {
+        "captureId": "5d69f03e-bcd1-4d2e-8622-6bb31b6ef9a2",
+        "passed": true,
+        "observations": "当前截图中两个新增参考物体清晰可见：绿色球体 Live_Reference_Sphere 位于左上方，蓝色立方体 Live_Reference_Cube 位于右侧；两者大致左右分置，绿色球体相对更靠上。场景保持不变。"
+      }
+    ],
+    "checks": [
+      "reference-image colors independently verified in real Blender materials",
+      "mutation receipts",
+      "current screenshot visual report",
+      "request idempotency",
+      "native process restart and conversation resume",
+      "uploaded Markdown body drives independently verified Blender component",
+      "interruption during real streamed model output",
+      "successful continuation after cancellation",
+      "browser composer → real model → screenshot report → streamed completion"
+    ]
+  },
+  "library": {
+    "passed": true,
+    "blender": "5.2.3 LTS",
+    "checks": [
+      "selected hierarchy only",
+      "packed texture survives deletion of original",
+      "materials and transforms",
+      "source scene unchanged",
+      "cross-project append",
+      "repeated imports have independent meshes and materials",
+      "scene collection merge",
+      "category/tag search",
+      "favorite survives reload",
+      "empty selection rejected"
+    ],
+    "assetIds": [
+      "07027092-016d-4357-86e8-03926aace455",
+      "277e4682-9a80-446a-9d0c-da312ae54280"
+    ]
+  },
+  "checks": [
+    "native MCP",
+    "snapshots",
+    "GLB/glTF/blend exports",
+    "Codex tool calls",
+    "image input",
+    "idempotency",
+    "thread resume",
+    "cancel",
+    "browser VNC"
+  ]
+}

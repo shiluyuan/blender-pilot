@@ -72,6 +72,12 @@ import { terminal } from "../../packages/contracts/index";
 import { api, post, fileUrl, bytes, date, upload } from "./api";
 import { LibraryPanel } from "./LibraryPanel";
 import { Viewport } from "./Viewport";
+import { ChatComposer } from "./chat/ChatComposer";
+import { ConversationTimeline } from "./chat/ConversationTimeline";
+import { RunView } from "./chat/RunView";
+import { useChatComposer } from "./chat/useChatComposer";
+import { mergePilotEvents } from "./chat/timeline";
+import { documentMime } from "../../packages/contracts/attachments";
 
 import "./styles.css";
 const labels: Record<string, string> = {
@@ -223,10 +229,6 @@ function App() {
       Number(localStorage.getItem("pilot-panel-width")) || 400,
     ),
     [theme, setTheme] = useState(localStorage.getItem("pilot-theme") || "dark"),
-    [draft, setDraft] = useState(""),
-    [attachments, setAttachments] = useState<
-      Array<{ id: string; name: string; kind: string }>
-    >([]),
     [toast, setToast] = useState(""),
     [modal, setModal] = useState<
       "project" | "sessions" | "attach" | "export" | null
@@ -236,46 +238,52 @@ function App() {
     [uploadRows, setUploadRows] = useState<
       Array<{ name: string; progress: number; error?: string }>
     >([]),
-    [loading, setLoading] = useState(false),
     [renaming, setRenaming] = useState<Asset>();
   const assetRequest = useRef(0);
   const projectRequest = useRef(0);
-  const workspaces = useRef<
-    Record<
-      string,
-      {
-        draft: string;
-        attachments: Array<{ id: string; name: string; kind: string }>;
-        sessionId?: string;
-      }
-    >
-  >({});
-  const currentDraft = useRef({ draft, attachments, sessionId: session?.id });
-  currentDraft.current = { draft, attachments, sessionId: session?.id };
-  useEffect(() => {
-    if (project) {
-      workspaces.current[project.id] = currentDraft.current;
-      localStorage.setItem(
-        "pilot-workspace:" + project.id,
-        JSON.stringify(currentDraft.current),
-      );
-    }
-  }, [draft, attachments, session?.id]);
   useEffect(() => {
     localStorage.setItem("pilot-sidebar", sidebarOpen ? "open" : "closed");
   }, [sidebarOpen]);
   const currentProject = useRef<string | undefined>(undefined);
   currentProject.current = project?.id;
   const active = runs.find((r) => !terminal.has(r.status));
-  const projectRun = health?.execution?.activeRuns?.find(
+  const projectRunInfo = health?.execution?.activeRuns?.find(
     (r: any) => r.projectId === project?.id,
   );
+  const projectRun =
+    projectRunInfo &&
+    !runs.some((r) => r.id === projectRunInfo.id && terminal.has(r.status))
+      ? projectRunInfo
+      : undefined;
   const busy = !!active || !!projectRun;
   const files = useRef<HTMLInputElement>(null),
-    chatBottom = useRef<HTMLDivElement>(null),
     draftRef = useRef<HTMLTextAreaElement>(null),
     sessionRef = useRef<string | undefined>(undefined);
+  sessionRef.current = session?.id;
+  const [streamStates, setStreamStates] = useState<Record<string, string>>({});
   const notify = (s: string) => setToast(s);
+  const chat = useChatComposer({
+    projectId: project?.id,
+    sessionId: session?.id,
+    onError: notify,
+    onAccepted: (run) => {
+      if (
+        sessionRef.current !== run.sessionId ||
+        currentProject.current !== run.projectId
+      )
+        return;
+      setRuns((current) =>
+        current.some((r) => r.id === run.id) ? current : [...current, run],
+      );
+      void api<Session[]>(`/projects/${run.projectId}/sessions`)
+        .then((ss) => {
+          if (currentProject.current === run.projectId) setSessions(ss);
+        })
+        .catch(() => {});
+      if (run.error) notify(run.error);
+    },
+  });
+  const { draft, setDraft, attachments, setAttachments } = chat;
   const action = async (fn: () => Promise<any>, success?: string) => {
     try {
       const r = await fn();
@@ -330,7 +338,14 @@ function App() {
     if (!session) return;
     const id = session.id;
     const result = await api<Run[]>(`/sessions/${id}/runs`);
-    if (sessionRef.current === id) setRuns(result);
+    if (sessionRef.current === id)
+      setRuns((current) => {
+        const byId = new Map(result.map((r) => [r.id, r]));
+        for (const run of current) byId.set(run.id, run);
+        return [...byId.values()].sort((a, b) =>
+          a.createdAt.localeCompare(b.createdAt),
+        );
+      });
   }, [session?.id]);
   useEffect(() => {
     sessionRef.current = session?.id;
@@ -340,8 +355,6 @@ function App() {
   }, [session?.id]);
   const chooseProject = async (p: Project, resumeSession?: string) => {
     const request = ++projectRequest.current;
-    const previous = currentProject.current;
-    if (previous) workspaces.current[previous] = currentDraft.current;
     setOpening(p.id);
     try {
       await post(`/projects/${p.id}/activate`);
@@ -349,14 +362,16 @@ function App() {
       let ss = await api<Session[]>(`/projects/${p.id}/sessions`);
       if (!ss.length) ss = [await post<Session>(`/projects/${p.id}/sessions`)];
       if (request !== projectRequest.current) return;
-      let cached = workspaces.current[p.id];
-      if (!cached) {
-        try {
-          cached = JSON.parse(
-            localStorage.getItem("pilot-workspace:" + p.id) || "null",
-          );
-        } catch {}
-      }
+      let cached: { sessionId?: string } | undefined;
+      try {
+        cached = {
+          sessionId:
+            localStorage.getItem("pilot-chat-active:" + p.id) ||
+            JSON.parse(
+              localStorage.getItem("pilot-workspace:" + p.id) || "null",
+            )?.sessionId,
+        };
+      } catch {}
       currentProject.current = p.id;
       setOpenIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));
       setProject(p);
@@ -364,8 +379,6 @@ function App() {
       setSession(
         ss.find((s) => s.id === (resumeSession || cached?.sessionId)) || ss[0],
       );
-      setDraft(cached?.draft || "");
-      setAttachments(cached?.attachments || []);
       setRuns([]);
       setEvents({});
       setAssetPage(0);
@@ -387,8 +400,6 @@ function App() {
         setProject(undefined);
         setSession(undefined);
         setRuns([]);
-        setDraft("");
-        setAttachments([]);
         localStorage.removeItem("pilot-project");
       }
     }
@@ -448,16 +459,24 @@ function App() {
         `/api/runs/${run.id}/events?after=${events[run.id]?.at(-1)?.seq || 0}`,
       );
       sourceList.push(es);
+      es.onopen = () => {
+        if (sessionRef.current === boundSession)
+          setStreamStates((s) => ({ ...s, [run.id]: "live" }));
+      };
+      es.onerror = () => {
+        if (sessionRef.current === boundSession)
+          setStreamStates((s) => ({ ...s, [run.id]: "reconnecting" }));
+      };
       es.onmessage = (e) => {
         if (sessionRef.current !== boundSession) return;
         const item = JSON.parse(e.data) as PilotEvent;
         setEvents((current) => {
           const prev = current[run.id] || [];
-          return prev.some((x) => x.seq === item.seq)
-            ? current
-            : { ...current, [run.id]: [...prev, item] };
+          if (prev.some((x) => x.seq === item.seq)) return current;
+          return { ...current, [run.id]: mergePilotEvents(prev, [item]) };
         });
-        if (item.type === "run.status")
+        if (item.type === "run.status") {
+          if (terminal.has(item.payload.status as any)) void loadHealth();
           setRuns((current) =>
             current.map((r) =>
               r.id === run.id
@@ -472,8 +491,24 @@ function App() {
                 : r,
             ),
           );
+        }
       };
-      es.addEventListener("done", () => {
+      es.addEventListener("done", (event) => {
+        // A dispatch failure can finish a queued run before worker events exist.
+        try {
+          const finalRun = JSON.parse((event as MessageEvent).data).run as
+            Run | undefined;
+          if (
+            finalRun?.id === run.id &&
+            finalRun.sessionId === boundSession &&
+            sessionRef.current === boundSession
+          )
+            setRuns((current) =>
+              current.map((r) => (r.id === run.id ? finalRun : r)),
+            );
+        } catch {
+          /* Legacy completion frames have no final receipt. */
+        }
         es.close();
         void loadSnapshots();
         void loadHealth();
@@ -481,9 +516,6 @@ function App() {
     }
     return () => sourceList.forEach((s) => s.close());
   }, [runs.map((r) => r.id).join(","), session?.id]);
-  useEffect(() => {
-    chatBottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [runs.length, Object.values(events).reduce((a, b) => a + b.length, 0)]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.altKey && e.key.toLowerCase() === "j") {
@@ -496,49 +528,22 @@ function App() {
   }, []);
   const newSession = async () => {
     if (!project) return;
-    const s = await post<Session>(`/projects/${project.id}/sessions`);
+    const boundProject = project.id;
+    const s = await post<Session>(`/projects/${boundProject}/sessions`);
+    if (currentProject.current !== boundProject) return;
     setSessions((current) => [s, ...current]);
     setSession(s);
-    setDraft("");
-    setAttachments([]);
     setModal(null);
   };
   const send = async () => {
-    if (!draft.trim() || !session || busy || loading) return;
-    setLoading(true);
-    try {
-      const run = await post<Run>(`/sessions/${session.id}/turns`, {
-        text: draft,
-        assetIds: attachments
-          .filter((a) => a.kind !== "library")
-          .map((a) => a.id),
-        libraryAssetIds: attachments
-          .filter((a) => a.kind === "library")
-          .map((a) => a.id),
-        clientRequestId: crypto.randomUUID(),
-      });
-      if (
-        currentProject.current !== project?.id ||
-        sessionRef.current !== session.id
-      )
-        return;
-      setRuns((current) => [...current, run]);
-      setSessions(await api<Session[]>(`/projects/${project!.id}/sessions`));
-      setDraft("");
-      setAttachments([]);
-      if (run.error) notify(run.error);
-    } catch (e) {
-      notify(String(e));
-    } finally {
-      setLoading(false);
-    }
+    if (!busy) await chat.send();
   };
   const capture = async () => {
     if (!project) return;
     const c = await action(() =>
       post<Capture>(`/projects/${project.id}/captures`),
     );
-    if (c && currentProject.current === project.id) {
+    if (c) {
       setAttachments((prev) => [
         ...prev,
         { id: c.id, name: "当前场景截图", kind: "capture" },
@@ -1156,7 +1161,13 @@ function App() {
                                 ? prev
                                 : [
                                     ...prev,
-                                    { id: a.id, name: a.name, kind: "asset" },
+                                    {
+                                      id: a.id,
+                                      name: a.name,
+                                      kind: "asset",
+                                      mime: a.mime,
+                                      documentInfo: a.documentInfo,
+                                    },
                                   ],
                             );
                             setPage("studio");
@@ -1167,7 +1178,12 @@ function App() {
                           引用
                         </button>
                         <button
-                          disabled={busy}
+                          disabled={busy || !!documentMime(a.path)}
+                          title={
+                            documentMime(a.path)
+                              ? "文档用于对话参考，请使用引用"
+                              : "导入 Blender"
+                          }
                           onClick={() =>
                             void action(
                               () => post(`/assets/${a.id}/import`),
@@ -1179,7 +1195,12 @@ function App() {
                           导入
                         </button>
                         <button
-                          title="加入跨项目素材库"
+                          disabled={!!documentMime(a.path)}
+                          title={
+                            documentMime(a.path)
+                              ? "文档用于项目对话参考"
+                              : "加入跨项目素材库"
+                          }
                           onClick={() =>
                             void action(async () => {
                               await post(`/assets/${a.id}/publish`, {
@@ -1426,7 +1447,7 @@ function App() {
                     <button
                       className="icon"
                       title="新建对话"
-                      disabled={!project || busy}
+                      disabled={!project}
                       onClick={() => void action(newSession)}
                     >
                       <Plus size={17} />
@@ -1441,12 +1462,31 @@ function App() {
                   </div>
                 </div>
                 <div className="chat-context">
-                  <span className="dot green" />
-                  自动截图已开启
+                  <span
+                    className={
+                      "dot " +
+                      (active && streamStates[active.id] === "reconnecting"
+                        ? ""
+                        : "green")
+                    }
+                  />
+                  {active && streamStates[active.id] === "reconnecting"
+                    ? "正在重连，恢复消息中…"
+                    : "自动截图已开启"}
                   <span className="grow" />
                   <span>{session?.title || "新对话"}</span>
                 </div>
-                <div className="chat-timeline">
+                <ConversationTimeline
+                  sessionId={session?.id}
+                  version={
+                    runs.length +
+                    ":" +
+                    Object.values(events).reduce(
+                      (n, list) => n + list.length,
+                      0,
+                    )
+                  }
+                >
                   {!runs.length && (
                     <div className="chat-welcome">
                       <div className="assistant-emblem">
@@ -1491,128 +1531,37 @@ function App() {
                       lightbox={setLightbox}
                     />
                   ))}
-                  <div ref={chatBottom} />
-                </div>
-                <div className="composer-wrap">
-                  {active && (
-                    <div className="run-status">
-                      <Loader2 size={13} className="spin" />
-                      {labels[active.status]}
-                      <span className="grow" />
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          void action(() => post(`/runs/${active.id}/cancel`))
-                        }
-                      >
-                        停止并接管
-                      </button>
-                    </div>
-                  )}
-                  {attachments.length > 0 && (
-                    <div className="attachments">
-                      {attachments.map((a) => (
-                        <div key={a.id}>
-                          <Paperclip size={12} />
-                          <span>{a.name}</span>
-                          <button
-                            className="icon"
-                            aria-label="移除附件"
-                            onClick={() =>
-                              setAttachments((prev) =>
-                                prev.filter((x) => x.id !== a.id),
-                              )
-                            }
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div
-                    className="composer"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      void uploadFiles(e.dataTransfer.files);
-                      setPage("assets");
-                    }}
-                  >
-                    <textarea
-                      ref={draftRef}
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      placeholder={
-                        project
-                          ? "描述你的场景，或告诉我哪里需要调整…"
-                          : "先创建一个项目，开启对话创作…"
-                      }
-                      disabled={!project}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                          e.preventDefault();
-                          void send();
-                        }
-                      }}
-                      onPaste={(e) => {
-                        if (e.clipboardData.files.length) {
-                          void uploadFiles(e.clipboardData.files);
-                          notify("图片正在上传，完成后从资源库引用");
-                        }
-                      }}
-                    />
-                    <div className="composer-controls">
-                      <button
-                        className="icon"
-                        title="引用资源"
-                        disabled={!project}
-                        onClick={() => setModal("attach")}
-                      >
-                        <Paperclip size={17} />
-                      </button>
-                      <button
-                        className="icon"
-                        title="截取当前视口"
-                        disabled={!project || busy}
-                        onClick={() => void capture()}
-                      >
-                        <Camera size={17} />
-                      </button>
-                      <span className="grow" />
-                      <span className="shortcut">⌘ / Ctrl ↵</span>
-                      <button
-                        className="send-button"
-                        aria-label={busy ? "停止任务" : "发送消息"}
-                        disabled={
-                          !busy && (!project || !draft.trim() || loading)
-                        }
-                        onClick={() =>
-                          busy
-                            ? void action(() =>
-                                post(`/runs/${active!.id}/cancel`),
-                              )
-                            : void send()
-                        }
-                      >
-                        {busy ? (
-                          <Square size={13} />
-                        ) : loading ? (
-                          <Loader2 className="spin" size={16} />
-                        ) : (
-                          <ArrowUp size={18} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="composer-foot">
-                    <span>
-                      <span className="dot" />{" "}
-                      {health?.model?.model || "请先配置模型"}
-                    </span>
-                    <span>场景操作 · 可追溯</span>
-                  </div>
-                </div>
+                </ConversationTimeline>
+                <ChatComposer
+                  draft={draft}
+                  setDraft={setDraft}
+                  attachments={attachments}
+                  uploads={chat.uploads}
+                  outbox={chat.outbox}
+                  busy={busy}
+                  loading={chat.loading}
+                  disabled={!project || !session}
+                  model={health?.model?.model}
+                  status={
+                    active ? labels[active.status] : "项目中有任务正在运行"
+                  }
+                  inputRef={draftRef}
+                  onSend={() => void send()}
+                  onStop={() => {
+                    const id = active?.id || projectRun?.id;
+                    if (id) void action(() => post(`/runs/${id}/cancel`));
+                  }}
+                  onCapture={() => void capture()}
+                  onReference={() => setModal("attach")}
+                  onFiles={chat.uploadFiles}
+                  onRemove={(id) =>
+                    setAttachments((prev) => prev.filter((a) => a.id !== id))
+                  }
+                  onRetryUpload={chat.retryUpload}
+                  onRemoveUpload={chat.removeUpload}
+                  onRetrySend={() => void chat.retry()}
+                  onMoveBack={chat.moveBack}
+                />
               </aside>
             </>
           )}
@@ -1718,7 +1667,6 @@ function App() {
           <div className="session-list">
             {sessions.map((s) => (
               <button
-                disabled={busy}
                 key={s.id}
                 className={session?.id === s.id ? "selected" : ""}
                 onClick={() => {
@@ -1737,7 +1685,7 @@ function App() {
           </div>
           <button
             className="full"
-            disabled={busy || !project}
+            disabled={!project}
             onClick={() => void action(newSession)}
           >
             <Plus size={15} />
@@ -1756,7 +1704,16 @@ function App() {
                   setAttachments((prev) =>
                     prev.some((x) => x.id === a.id)
                       ? prev
-                      : [...prev, { id: a.id, name: a.name, kind: "asset" }],
+                      : [
+                          ...prev,
+                          {
+                            id: a.id,
+                            name: a.name,
+                            kind: "asset",
+                            mime: a.mime,
+                            documentInfo: a.documentInfo,
+                          },
+                        ],
                   );
                   setModal(null);
                 }}
@@ -1950,187 +1907,6 @@ function Metric({
       <strong>{value}</strong>
       <small>{detail}</small>
     </div>
-  );
-}
-function RunView({
-  run,
-  events,
-  lightbox,
-}: {
-  run: Run;
-  events: PilotEvent[];
-  lightbox: (v: { src: string; title: string }) => void;
-}) {
-  const messages = new Map<string, string>();
-  for (const e of events) {
-    if (e.type === "message.delta")
-      messages.set(
-        String(e.payload.itemId),
-        (messages.get(String(e.payload.itemId)) || "") + e.payload.delta,
-      );
-    if (e.type === "message.completed")
-      messages.set(String(e.payload.itemId), String(e.payload.text));
-  }
-  const tools = events.filter((e) => e.type === "tool.started"),
-    captures = events
-      .filter((e) => e.type === "capture.created")
-      .map((e) => e.payload.capture as unknown as Capture),
-    verification = events.findLast((e) => e.type === "verification");
-  const names: Record<string, string> = {
-    get_scene_info: "读取场景",
-    execute_blender_code: "执行 Blender 操作",
-    capture: "观察当前画面",
-    query_blender_api: "查询 Blender API",
-    import_asset: "导入资源",
-    search_library: "搜索素材库",
-    get_library_asset: "查看素材预览",
-    save_library_asset: "保存可复用素材",
-    import_library_asset: "复用素材",
-    save_scene: "保存场景",
-    export_scene: "导出场景",
-    report_verification: "检查创作结果",
-  };
-  return (
-    <article className="conversation-turn">
-      <div className="user-message">
-        <span className="user-label">
-          你 <time>{date(run.createdAt)}</time>
-        </span>
-        <p>{run.prompt}</p>
-        {run.assetIds.length > 0 && (
-          <small>
-            <Paperclip size={12} />
-            {run.assetIds.length} 个引用
-          </small>
-        )}
-      </div>
-      <div className="assistant-message">
-        <div className="assistant-label">
-          <Mark />
-          <strong>Blender Pilot</strong>
-          <span className={"run-badge " + run.status}>
-            {labels[run.status]}
-          </span>
-        </div>
-        {tools.length > 0 && (
-          <div className="tool-list">
-            {tools.map((e) => {
-              const end = events.find(
-                (x) =>
-                  (x.type === "tool.completed" || x.type === "tool.failed") &&
-                  x.payload.callId === e.payload.callId,
-              );
-              return (
-                <details
-                  key={e.seq}
-                  className={
-                    "tool-row " + (end?.type === "tool.failed" ? "failed" : "")
-                  }
-                >
-                  <summary>
-                    {!end && !terminal.has(run.status) ? (
-                      <Loader2 size={13} className="spin" />
-                    ) : end?.type === "tool.failed" ? (
-                      <AlertCircle size={13} />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    <span>
-                      {names[String(e.payload.name)] || String(e.payload.name)}
-                    </span>
-                    <ChevronRight size={12} />
-                  </summary>
-                  <pre>
-                    {JSON.stringify(e.payload.args, null, 2)}
-                    {end
-                      ? "\n" +
-                        JSON.stringify(
-                          end.payload.result || end.payload.error,
-                          null,
-                          2,
-                        )
-                      : ""}
-                  </pre>
-                </details>
-              );
-            })}
-          </div>
-        )}
-        {[...messages].map(([id, text]) => (
-          <p className="assistant-copy" key={id}>
-            {text}
-          </p>
-        ))}
-        {captures.length > 0 && (
-          <div className="capture-pair">
-            {(captures.length === 1
-              ? captures
-              : [captures[0], captures.at(-1)!]
-            ).map((c, i) => (
-              <button
-                key={c.id}
-                onClick={() =>
-                  lightbox({
-                    src: fileUrl("capture", c.id),
-                    title: i === 0 ? "操作前场景" : "当前场景",
-                  })
-                }
-              >
-                <img
-                  src={fileUrl("capture", c.id)}
-                  alt={i === 0 ? "操作前截图" : "操作后截图"}
-                />
-                <span>
-                  {i === 0 ? "操作前" : "当前结果"}
-                  <Maximize2 size={11} />
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-        {verification && (
-          <div
-            className={
-              "verification " + (verification.payload.passed ? "passed" : "")
-            }
-          >
-            <CheckCircle2 size={13} />
-            <span>
-              {verification.payload.passed ? "视觉检查通过" : "仍有待调整项"}
-              <small>{String(verification.payload.observations)}</small>
-            </span>
-          </div>
-        )}
-        {events
-          .filter((e) => e.type === "artifact.created")
-          .map((e) => {
-            const a = e.payload.artifact as any;
-            return (
-              <a
-                key={a.id}
-                className="artifact-link"
-                href={fileUrl("artifact", a.id)}
-              >
-                <FileBox size={18} />
-                <span>{a.name}</span>
-                <ArrowDownToLine size={14} />
-              </a>
-            );
-          })}
-        {run.error && (
-          <div className="run-error">
-            <AlertCircle size={14} />
-            {run.error}
-          </div>
-        )}
-        {!events.length && !terminal.has(run.status) && (
-          <span className="muted">
-            <Loader2 className="spin" size={13} />
-            正在准备场景与截图…
-          </span>
-        )}
-      </div>
-    </article>
   );
 }
 function Settings({

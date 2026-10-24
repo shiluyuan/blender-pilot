@@ -515,7 +515,8 @@ try {
     })
       .png()
       .toBuffer();
-    await page.locator('input[type="file"]').setInputFiles({
+    // The chat composer has its own picker; use the project-resource picker.
+    await page.locator('input[type="file"]').last().setInputFiles({
       name: "场景参考.png",
       mimeType: "image/png",
       buffer: reference,

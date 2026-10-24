@@ -1,9 +1,10 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createInterface } from "node:readline";
+import { createInterface, type Interface } from "node:readline";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { ModelSettings } from "../contracts/index.js";
 import { redact } from "../contracts/fs.js";
+import type { ChatRuntimeCapabilities } from "../contracts/chat-events.js";
 export type CodexInput =
   { type: "text"; text: string } | { type: "localImage"; path: string };
 export class CodexRuntime {
@@ -12,6 +13,7 @@ export class CodexRuntime {
   private pending = new Map<
     number,
     {
+      method: string;
       resolve: (v: any) => void;
       reject: (e: Error) => void;
       timer: NodeJS.Timeout;
@@ -23,6 +25,14 @@ export class CodexRuntime {
   };
   private turnId?: string;
   private acceptingTurn = false;
+  private turnInFlight = false;
+  private turnStarting = false;
+  private turnBuffer: any[] = [];
+  private completedItems = new Set<string>();
+  private serverRequests = new Set<string>();
+  private eventQueue = Promise.resolve();
+  private fatalError?: Error;
+  private lines?: Interface;
   threadId?: string;
   private closing?: Promise<void>;
   private diagnosticTail = "";
@@ -35,11 +45,12 @@ export class CodexRuntime {
       proxyArgs: string[];
       runnerUrl: string;
       runToken: string;
-      onEvent: (method: string, params: any) => void;
+      onEvent: (method: string, params: any) => void | Promise<void>;
     },
   ) {}
   async start(nativeThreadId?: string, signal?: AbortSignal) {
     signal?.throwIfAborted();
+    if (this.proc || this.closing) throw new Error("Codex 会话已经启动或关闭");
     const o = this.options;
     await mkdir(o.home, { recursive: true, mode: 0o700 });
     const q = (s: string) => JSON.stringify(s);
@@ -123,11 +134,12 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
         (this.diagnosticTail + chunk.toString()).slice(-2000),
         [o.settings.apiKey || ""],
       );
-      o.onEvent("diagnostic", {
+      this.emit("diagnostic", {
         message: redact(chunk.toString(), [o.settings.apiKey || ""]),
       });
     });
-    createInterface({ input: this.proc.stdout }).on("line", (line) => {
+    this.lines = createInterface({ input: this.proc.stdout });
+    this.lines.on("line", (line) => {
       try {
         this.receive(JSON.parse(line));
       } catch {
@@ -135,7 +147,7 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
       }
     });
     const abortStart = () => {
-      void this.close();
+      void this.close().catch(() => {});
     };
     signal?.addEventListener("abort", abortStart, { once: true });
     try {
@@ -167,24 +179,66 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
       if (r.model && r.model !== o.settings.model)
         throw new Error("Codex 选择的模型与配置不一致");
       this.threadId = r.thread.id;
+      const capabilities: ChatRuntimeCapabilities = {
+        engine: "codex",
+        protocol: "app-server",
+        resume: true,
+        cancel: true,
+        userInput: false,
+        permissions: false,
+        images: true,
+        textAttachments: true,
+      };
+      this.emit("runtime/capabilities", {
+        ...capabilities,
+        threadId: this.threadId,
+      });
+      await this.eventQueue;
       return this.threadId!;
+    } catch (error) {
+      await this.close();
+      throw error;
     } finally {
       signal?.removeEventListener("abort", abortStart);
     }
   }
   private send(v: unknown) {
-    if (!this.proc || this.proc.stdin.destroyed)
+    if (!this.proc || this.proc.stdin.destroyed || !this.proc.stdin.writable)
       throw new Error("Codex 未连接");
     this.proc.stdin.write(JSON.stringify(v) + "\n");
   }
+  private emit(method: string, params: any) {
+    const cleanValue = (value: any): any =>
+      typeof value === "string"
+        ? redact(value, [this.options.settings.apiKey || ""])
+        : Array.isArray(value)
+          ? value.map(cleanValue)
+          : value && typeof value === "object"
+            ? Object.fromEntries(
+                Object.entries(value).map(([key, child]) => [
+                  key,
+                  cleanValue(child),
+                ]),
+              )
+            : value;
+    const clean = cleanValue(params);
+    this.eventQueue = this.eventQueue.then(() =>
+      this.options.onEvent(method, clean),
+    );
+    // Persistence is part of delivery. A broken consumer must fail the run
+    // instead of publishing a completed turn whose final message was lost.
+    void this.eventQueue.catch((error) => this.fail(error));
+  }
   request(method: string, params: any, timeout = 45000) {
+    if (this.fatalError) return Promise.reject(this.fatalError);
+    if (this.closing) return Promise.reject(new Error("Codex 正在关闭"));
     return new Promise<any>((resolve, reject) => {
       const id = ++this.serial;
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Codex ${method} 超时`));
       }, timeout);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, { method, resolve, reject, timer });
       try {
         this.send({ id, method, params });
       } catch (e) {
@@ -194,16 +248,54 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
       }
     });
   }
-  private receive(msg: any) {
-    if (msg.id !== undefined && msg.method) {
-      this.send({
-        id: msg.id,
-        error: {
-          code: -32601,
-          message:
-            "This workspace supports Blender MCP tools only. Request denied.",
-        },
+  private belongsToCurrentTurn(params: any) {
+    if (params?.threadId && this.threadId && params.threadId !== this.threadId)
+      return false;
+    const eventTurn = params?.turnId || params?.turn?.id;
+    return !this.turnId || !eventTurn || eventTurn === this.turnId;
+  }
+  private handleServerRequest(msg: any) {
+    const key =
+      (msg.params?.turnId ?? this.turnId ?? "initial") +
+      ":" +
+      JSON.stringify(msg.id);
+    const permission = [
+      "item/commandExecution/requestApproval",
+      "item/fileChange/requestApproval",
+    ].includes(msg.method);
+    this.send(
+      permission
+        ? { id: msg.id, result: { decision: "decline" } }
+        : {
+            id: msg.id,
+            error: {
+              code: -32601,
+              message:
+                "This workspace exposes Blender MCP tools only. Ask clarification in an assistant message; the user can reply in the next turn.",
+            },
+          },
+    );
+    // JSON-RPC IDs may be reused in later turns. Repeated requests still get a
+    // response, while their visible notice is emitted only once per turn.
+    if (this.serverRequests.has(key)) return;
+    this.serverRequests.add(key);
+    if (this.acceptingTurn && this.belongsToCurrentTurn(msg.params))
+      this.emit("runtime/notice", {
+        method: msg.method,
+        kind: permission ? "permission" : "unsupported-input",
+        level: "warning",
+        message: permission
+          ? "执行端请求的命令或文件权限已拒绝；此工作台通过 Blender MCP 操作场景。"
+          : msg.method === "item/tool/requestUserInput"
+            ? "执行端请求了原生提问；当前请在对话中补充信息后继续。"
+            : "执行端请求了当前工作台尚不支持的交互，已明确返回不支持。",
       });
+  }
+  private receive(msg: any) {
+    if (!msg || typeof msg !== "object" || Array.isArray(msg))
+      throw new Error("无效 JSON-RPC 消息");
+    if (msg.id !== undefined && msg.method) {
+      this.handleServerRequest(msg);
       return;
     }
     if (msg.id !== undefined) {
@@ -224,26 +316,71 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
       return;
     }
     if (!this.acceptingTurn) return;
-    if (
-      msg.params?.threadId &&
-      this.threadId &&
-      msg.params.threadId !== this.threadId
-    )
+    if (this.turnStarting) {
+      // A server may flush notifications before acknowledging turn/start.
+      // Do not bind to a stale turn/started replay; the RPC reply owns identity.
+      this.turnBuffer.push(msg);
+      if (this.turnBuffer.length > 10000)
+        throw new Error("Codex 在接受本轮消息前返回过多事件");
       return;
-    const eventTurn = msg.params?.turnId || msg.params?.turn?.id;
-    if (this.turnId && eventTurn && eventTurn !== this.turnId) return;
-    if (msg.method === "turn/started") this.turnId = msg.params?.turn?.id;
+    }
+    if (!this.belongsToCurrentTurn(msg.params)) return;
+    this.notification(msg);
+  }
+  private notification(msg: any) {
+    if (!this.acceptingTurn) return;
+    const params = {
+      ...msg.params,
+      threadId: msg.params?.threadId ?? this.threadId,
+      turnId: msg.params?.turnId ?? msg.params?.turn?.id ?? this.turnId,
+    };
+    if (msg.method === "item/completed" && params.item?.id)
+      this.completedItems.add(params.item.id);
     if (msg.method === "turn/completed") {
-      this.turnId = undefined;
+      // Some compatible servers supply final items only in the completed turn.
+      // Emit their canonical completed text even when no delta was streamed.
+      for (const item of params.turn?.items ?? []) {
+        if (typeof item.id === "string" && !this.completedItems.has(item.id)) {
+          this.completedItems.add(item.id);
+          this.emit("item/completed", { ...params, turn: undefined, item });
+        }
+      }
+      this.emit(msg.method, params);
       const c = this.completion;
       this.completion = undefined;
-      c?.resolve(msg.params.turn);
+      this.acceptingTurn = false;
+      void this.eventQueue.then(
+        () => c?.resolve(params.turn),
+        (error) => c?.reject(error),
+      );
+      return;
     }
-    if (msg.method) this.options.onEvent(msg.method, msg.params || {});
+    if (msg.method) this.emit(msg.method, params);
+    if (msg.method === "error" && params.willRetry === false) {
+      const error = new Error(
+        redact(params.error?.message || "Codex 执行失败", [
+          this.options.settings.apiKey || "",
+        ]),
+      );
+      const c = this.completion;
+      this.completion = undefined;
+      this.acceptingTurn = false;
+      void this.eventQueue.then(
+        () => c?.reject(error),
+        () => c?.reject(error),
+      );
+    }
   }
   async turn(input: CodexInput[], signal: AbortSignal) {
     if (signal.aborted) throw new Error("任务已取消");
+    if (!this.threadId) throw new Error("Codex 会话尚未初始化");
+    if (this.turnInFlight) throw new Error("Codex 已有一轮对话正在运行");
+    if (this.fatalError) throw this.fatalError;
+    this.turnInFlight = true;
     this.acceptingTurn = true;
+    this.turnStarting = true;
+    this.turnBuffer = [];
+    this.completedItems.clear();
     this.turnId = undefined;
     const done = new Promise<any>((resolve, reject) => {
       this.completion = { resolve, reject };
@@ -255,14 +392,14 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
       void this.interrupt().catch(() => {});
       cancelTimeout ??= setTimeout(() => {
         this.fail(new Error("任务已取消，Codex 未及时响应停止请求"));
-        void this.close();
+        void this.close().catch(() => {});
       }, 10000);
     };
     signal.addEventListener("abort", abort, { once: true });
     const timeout = setTimeout(() => {
       void this.interrupt().catch(() => {});
-      this.completion?.reject(new Error("模型运行超过 15 分钟，已请求停止"));
-      this.completion = undefined;
+      this.fail(new Error("模型运行超过 15 分钟，已请求停止"));
+      void this.close().catch(() => {});
     }, 15 * 60_000);
     try {
       const result = await this.request("turn/start", {
@@ -271,13 +408,35 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
         effort: this.options.settings.effort,
       });
       this.turnId = result.turn?.id;
+      if (!this.turnId) throw new Error("Codex 未返回本轮对话标识");
+      this.turnStarting = false;
+      for (const buffered of this.turnBuffer) {
+        if (this.belongsToCurrentTurn(buffered.params))
+          this.notification(buffered);
+      }
+      this.turnBuffer = [];
+      if (
+        this.acceptingTurn &&
+        ["completed", "failed", "interrupted"].includes(result.turn.status)
+      )
+        this.notification({
+          method: "turn/completed",
+          params: { threadId: this.threadId, turn: result.turn },
+        });
       if (signal.aborted) await this.interrupt();
       const turn = await done;
       if (turn.status === "failed")
         throw new Error(turn.error?.message || "模型执行失败");
+      if (turn.status !== "completed" && !signal.aborted)
+        throw new Error("Codex 对话未完成：" + turn.status);
       return turn;
     } finally {
+      this.turnInFlight = false;
       this.acceptingTurn = false;
+      this.turnStarting = false;
+      this.turnBuffer = [];
+      this.turnId = undefined;
+      this.completion = undefined;
       clearTimeout(timeout);
       clearTimeout(cancelTimeout);
       signal.removeEventListener("abort", abort);
@@ -292,6 +451,7 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
       );
   }
   private fail(error: Error) {
+    this.fatalError ??= error;
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
       p.reject(error);
@@ -302,9 +462,16 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
   }
   close(): Promise<void> {
     if (this.closing) return this.closing;
-    this.closing = new Promise<void>((resolve) => {
+    this.acceptingTurn = false;
+    this.fail(new Error("Codex 会话已关闭"));
+    this.closing = new Promise<void>((resolve, reject) => {
       const proc = this.proc;
-      if (!proc || proc.exitCode !== null) {
+      if (
+        !proc ||
+        ((proc.exitCode !== null || proc.signalCode !== null) &&
+          proc.stdout.destroyed)
+      ) {
+        this.lines?.close();
         resolve();
         return;
       }
@@ -317,16 +484,22 @@ ${["get_library_asset", "search_library", "save_library_asset", "import_library_
           /* Already exited. */
         }
       };
-      const forced = setTimeout(() => {
-        kill("SIGKILL");
-        resolve();
-      }, 3000);
-      proc.once("exit", () => {
+      const forced = setTimeout(() => kill("SIGKILL"), 3000);
+      const deadline = setTimeout(() => {
+        this.lines?.close();
+        reject(new Error("无法确认 Codex 进程已关闭"));
+      }, 6000);
+      proc.once("close", () => {
         clearTimeout(forced);
+        clearTimeout(deadline);
+        this.lines?.close();
         resolve();
       });
       proc.stdin.end();
       kill("SIGTERM");
+    });
+    this.closing = this.closing.then(async () => {
+      await this.eventQueue.catch(() => {});
     });
     return this.closing;
   }

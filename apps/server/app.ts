@@ -20,6 +20,13 @@ import path from "node:path";
 import { z } from "zod";
 import sharp from "sharp";
 import {
+  DOCUMENT_EXTENSIONS,
+  MAX_DOCUMENT_BYTES,
+  documentInfo,
+  documentMime,
+} from "../../packages/contracts/attachments.js";
+import { readDocumentFile } from "../../packages/contracts/document-files.js";
+import {
   AssetLibrary,
   libraryMetadataSchema,
   saveLibrarySchema,
@@ -192,6 +199,7 @@ export async function buildApp(options: AppOptions) {
     };
   };
   const operations = new Map<string, Promise<unknown>>();
+  const dispatches = new Map<string, Promise<void>>();
   // Resolve the resource's owner before entering a per-project queue. Different
   // projects never wait for another project's Blender startup/import/render.
   const exclusive = async <T>(req: any, fn: () => Promise<T>): Promise<T> => {
@@ -352,13 +360,11 @@ export async function buildApp(options: AppOptions) {
     const disk = await statfs(options.dataRoot);
     return {
       app: true,
-      database: await store.db
-        .health()
-        .catch(() => ({
-          ok: false,
-          engine: "PostgreSQL",
-          error: "数据库暂时不可用",
-        })),
+      database: await store.db.health().catch(() => ({
+        ok: false,
+        engine: "PostgreSQL",
+        error: "数据库暂时不可用",
+      })),
       execution,
       storage: {
         free: Number(disk.bavail) * Number(disk.bsize),
@@ -538,6 +544,13 @@ export async function buildApp(options: AppOptions) {
       .filter((r) => r.sessionId === id)
       .reverse();
   });
+  app.get("/api/sessions/:id/requests/:requestId", async (req) => {
+    const sid = idSchema.parse((req.params as any).id);
+    const requestId = idSchema.parse((req.params as any).requestId);
+    if (!(await store.get<Session>("session", sid)))
+      throw fail("对话不存在", 404);
+    return { run: (await store.requestedRun(sid + ":" + requestId)) || null };
+  });
   app.post("/api/sessions/:id/turns", async (req) =>
     exclusive(req, async () => {
       const sid = idSchema.parse((req.params as any).id);
@@ -549,29 +562,43 @@ export async function buildApp(options: AppOptions) {
           clientRequestId: idSchema,
         })
         .parse(req.body);
-      const prior = (
-        await store.db.query<{ run_id: string }>(
-          `SELECT run_id FROM ${store.db.table("requests")} WHERE key=$1`,
-          [sid + ":" + body.clientRequestId],
-        )
-      ).rows[0];
-      if (prior) return store.get("run", prior.run_id);
       const session = await store.get<Session>("session", sid);
       if (!session) throw fail("对话不存在", 404);
-      await ensureIdle(session.projectId);
+      const requestKey = sid + ":" + body.clientRequestId;
+      const prior = await store.requestedRun(requestKey, {
+        sessionId: sid,
+        projectId: session.projectId,
+        prompt: body.text,
+        assetIds: body.assetIds,
+        libraryAssetIds: body.libraryAssetIds,
+      });
+      if (prior) return prior;
       const settings = await model();
       const assets = [];
       for (const id of body.assetIds) {
-        const asset =
-          (await store.get<Asset>("asset", id)) ||
-          (await store.get<any>("capture", id));
+        const projectAsset = await store.get<Asset>("asset", id);
+        const asset = projectAsset || (await store.get<any>("capture", id));
         if (!asset || asset.projectId !== session.projectId)
           throw fail("引用资源不属于当前项目");
+        if (documentMime(asset.path)) {
+          try {
+            const file = await existingSafePath(
+              safePath(options.dataRoot, "projects", session.projectId),
+              asset.path,
+            );
+            await readDocumentFile(path.basename(file), file);
+          } catch (e) {
+            throw fail(`文档 ${asset.name} 无法读取：${(e as Error).message}`);
+          }
+        }
         assets.push({
           id: asset.id,
           name: asset.name || "场景截图",
           path: asset.path,
           mime: asset.mime,
+          referenceKind: projectAsset
+            ? ("asset" as const)
+            : ("capture" as const),
         });
       }
       const libraryAssets = await Promise.all(
@@ -587,21 +614,43 @@ export async function buildApp(options: AppOptions) {
         prompt: body.text,
         assetIds: body.assetIds,
         libraryAssetIds: body.libraryAssetIds,
+        clientRequestId: body.clientRequestId,
+        attachmentRefs: [
+          ...assets.map((asset) => ({
+            id: asset.id,
+            name: asset.name,
+            kind: asset.referenceKind,
+            mime: asset.mime,
+          })),
+          ...libraryAssets.map((asset) => ({
+            id: asset.id,
+            name: asset.name,
+            kind: "library" as const,
+          })),
+        ],
         status: "queued",
         verification: "pending",
         createdAt: now(),
         updatedAt: now(),
       };
-      const accepted = await store.createRun(
-        run,
-        sid + ":" + body.clientRequestId,
-      );
+      const accepted = await store.createRun(run, requestKey);
       if (accepted.id !== run.id) return accepted;
       if (session.title === "新对话") {
         session.title = body.text.slice(0, 28);
-        await store.put("session", sid, session);
+        // A cosmetic title failure must not strand an already accepted send.
+        await store.put("session", sid, session).catch(() => {});
       }
-      try {
+      const dispatch = (async () => {
+        // Admission is already durable. Return its receipt immediately while
+        // the worker prepares Blender, and retain a cancellable dispatch owner.
+        const current = await store.get<Run>("run", run.id);
+        if (current?.cancelRequestedAt || current?.status === "cancelled") {
+          await runner(`/jobs/${run.id}/cancel`, {
+            projectId: run.projectId,
+            sessionId: sid,
+          });
+          return;
+        }
         await runner("/jobs", {
           runId: run.id,
           sessionId: sid,
@@ -612,20 +661,58 @@ export async function buildApp(options: AppOptions) {
           nativeThreadId: session.nativeThreadId,
           settings,
         });
-      } catch (e) {
-        run.status = "interrupted";
-        run.error =
-          "任务提交未能确认：" + redact(String(e), [settings.apiKey || ""]);
-        await store.put("run", run.id, run);
-      }
+      })().catch(async (e) => {
+        await store.updateRun(run.id, (current) => {
+          if (terminal.has(current.status) || current.status === "running")
+            return;
+          if (current.status !== "cancelling") current.status = "interrupted";
+          current.error =
+            "任务提交未能确认：" + redact(String(e), [settings.apiKey || ""]);
+          current.updatedAt = now();
+        });
+      });
+      dispatches.set(run.id, dispatch);
+      void dispatch.catch(() => {}).finally(() => dispatches.delete(run.id));
       return run;
     }),
   );
   app.post("/api/runs/:id/cancel", async (req) => {
     const id = idSchema.parse((req.params as any).id);
-    const run = await store.get<Run>("run", id);
+    const run = await store.updateRun(id, (current) => {
+      if (
+        terminal.has(current.status) &&
+        !(
+          current.status === "interrupted" &&
+          current.error?.startsWith("任务提交")
+        )
+      )
+        return;
+      current.status = "cancelling";
+      current.cancelRequestedAt ||= now();
+      current.updatedAt = now();
+    });
     if (!run) throw fail("任务不存在", 404);
-    return runner(`/jobs/${id}/cancel`, {});
+    if (
+      terminal.has(run.status) &&
+      !(run.status === "interrupted" && run.error?.startsWith("任务提交"))
+    )
+      return run;
+    try {
+      await runner(`/jobs/${id}/cancel`, {
+        projectId: run.projectId,
+        sessionId: run.sessionId,
+      });
+    } catch (e) {
+      const updated = await store.updateRun(run.id, (current) => {
+        if (terminal.has(current.status)) return;
+        current.error =
+          "停止请求尚未确认，将继续核对执行端状态：" +
+          String((e as Error).message);
+      });
+      if (updated) return updated;
+    }
+    // The poller imports the worker's final event before settling cancelled.
+    return run;
   });
   app.get("/api/runs/:id/events", async (req, reply) => {
     const id = idSchema.parse((req.params as any).id);
@@ -634,10 +721,9 @@ export async function buildApp(options: AppOptions) {
       0,
       Number(req.headers["last-event-id"] || (req.query as any).after || 0),
     );
-    if (!Number.isFinite(cursor)) cursor = 0;
+    if (!Number.isSafeInteger(cursor)) cursor = 0;
     reply.hijack();
     streams.add(reply.raw);
-    reply.raw.once("close", () => streams.delete(reply.raw));
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -646,34 +732,63 @@ export async function buildApp(options: AppOptions) {
     });
     reply.raw.write(": connected\n\n");
     let closed = false,
-      busy = false;
+      busy = false,
+      lastHeartbeat = Date.now();
+    const cleanup = () => {
+      closed = true;
+      streams.delete(reply.raw);
+      clearInterval(timer);
+    };
+    const write = async (data: string) => {
+      if (closed || reply.raw.destroyed) return;
+      if (reply.raw.write(data)) return;
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          reply.raw.off("drain", done);
+          reply.raw.off("close", done);
+          resolve();
+        };
+        reply.raw.once("drain", done);
+        reply.raw.once("close", done);
+      });
+    };
     const flush = async () => {
       if (closed || busy) return;
       busy = true;
       try {
-        const events = await store.events(id, cursor);
-        for (const e of events) {
+        // Drain complete history, including all pages of an already finished run.
+        // A reconnect must never see "done" after only the first 500 events.
+        while (!closed) {
+          const events = await store.events(id, cursor, 500);
+          for (const e of events) {
+            if (closed) break;
+            await write(`id: ${e.seq}\ndata: ${JSON.stringify(e)}\n\n`);
+            cursor = e.seq;
+          }
           if (closed) break;
-          reply.raw.write(`id: ${e.seq}\ndata: ${JSON.stringify(e)}\n\n`);
-          cursor = e.seq;
-        }
-        const r = await store.get<Run>("run", id);
-        if (r && terminal.has(r.status)) {
-          reply.raw.write(`event: done\ndata: {}\n\n`);
-          reply.raw.end();
-          clearInterval(timer);
+          if (events.length === 500) continue;
+          const r = await store.get<Run>("run", id);
+          if (r && terminal.has(r.status)) {
+            // The run can become terminal while the preceding page is read.
+            if ((await store.latestSequence(id)) > cursor) continue;
+            await write(`event: done\ndata: ${JSON.stringify({ run: r })}\n\n`);
+            reply.raw.end();
+            cleanup();
+          } else if (Date.now() - lastHeartbeat >= 15000) {
+            await write(": heartbeat\n\n");
+            lastHeartbeat = Date.now();
+          }
+          break;
         }
       } catch {
         reply.raw.end();
+        cleanup();
       } finally {
         busy = false;
       }
     };
     const timer = setInterval(() => void flush(), 800);
-    req.raw.on("close", () => {
-      closed = true;
-      clearInterval(timer);
-    });
+    reply.raw.once("close", cleanup);
     await flush();
   });
   // Resumable uploads: sequential 4 MiB chunks, server offset is authoritative.
@@ -698,8 +813,17 @@ export async function buildApp(options: AppOptions) {
     if (Number(disk.bavail) * Number(disk.bsize) < b.size + 256 * 1024 ** 2)
       throw fail("可用磁盘不足", 507);
     const ext = path.extname(b.name).toLowerCase();
+    if (documentMime(b.name)) {
+      if (b.destination === "library")
+        throw fail(
+          "文档请从对话上传作为参考；素材库用于可复用的图片和 3D 资源",
+        );
+      if (b.size > MAX_DOCUMENT_BYTES)
+        throw fail("文档附件最大 2 MiB；请拆分后上传");
+    }
     if (
       ![
+        ...DOCUMENT_EXTENSIONS,
         ".png",
         ".jpg",
         ".jpeg",
@@ -788,6 +912,14 @@ export async function buildApp(options: AppOptions) {
         }
       }
       if ((await stat(u.path)).size !== u.size) throw fail("文件尚未上传完整");
+      let info;
+      if (documentMime(u.name)) {
+        try {
+          info = documentInfo(await readDocumentFile(u.name, u.path));
+        } catch (e) {
+          throw fail((e as Error).message);
+        }
+      }
       const hash = createHash("sha256");
       for await (const chunk of createReadStream(u.path)) hash.update(chunk);
       const sha256 = hash.digest("hex");
@@ -795,7 +927,9 @@ export async function buildApp(options: AppOptions) {
         u.destination === "library"
           ? undefined
           : (await store.list<Asset>("asset", u.projectId)).find(
-              (a) => a.sha256 === sha256,
+              (a) =>
+                a.sha256 === sha256 &&
+                documentMime(a.path) === documentMime(u.name),
             );
       if (existing) {
         u.completed = true;
@@ -817,7 +951,9 @@ export async function buildApp(options: AppOptions) {
             ".obj": "text/plain",
             ".bin": "application/octet-stream",
           } as Record<string, string>
-        )[ext] || "application/octet-stream";
+        )[ext] ||
+        documentMime(u.name) ||
+        "application/octet-stream";
       const assetId = id;
       const directory =
         u.destination === "library"
@@ -877,6 +1013,7 @@ export async function buildApp(options: AppOptions) {
         tags: [],
         folder: u.folder,
         createdAt: now(),
+        ...(info ? { documentInfo: info } : {}),
       };
       if (u.destination === "library") {
         const result = await library.publish(
@@ -963,6 +1100,8 @@ export async function buildApp(options: AppOptions) {
         idSchema.parse((req.params as any).id),
       );
       if (!asset) throw fail("资源不存在", 404);
+      if (documentMime(asset.path))
+        throw fail("文档仅作为对话参考，不能发布到 3D 素材库");
       const input = libraryMetadataSchema.parse(req.body);
       const root = safePath(options.dataRoot, "projects", asset.projectId);
       return library.publish(input, {
@@ -1038,6 +1177,8 @@ export async function buildApp(options: AppOptions) {
         idSchema.parse((req.params as any).id),
       );
       if (!asset) throw fail("资源不存在", 404);
+      if (documentMime(asset.path))
+        throw fail("文档仅作为对话参考，请引用到聊天中，不能导入 Blender");
       await ensureIdle(asset.projectId);
       return runner("/scene", {
         projectId: asset.projectId,
@@ -1090,61 +1231,107 @@ export async function buildApp(options: AppOptions) {
           !terminal.has(r.status) ||
           (r.status === "interrupted" && r.error?.startsWith("任务提交")),
       )) {
-        let remote;
         try {
-          remote = await runner("/jobs/" + run.id);
+          let remote;
+          try {
+            if (run.cancelRequestedAt)
+              await runner(`/jobs/${run.id}/cancel`, {
+                projectId: run.projectId,
+                sessionId: run.sessionId,
+              });
+            remote = await runner("/jobs/" + run.id);
+          } catch (e) {
+            if (
+              (e as any).statusCode === 404 &&
+              run.status === "queued" &&
+              !dispatches.has(run.id)
+            ) {
+              await store.updateRun(run.id, (current) => {
+                if (current.status !== "queued") return;
+                current.status = "interrupted";
+                current.error =
+                  "任务提交未能确认：执行端未记录该任务；为避免重复操作，没有自动重新执行。";
+                current.updatedAt = now();
+              });
+            }
+            continue;
+          }
+          let cursor = await store.latestSequence(run.id);
+          const expected = Number(remote.seq || 0);
+          let incomplete = false;
+          while (true) {
+            const events = await runner(
+              `/jobs/${run.id}/events?after=${cursor}&limit=500`,
+            );
+            if (!Array.isArray(events)) throw new Error("执行事件响应无效");
+            if (!events.length) {
+              incomplete = cursor < expected;
+              break;
+            }
+            for (const e of events) {
+              if (
+                e.runId !== run.id ||
+                !Number.isSafeInteger(e.seq) ||
+                e.seq !== cursor + 1
+              )
+                throw new Error("执行事件顺序不完整，等待恢复后重试");
+              await store.db.transaction(async (tx) => {
+                await store.event(e, tx);
+                if (e.type === "capture.created")
+                  await store.put(
+                    "capture",
+                    e.payload.capture.id,
+                    e.payload.capture,
+                    tx,
+                  );
+                if (e.type === "snapshot.created")
+                  await store.put(
+                    "snapshot",
+                    e.payload.snapshot.id,
+                    e.payload.snapshot,
+                    tx,
+                  );
+                if (e.type === "artifact.created")
+                  await store.put(
+                    "artifact",
+                    e.payload.artifact.id,
+                    e.payload.artifact,
+                    tx,
+                  );
+                if (e.type === "session.bound") {
+                  const session = await store.get<Session>(
+                    "session",
+                    run.sessionId,
+                    tx,
+                  );
+                  if (session) {
+                    session.nativeThreadId = e.payload.nativeThreadId;
+                    await store.put("session", session.id, session, tx);
+                  }
+                }
+              });
+              cursor = e.seq;
+            }
+            if (events.length < 500 && cursor >= expected) break;
+          }
+          // Do not publish a terminal state until every advertised event is durable.
+          if (incomplete) continue;
+          await store.updateRun(run.id, (current) =>
+            Object.assign(current, {
+              status:
+                current.cancelRequestedAt && !terminal.has(remote.status)
+                  ? "cancelling"
+                  : remote.status,
+              verification: remote.verification,
+              error: remote.error,
+              nativeThreadId: remote.nativeThreadId,
+              updatedAt: remote.updatedAt,
+            }),
+          );
         } catch {
+          // Keep the cursor and retry this project without starving other studios.
           continue;
         }
-        const known = await store.events(run.id);
-        const events = await runner(
-          `/jobs/${run.id}/events?after=${known.at(-1)?.seq || 0}`,
-        );
-        for (const e of events) {
-          await store.db.transaction(async (tx) => {
-            await store.event(e, tx);
-            if (e.type === "capture.created")
-              await store.put(
-                "capture",
-                e.payload.capture.id,
-                e.payload.capture,
-                tx,
-              );
-            if (e.type === "snapshot.created")
-              await store.put(
-                "snapshot",
-                e.payload.snapshot.id,
-                e.payload.snapshot,
-                tx,
-              );
-            if (e.type === "artifact.created")
-              await store.put(
-                "artifact",
-                e.payload.artifact.id,
-                e.payload.artifact,
-                tx,
-              );
-            if (e.type === "session.bound") {
-              const session = await store.get<Session>(
-                "session",
-                run.sessionId,
-                tx,
-              );
-              if (session) {
-                session.nativeThreadId = e.payload.nativeThreadId;
-                await store.put("session", session.id, session, tx);
-              }
-            }
-          });
-        }
-        Object.assign(run, {
-          status: remote.status,
-          verification: remote.verification,
-          error: remote.error,
-          nativeThreadId: remote.nativeThreadId,
-          updatedAt: remote.updatedAt,
-        });
-        await store.put("run", run.id, run);
       }
     } finally {
       syncing = false;
@@ -1222,6 +1409,7 @@ export async function buildApp(options: AppOptions) {
     for (const stream of streams) stream.end();
     for (const client of ws.clients) client.terminate();
     await Promise.allSettled([...operations.values()]);
+    await Promise.allSettled([...dispatches.values()]);
     while (syncing) await new Promise<void>((resolve) => setImmediate(resolve));
   });
   app.addHook("onClose", async () => {
