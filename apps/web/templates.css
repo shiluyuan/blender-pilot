@@ -190,6 +190,23 @@
   padding: 8px;
   min-height: 64px;
 }
+.template-parameters input {
+  min-width: 0;
+  font-size: 13px;
+  padding: 10px;
+}
+.template-parameter-hint,
+.template-parameter-error {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.template-parameter-error {
+  color: var(--error);
+}
+.template-parameters input[aria-invalid="true"] {
+  border-color: var(--error);
+}
 .template-help {
   color: var(--muted);
   font-size: 12px;
@@ -430,6 +447,28 @@
   gap: 4px;
   margin-bottom: 10px;
 }
+.template-variable-card {
+  padding: 12px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.template-variable-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.template-variable-options label {
+  margin-bottom: 0;
+  font-size: 12px;
+}
+.template-variable-options input,
+.template-variable-options select {
+  min-width: 0;
+  width: 100%;
+  padding: 7px;
+  font-size: 12px;
+}
 .template-variable-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) 24px;
@@ -533,6 +572,9 @@
   }
   .template-variable-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 24px;
+  }
+  .template-variable-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .template-variable-row > label:nth-child(3) {
     grid-column: 1/3;

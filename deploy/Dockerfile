@@ -11,6 +11,7 @@ RUN npm run build && npm prune --omit=dev
 RUN npm install --prefix /opt/codex --omit=dev --no-audit --no-fund @openai/codex@0.164.0
 
 FROM node:${NODE_VERSION}-bookworm-slim AS web
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production PILOT_DATA=/data PORT=8090
 WORKDIR /opt/pilot
 COPY --from=build /opt/pilot/package.json ./
@@ -58,4 +59,5 @@ RUN node --version && codex --version && blender --background --version && \
     /opt/mcp/bin/python -c "import blender_mcp"
 EXPOSE 8091
 ENTRYPOINT ["/usr/bin/tini", "--", "/opt/pilot/studio-entrypoint.sh"]
+
 

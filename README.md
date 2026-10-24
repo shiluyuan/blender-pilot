@@ -6,7 +6,9 @@
 
 聊天按 **Loom、AionUi、ComfyUI MCP Panel** 的协议与交互设计重构：独立会话草稿、附件直接引用、Markdown 与代码块、按顺序展示工具和截图、稳定发送回执、断线续传和取消。详见 [对话协议与附件](docs/chat-protocol.md)。
 
-**模板 → 素材 → 再创作**：内置 6 类创作配方，填写参数、绑定共享素材，保存为自己的模板，在不同项目重复使用。应用时追加到当前对话草稿，保留已有文字和附件，确认发送后才执行。对话直接展示恢复点、对象变化回执和工具耗时。详见 [创作模板](docs/templates.md) 与 [Blender Copilot 对照](docs/competitor-review.md)。
+**模板 → 素材 → 再创作**：内置 9 个创作配方（保留原有 6 个，并增加书桌、置物架与办公室布局），填写参数、绑定共享素材，保存为自己的模板，在不同项目重复使用。应用时追加到当前对话草稿，保留已有文字和附件，确认发送后才执行。对话直接展示恢复点、对象变化回执和工具耗时。详见 [创作模板](docs/templates.md) 与 [Blender Copilot 对照](docs/competitor-review.md)。
+
+**技能与质量闭环**：技能中心支持上传 `SKILL.md`／ZIP 和固定版本 npx 安装，按项目选用并接入 Codex 原生技能。复杂任务可记录阶段与恢复点；结果包含结构检查、多角度画面、对象变更和保存状态。详见 [技能中心](docs/skills.md) 与 [创作阶段和质量检查](docs/quality-workflow.md)。
 
 ![真实 Blender 多项目工作区](docs/screenshots/workspaces-dark.png)
 
@@ -32,13 +34,25 @@ sudo ./docker-up.sh --install-docker
 
 启动后自动验证 **PostgreSQL → 登录 → 启动 Blender → MCP 读取场景 → 截图下载 → 保存**，失败会以非零状态退出。首次进入会创建一个入门项目。默认打开 `http://服务器IP:8090`，使用终端打印的密码登录，在「模型设置」中填写接口和模型。
 
-**应用/协议/故障检查 79 项、部署脚本检查 11 项、浏览器交互检查 60 项、双 Blender 原生场景检查 12 组及生产构建通过。** 覆盖重新登录恢复、丢失回执、挂起隔离、状态失效与恢复、项目切换保护、桌面启动故障及重启。真实 Key 的模板与素材组合、尺寸回读、跨项目复用和快照恢复单独验收；范围和限制见 [上线前验收](docs/release-readiness.md) 与 [验收记录](docs/validation.md)。
+**本轮通过 114 项 Node 检查、11 项部署脚本检查、81 组浏览器检查、13 类单 Blender 完整链路、12 组双 Blender 场景及 4 组原生质量检查。** 公开仓库的真实 npx 安装也已通过。完整记录和当前截图见 [技能与创作质量验收](docs/skills-quality-acceptance.md)。Codex 联合测试使用本地模型协议夹具；真实模型能力单独验收，不混计。
 
 本轮对照 VoiceStudio 的实际截图统一深浅主题、导航、输入区与主要页面，新增逐组件系统状态和检查时间。详见 [界面与系统状态验收](docs/interface-acceptance.md)。
 
 此前真实模型核心与模板子套件已通过；最终真实模型浏览器阶段因自动审批中断待补，没有计作通过。正式发布还需完成实际主机的 Docker / 原生 PostgreSQL 验收。
 
 > 当前云端已完成的验证与限制详见 [验收记录](docs/validation.md)。生产配置使用 PostgreSQL；云端数据库检查使用明确标识的 PostgreSQL WASM / TCP 协议环境，Docker 整机启动与原生 PostgreSQL 18 尚未在此云端实测，不能将其称为 Docker 全量验收完成。
+
+## 技能、模板与结果
+
+在「技能中心」上传 `SKILL.md`／ZIP，或输入公开 GitHub 仓库通过 npx 安装，再选择用于当前项目。每轮固定技能内容与版本，技能资源通过 MCP 读取。
+
+![技能中心](docs/screenshots/skills/skills-dark-1440.png)
+
+![参数化模板](docs/screenshots/templates-numeric-light-1024.png)
+
+![结果摘要与恢复](docs/screenshots/skills/workflow-summary-dark.png)
+
+上面的结果卡为标注清楚的 UI 测试画面；实际 Blender 三视角图及原生验收见 [报告](docs/skills-quality-acceptance.md)。目标服务器可运行新的 [Docker／PostgreSQL 验收命令](docs/deployment-acceptance.md)。
 
 ## 按参数配置
 
@@ -157,7 +171,7 @@ docker compose --env-file .env exec -T web node dist/server/apps/server/readines
 
 - **PostgreSQL**：项目、会话、任务、事件、上传记录、素材元数据、配置、素材来源关系。采用版本化迁移、外键、索引、事务和项目内活动任务唯一约束。
 - **本地文件**：`.blend`、模型、纹理、截图、快照、导出、Codex 原生会话与 Runner 恢复日志，保存在 `--data-dir`。
-- **MCP**：自研 12 个工具封装素材库、场景操作、自动截图与视觉报告；底层调用固定版 `mcp-for-blender 2.2.2`，配套 addon 来自同一发行包。
+- **MCP**：自研 16 个工具封装素材库、场景操作、自动截图、阶段计划、质量报告与技能资源；底层调用固定版 `mcp-for-blender 2.2.2`，配套 addon 来自同一发行包。
 - **运行内核**：Codex CLI 0.164.0 app-server；Claude 尚未接入。
 
 数据库和本地目录必须一起备份。旧版 PGlite / JSON 元数据会在脚本检测到后离线导入 PostgreSQL；迁移在事务中完成，原始文件保留，非空目标数据库拒绝覆盖。详见 [数据库设计](docs/database.md) 与 [部署运维](docs/deployment.md)。

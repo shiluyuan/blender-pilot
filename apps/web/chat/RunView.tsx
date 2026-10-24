@@ -24,6 +24,11 @@ import { terminal } from "../../../packages/contracts/index";
 import { date, fileUrl } from "../api";
 import { Markdown } from "./Markdown";
 import { reduceTimeline, type ChatBlock } from "./timeline";
+import { WorkSummary } from "./WorkSummary";
+import {
+  workPhaseLabels,
+  type WorkPhase,
+} from "../../../packages/contracts/workflow";
 
 const labels: Record<string, string> = {
   queued: "等待执行",
@@ -47,6 +52,10 @@ const names: Record<string, string> = {
   save_scene: "保存场景",
   export_scene: "导出场景",
   report_verification: "检查创作结果",
+  inspect_scene_quality: "检查场景结构与材质",
+  capture_views: "检查多个角度",
+  update_work_plan: "更新创作阶段",
+  read_skill_resource: "读取技能资料",
 };
 const pretty = (value: unknown) =>
   typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -167,6 +176,8 @@ export function RunView({
   const blocks = useMemo(() => reduceTimeline(events), [events]);
   const [copied, setCopied] = useState(false);
   const finished = terminal.has(run.status);
+  const phase = events.filter((e) => e.type === "work.phase").at(-1)?.payload
+    .phase as WorkPhase | undefined;
   return (
     <article className="conversation-turn" data-run-id={run.id}>
       <div className="user-message">
@@ -174,6 +185,15 @@ export function RunView({
           你<time>{date(run.createdAt)}</time>
         </span>
         <p>{run.prompt}</p>
+        {!!run.skillRefs?.length && (
+          <div className="chat-skill-refs" aria-label="本轮技能">
+            {run.skillRefs.map((s) => (
+              <span key={s.id} title={"版本 " + s.sha256.slice(0, 12)}>
+                技能 · {s.name}
+              </span>
+            ))}
+          </div>
+        )}
         {run.attachmentRefs?.length ? (
           <div className="chat-user-refs">
             {run.attachmentRefs.map((a) => {
@@ -273,8 +293,17 @@ export function RunView({
               title =
                 c.phase === "before"
                   ? "操作前场景"
-                  : c.phase === "final"
-                    ? "结果检查"
+                  : c.phase.startsWith("final")
+                    ? "结果检查" +
+                      (c.phase.includes(":")
+                        ? " · " +
+                          ({
+                            front: "正面",
+                            right: "右侧",
+                            top: "俯视",
+                            isometric: "透视",
+                          }[c.phase.split(":")[1]] || "多角度")
+                        : "")
                     : "当前场景";
             return (
               <button
@@ -359,6 +388,15 @@ export function RunView({
             </div>
           );
         })}
+        {finished && (
+          <WorkSummary
+            events={events}
+            projectId={run.projectId}
+            lightbox={lightbox}
+            restore={onRestoreSnapshot}
+            busy={busy}
+          />
+        )}
         {run.error && (
           <div className="run-error">
             <AlertCircle size={14} />
@@ -372,7 +410,9 @@ export function RunView({
               ? "正在准备场景与参考资料…"
               : run.status === "cancelling"
                 ? "正在停止当前任务…"
-                : "正在创作，操作后会自动截图检查…"}
+                : phase && workPhaseLabels[phase]
+                  ? workPhaseLabels[phase] + "…"
+                  : "正在创作，操作后会自动截图检查…"}
           </div>
         )}
         {finished && blocks.some((b) => b.kind === "message") && (

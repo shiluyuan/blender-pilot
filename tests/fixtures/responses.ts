@@ -7,7 +7,11 @@ export async function responsesFixture(
 ) {
   const requests: any[] = [];
   let stage = 0;
+  let reportedViewSet = "";
   let hold = false;
+  let verificationEnabled = true;
+  let skillReference: { id: string; path: string } | undefined;
+  let skillRead = false;
   const sockets = new Set<any>();
   const server = createServer(async (req, res) => {
     if (req.url !== "/v1/responses") {
@@ -62,7 +66,55 @@ export async function responsesFixture(
       };
     } else {
       const all = JSON.stringify(body.input);
-      if (stage === 0) {
+      let verificationText = "";
+      const inspectText = (value: any) => {
+        if (typeof value === "string") {
+          if (
+            value.startsWith("Verify the current scene against") &&
+            value.includes("captureIds=")
+          )
+            verificationText = value;
+        } else if (Array.isArray(value)) value.forEach(inspectText);
+        else if (value && typeof value === "object")
+          Object.values(value).forEach(inspectText);
+      };
+      inspectText(body.input);
+      const viewIds = verificationText.match(/captureIds=(\[[^\]]*\])/);
+      const inspectionId = verificationText.match(
+        /inspectionId=([a-f\d-]{36})/,
+      );
+      if (skillReference && !skillRead) {
+        skillRead = true;
+        item = {
+          type: "function_call",
+          name: name("read_skill_resource"),
+          arguments: JSON.stringify({
+            skillId: skillReference.id,
+            path: skillReference.path,
+          }),
+        };
+      } else if (
+        verificationEnabled &&
+        stage >= 7 &&
+        viewIds &&
+        inspectionId &&
+        reportedViewSet !== viewIds[1]
+      ) {
+        const captureIds = JSON.parse(viewIds[1]);
+        reportedViewSet = viewIds[1];
+        item = {
+          type: "function_call",
+          name: name("report_verification"),
+          arguments: JSON.stringify({
+            captureId: captureIds[0],
+            captureIds,
+            inspectionId: inspectionId[1],
+            passed: true,
+            observations:
+              "协议夹具已接收真实多角度图像与结构检查；不代表真实模型的视觉判断。",
+          }),
+        };
+      } else if (stage === 0) {
         item = {
           type: "function_call",
           name: name("get_scene_info"),
@@ -259,7 +311,17 @@ export async function responsesFixture(
     url: `http://127.0.0.1:${(server.address() as any).port}/v1`,
     requests,
     setHold: (v: boolean) => (hold = v),
-    reset: () => (stage = 0),
+    setVerificationEnabled: (value: boolean) => (verificationEnabled = value),
+    setSkillReference: (value: { id: string; path: string }) => {
+      skillReference = value;
+      skillRead = false;
+    },
+    reset: () => {
+      stage = 0;
+      reportedViewSet = "";
+      skillRead = false;
+      verificationEnabled = true;
+    },
     close: async () => {
       for (const s of sockets) s.destroy();
       await new Promise<void>((r) => server.close(() => r()));

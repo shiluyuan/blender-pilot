@@ -13,6 +13,8 @@ import {
   modelSettingsSchema,
 } from "../../packages/contracts/index.js";
 import { z } from "zod";
+import { workPlanSchema } from "../../packages/contracts/workflow.js";
+import { MAX_PROJECT_SKILLS } from "../../packages/contracts/skills.js";
 import { existingSafePath } from "../../packages/contracts/fs.js";
 const dataRoot = process.env.PILOT_DATA || "/data";
 await mkdir(dataRoot, { recursive: true });
@@ -84,6 +86,21 @@ app.post("/jobs", async (req) => {
       sessionId: idSchema,
       prompt: z.string().min(1).max(16000),
       nativeThreadId: z.string().optional(),
+      qualityMode: z.literal("multi-view").optional(),
+      skills: z
+        .array(
+          z.object({
+            id: idSchema,
+            name: z.string().min(1).max(128),
+            path: z.string().max(4096),
+            sha256: z.string().regex(/^[a-f0-9]{64}$/),
+          }),
+        )
+        .max(MAX_PROJECT_SKILLS)
+        .optional(),
+      workContext: z
+        .object({ runId: idSchema, plan: workPlanSchema })
+        .optional(),
       settings: modelSettingsSchema,
       libraryAssets: z
         .array(z.object({ id: idSchema, name: z.string() }))

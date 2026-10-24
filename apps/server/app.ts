@@ -34,6 +34,9 @@ import {
 import { LibraryCatalog } from "../../packages/storage/library-catalog.js";
 import { Store } from "./db.js";
 import { registerTemplateRoutes } from "./template-routes.js";
+import { registerSkillRoutes } from "./skill-routes.js";
+import { SkillCatalog } from "../../packages/storage/skill-catalog.js";
+import { workPlanSchema } from "../../packages/contracts/workflow.js";
 import {
   MAX_CHAT_PROMPT_CHARS,
   MAX_CHAT_ATTACHMENTS,
@@ -161,6 +164,8 @@ export async function buildApp(options: AppOptions) {
       }),
   );
   registerTemplateRoutes(app, store);
+  registerSkillRoutes(app, store);
+  const skills = new SkillCatalog(store.db, options.dataRoot);
   const shutdownController = new AbortController();
   const streams = new Set<import("node:http").ServerResponse>();
   const fail = (message: string, statusCode = 400) =>
@@ -409,9 +414,7 @@ export async function buildApp(options: AppOptions) {
         codex: "0.164.0",
         mcp: "2.2.2",
         blender:
-          observedBlender ||
-          process.env.BLENDER_VERSION ||
-          "按项目启动时检测",
+          observedBlender || process.env.BLENDER_VERSION || "按项目启动时检测",
       },
       versionSources: {
         app: "build",
@@ -668,8 +671,32 @@ export async function buildApp(options: AppOptions) {
           return { id: a.id, name: a.name };
         }),
       );
+      const runId = randomUUID();
+      const selectedSkills = await skills.resolveForRun(
+        session.projectId,
+        runId,
+      );
+      const previousPlan = (
+        await store.db.query<{ run_id: string; data: any }>(
+          `SELECT e.run_id,e.data FROM ${store.db.table("events")} e JOIN ${store.db.table("runs")} r ON r.id=e.run_id WHERE r.session_id=$1 AND r.project_id=$2 AND e.type='work.plan' ORDER BY r.created_at DESC,e.seq DESC LIMIT 1`,
+          [sid, session.projectId],
+        )
+      ).rows[0];
+      const parsedPlan = workPlanSchema.safeParse(
+        previousPlan?.data?.payload?.plan,
+      );
+      const workContext =
+        previousPlan && parsedPlan.success
+          ? { runId: previousPlan.run_id, plan: parsedPlan.data }
+          : undefined;
       const run: Run = {
-        id: randomUUID(),
+        id: runId,
+        skillRefs: selectedSkills.map(({ id, name, sha256 }) => ({
+          id,
+          name,
+          sha256,
+        })),
+        qualityMode: "multi-view",
         sessionId: sid,
         projectId: session.projectId,
         prompt: body.text,
@@ -719,6 +746,9 @@ export async function buildApp(options: AppOptions) {
           prompt: body.text,
           assets,
           libraryAssets,
+          skills: selectedSkills,
+          qualityMode: "multi-view",
+          workContext,
           nativeThreadId: session.nativeThreadId,
           settings,
         });

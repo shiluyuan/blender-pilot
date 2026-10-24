@@ -26,7 +26,7 @@ const recipe = (patch: Partial<TemplateInput> = {}): TemplateInput => ({
 });
 
 test("template rendering preserves user values in one pass and rejects incomplete or excessive recipes", () => {
-  assert.equal(BUILTIN_TEMPLATES.length, 6);
+  assert.equal(BUILTIN_TEMPLATES.length, 9);
   for (const template of BUILTIN_TEMPLATES) {
     assert(renderTemplate(template).includes("截图"));
     const {
@@ -87,6 +87,73 @@ test("template rendering preserves user values in one pass and rejects incomplet
   );
 });
 
+test("numeric template parameters enforce units, bounds and decimal steps without changing legacy text", () => {
+  const desk = BUILTIN_TEMPLATES.find((item) => item.id === "builtin:desk")!;
+  const shelf = BUILTIN_TEMPLATES.find((item) => item.id === "builtin:shelf")!;
+  const office = BUILTIN_TEMPLATES.find(
+    (item) => item.id === "builtin:office-layout",
+  )!;
+  assert.match(
+    renderTemplate(desk, { width: "1.55", height: "0.76" }),
+    /外宽 1.55 米.*总高 0.76 米/,
+  );
+  assert.match(renderTemplate(shelf, { levels: "6" }), /承载搁板共 6 层/);
+  assert.match(renderTemplate(office, { aisle: "1.3" }), /通道净宽至少 1.3 米/);
+  for (const value of [
+    "0.5",
+    "3.1",
+    "1.53",
+    "Infinity",
+    "NaN",
+    "0x10",
+    "1e2",
+    "1.4; bpy.ops.wm.quit_blender()",
+    "",
+    "1000000001",
+  ])
+    assert.throws(() => renderTemplate(desk, { width: value }), /参数/);
+  assert.throws(() => renderTemplate(shelf, { levels: "2.5" }), /按 1 递增/);
+  assert.match(renderTemplate(desk, { width: " 1.4 " }), /外宽  1.4  米/);
+  const numberRecipe = (overrides: Record<string, unknown> = {}) =>
+    recipe({
+      prompt: "宽 {{width}} 米",
+      variables: [
+        {
+          key: "width",
+          label: "宽度",
+          defaultValue: "1.2",
+          type: "number",
+          unit: "米",
+          min: 0.2,
+          max: 2,
+          step: 0.1,
+          ...overrides,
+        },
+      ],
+    });
+  assert(templateInputSchema.safeParse(numberRecipe()).success);
+  for (const overrides of [
+    { min: 3 },
+    { step: 0 },
+    { step: -1 },
+    { defaultValue: "2.1" },
+    { defaultValue: "1.25" },
+    { defaultValue: "" },
+    { type: "text" },
+    { max: Infinity },
+  ])
+    assert(
+      !templateInputSchema.safeParse(numberRecipe(overrides)).success,
+      JSON.stringify(overrides),
+    );
+  const parsed = templateInputSchema.parse(recipe());
+  assert.equal(parsed.variables[0].type, undefined);
+  assert.equal(
+    renderTemplate(parsed, { goal: "1.2 米 {{width}} $&" }),
+    "组合一个 1.2 米 {{width}} $&。把引用素材导入为独立副本。",
+  );
+});
+
 test("template API persists custom recipes and references, protects builtins and rejects stale edits", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "pilot-templates-"));
   const { app, store } = await buildApp({
@@ -130,7 +197,7 @@ test("template API persists custom recipes and references, protects builtins and
     });
     const builtins = await call("GET", "/templates?source=builtin");
     assert.equal(builtins.statusCode, 200);
-    assert.equal(builtins.json().total, 6);
+    assert.equal(builtins.json().total, 9);
     const builtin = builtins.json().items[0];
     assert.equal(
       (
@@ -147,6 +214,61 @@ test("template API persists custom recipes and references, protects builtins and
       403,
     );
     const input = recipe({ libraryAssetIds: [assetId] });
+    const numeric = recipe({
+      name: "数值尺寸模板",
+      prompt: "制作 {{width}} 米宽的书桌",
+      variables: [
+        {
+          key: "width",
+          label: "宽度",
+          defaultValue: "1.4",
+          type: "number",
+          unit: "米",
+          min: 0.6,
+          max: 3,
+          step: 0.05,
+        },
+      ],
+    });
+    const numericCreated = await call("POST", "/templates", numeric);
+    assert.equal(numericCreated.statusCode, 201, numericCreated.body);
+    const numericSaved = await new TemplateCatalog(store.db).get(
+      numericCreated.json().id,
+    );
+    assert.deepEqual(numericSaved?.variables, numeric.variables);
+    assert.match(renderTemplate(numericSaved!, { width: "1.65" }), /1.65 米/);
+    assert.equal(
+      (
+        await call("POST", "/templates", {
+          ...numeric,
+          variables: [{ ...numeric.variables[0], defaultValue: "-1" }],
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await call("PATCH", `/templates/${numericCreated.json().id}`, {
+          ...numeric,
+          variables: [{ ...numeric.variables[0], defaultValue: "1.42" }],
+          expectedVersion: 1,
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (await new TemplateCatalog(store.db).get(numericCreated.json().id))
+        ?.version,
+      1,
+    );
+    assert.equal(
+      (
+        await call("DELETE", `/templates/${numericCreated.json().id}`, {
+          expectedVersion: 1,
+        })
+      ).statusCode,
+      200,
+    );
     const created = await call("POST", "/templates", input);
     assert.equal(created.statusCode, 201, created.body);
     const template = created.json();

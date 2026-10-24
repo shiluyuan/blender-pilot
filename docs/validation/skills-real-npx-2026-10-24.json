@@ -1,0 +1,27 @@
+{
+  "scope": "actual public GitHub repository + actual pinned npx skills@1.7.4 + PostgreSQL WASM TCP metadata; no model/key use",
+  "source": "vercel-labs/agent-skills",
+  "skill": "vercel-composition-patterns",
+  "startedAt": "2026-10-24T16:10:41.106Z",
+  "passed": true,
+  "availability": {
+    "available": true
+  },
+  "installed": {
+    "name": "vercel-composition-patterns",
+    "sha256": "8ca19c705c374e08f73fa4319a597736a5d1f912b78a9e8698dffd00ee6b6065",
+    "fileCount": 13,
+    "size": 49809,
+    "sourceLabel": "https://github.com/vercel-labs/agent-skills"
+  },
+  "checks": [
+    "installer binaries available",
+    "actual pinned npx install",
+    "catalog persisted metadata and verified bundle checksum",
+    "selected project snapshot created",
+    "uninstall cleared project choice but preserved running snapshot",
+    "temporary stage cleaned"
+  ],
+  "durationMs": 29373,
+  "finishedAt": "2026-10-24T16:11:10.479Z"
+}

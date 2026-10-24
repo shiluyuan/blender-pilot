@@ -1,0 +1,96 @@
+{
+  "passed": true,
+  "timestamp": "2026-10-24T16:07:32.304Z",
+  "mode": "native-blender-mcp-no-model",
+  "blenderVersion": "5.2.3 LTS",
+  "checks": [
+    "native world bounds, geometry, missing texture, and candidate-only floating findings",
+    "three actual MCP JPEG images with distinct front/right/top geometry",
+    "all views share a current revision; subsequent structural report matches it and viewport/object transforms are restored",
+    "screenshot delivery failure after native drawing still restores viewport and objects without claiming evidence"
+  ],
+  "inspection": {
+    "schemaVersion": 1,
+    "id": "61d8d93c-2943-49bd-a398-7a932ef14729",
+    "projectId": "quality-native",
+    "createdAt": "2026-10-24T16:07:29.795Z",
+    "sceneRevision": "eaee6bf3ed50f2d21d1c",
+    "generation": 1,
+    "status": "review-needed",
+    "summary": {
+      "objectsTotal": 4,
+      "objectsInspected": 4,
+      "meshObjects": 4,
+      "vertices": 32,
+      "polygons": 24,
+      "lights": 0,
+      "cameras": 0,
+      "warningCount": 1,
+      "errorCount": 0
+    },
+    "bounds": {
+      "min": [
+        -3,
+        -2.5,
+        -0.20000000298023224
+      ],
+      "max": [
+        3,
+        2.5,
+        1.8000000715255737
+      ]
+    },
+    "issues": [
+      {
+        "code": "floating-candidate",
+        "severity": "info",
+        "objects": [
+          "Blue beam"
+        ],
+        "message": "底部高于参考平面 Z=0；可能是悬空、承托关系或设计所需，需要看图确认。",
+        "requiresVisualReview": true
+      },
+      {
+        "code": "missing-texture",
+        "severity": "warning",
+        "objects": [
+          "Red block"
+        ],
+        "message": "图像 Missing texture fixture 没有打包且文件不存在。",
+        "requiresVisualReview": true
+      }
+    ],
+    "limits": {
+      "maxObjects": 500,
+      "objectsTruncated": false,
+      "issuesTruncated": false,
+      "overlapCandidatesTruncated": false,
+      "groundZ": 0,
+      "limitations": [
+        "结构检查不代表作品视觉质量通过，构图、光照和需求符合度必须查看实际图像。",
+        "包围盒重叠和离地仅是候选线索，不做精确网格相交或支撑分析，不应据此自动删除或移动对象。",
+        "只检查当前帧和前 500 个场景对象；顶点数来自原始网格，不是完整修改器、实例或动画验证。"
+      ]
+    }
+  },
+  "captures": [
+    {
+      "id": "c86b583c-21b6-4b43-b906-e62fabe79a88",
+      "view": "front",
+      "sha256": "fafd1c0766f33aa319e83ae85b31a1f5b697d98cdff6fade51313f0c843ca352",
+      "sceneRevision": "eaee6bf3ed50f2d21d1c"
+    },
+    {
+      "id": "e2f6cba2-32e7-4537-997f-650c8c78acba",
+      "view": "right",
+      "sha256": "dc90e6a0cf0de7b3d8749de1586d90dda9429d76e210bddbf0c769e5cfe04b0f",
+      "sceneRevision": "eaee6bf3ed50f2d21d1c"
+    },
+    {
+      "id": "7158de5e-0ba3-4100-8aa4-49eaa114d992",
+      "view": "top",
+      "sha256": "e81183f946f6f9207ec43050465b5f59a5fc3c7f3c45df39a64602344cee01b1",
+      "sceneRevision": "eaee6bf3ed50f2d21d1c"
+    }
+  ]
+}

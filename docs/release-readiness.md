@@ -1,12 +1,14 @@
 # 上线前验收
 
+最新补充：[技能与创作质量验收](skills-quality-acceptance.md)。本轮完成技能上传／实际 npx 安装／Codex 原生加载、多视角检查、阶段恢复、参数化模板和结果展示；使用本地协议夹具的整链检查与真实模型推理明确分开。部署和外部模型待办见下文。
+
 当前适合在自己的服务器上进行受控试运行。正式生产发布仍需在实际部署主机完成 Docker 镜像启动和原生 PostgreSQL 验收。本云端没有 Docker daemon，不能把原生进程测试或 PostgreSQL WASM/TCP 检查称为容器部署验收。
 
-本轮真实 Key 的核心 5 个任务（4 成功、1 预期取消）和独立的模板组合重测通过。原完整运行的组合任务超过测试脚本原定 4 分钟等待上限，清理过程将其打断；该尝试没有记作通过。等待策略已改为覆盖 Codex 15 分钟 turn 与收尾，并在新项目中完成组合重测。
+此前真实 Key 的核心 5 个任务（4 成功、1 预期取消）和独立的模板组合重测通过。原完整运行的组合任务超过测试脚本原定 4 分钟等待上限，清理过程将其打断；该尝试没有记作通过。等待策略已改为覆盖 Codex 15 分钟 turn 与收尾，并在新项目中完成组合重测。
 
 最后的真实模型浏览器阶段被自动审批中断，没有生成完整通过报告。审批理由是缺少向 `https://coding.smartpaipai.com` 发送本地场景/截图的特定目的地确认。已核对该验收只使用默认几何体、脚本生成的素材和测试提示，没有使用用户上传的实际场景。该项标记为受阻，待确认后补测，不计作通过。
 
-机器证据见 [本轮汇总](validation/release-readiness-2026-10-24.json)、[双 Blender 原生场景](validation/release-workspaces-2026-10-24.json)、[真实模型核心](validation/release-core-model-2026-10-24.json)、[组合重测](validation/release-template-model-2026-10-24.json)、[受阻记录](validation/release-live-blocked-2026-10-24.json) 和 [固定镜像标签检查](validation/release-image-manifests-2026-10-24.json)。镜像标签检查只读取了官方 Registry manifest，没有运行镜像。
+历史机器证据见 [当时汇总](validation/release-readiness-2026-10-24.json)、[双 Blender 原生场景](validation/release-workspaces-2026-10-24.json)、[真实模型核心](validation/release-core-model-2026-10-24.json)、[组合重测](validation/release-template-model-2026-10-24.json)、[受阻记录](validation/release-live-blocked-2026-10-24.json) 和 [固定镜像标签检查](validation/release-image-manifests-2026-10-24.json)。镜像标签检查只读取了官方 Registry manifest，没有运行镜像。
 
 ## 界面与状态补充验收
 

@@ -26,7 +26,19 @@ import type {
   PilotEvent,
   Capture,
   RunStatus,
+  SceneInfo,
+  Snapshot,
 } from "../../packages/contracts/index.js";
+import {
+  workPlanSchema,
+  type WorkPlan,
+  type WorkPhase,
+} from "../../packages/contracts/workflow.js";
+import type { SceneQualityInspection } from "../../packages/contracts/quality.js";
+import {
+  readSkillResource,
+  verifyRunSkills,
+} from "../../packages/storage/skill-resources.js";
 import {
   atomicJson,
   now,
@@ -55,7 +67,20 @@ export class Jobs {
     captures: Capture[];
     mutations: number;
     calls: number;
-    report?: { captureId: string; passed: boolean; observations: string };
+    report?: {
+      captureId: string;
+      captureIds?: string[];
+      inspectionId?: string;
+      passed: boolean;
+      observations: string;
+    };
+    inspection?: SceneQualityInspection;
+    viewCaptures?: Capture[];
+    plan?: WorkPlan;
+    baselineInfo?: SceneInfo;
+    beforeSnapshot?: Snapshot;
+    finalSnapshot?: Snapshot;
+    savedPath?: string;
     review?: { repairsLeft: number; allowWrite: boolean };
     lastFailure?: { key: string; count: number };
     budgetError?: string;
@@ -253,7 +278,8 @@ export class Jobs {
   }
   private async capture(phase: string) {
     const active = this.active!;
-    if (active.captures.length >= 8) throw new Error("本轮截图预算已用完");
+    if (active.captures.length >= this.captureLimit)
+      throw new Error("本轮截图预算已用完");
     const result = await this.scene.capture(
       active.state.projectId,
       phase,
@@ -265,19 +291,96 @@ export class Jobs {
     });
     return result;
   }
+  private get captureLimit() {
+    return this.active?.input.qualityMode === "multi-view" ? 20 : 8;
+  }
+  private async phase(phase: WorkPhase) {
+    await this.emit(this.active!.state, "work.phase", { phase });
+  }
+  private async inspectQuality() {
+    const a = this.active!;
+    a.report = undefined;
+    a.inspection = await this.scene.inspectQuality();
+    await this.emit(a.state, "quality.inspection", {
+      inspection: a.inspection,
+    });
+    return a.inspection;
+  }
+  private async captureViews(phase: string, views?: unknown) {
+    const a = this.active!;
+    // Reserve a complete set before starting; partial sets never satisfy verification.
+    if (a.captures.length + 3 > this.captureLimit)
+      throw new Error("多角度截图预算不足，请报告未完成的检查");
+    const results = await this.scene.captureViews(
+      a.state.projectId,
+      phase,
+      a.state.id,
+      views,
+    );
+    a.report = undefined;
+    a.viewCaptures = results.map((r) => r.capture);
+    if (
+      a.inspection &&
+      results.some(
+        (r) => r.capture.sceneRevision !== a.inspection!.sceneRevision,
+      )
+    )
+      a.inspection = undefined;
+    for (const { capture } of results) {
+      a.captures.push(capture);
+      await this.emit(a.state, "capture.created", { capture });
+    }
+    return results;
+  }
+  private async verificationCurrent() {
+    const a = this.active!;
+    if (!a.report?.passed) return false;
+    const current = await this.scene.info();
+    const cap = a.captures.find((c) => c.id === a.report!.captureId);
+    if (!cap || cap.sceneRevision !== current.revision) return false;
+    if (a.input.qualityMode !== "multi-view") return true;
+    return (
+      !!a.inspection &&
+      a.report.inspectionId === a.inspection.id &&
+      a.inspection.sceneRevision === current.revision &&
+      a.inspection.status !== "structural-errors" &&
+      !!a.viewCaptures &&
+      a.viewCaptures.length === 3 &&
+      !!a.report.captureIds &&
+      a.report.captureIds.length === 3 &&
+      a.viewCaptures.every(
+        (c) =>
+          a.report!.captureIds!.includes(c.id) &&
+          c.sceneRevision === current.revision,
+      ) &&
+      a.report.captureIds.includes(cap.id) &&
+      !a.plan?.steps.some((s) => s.status !== "completed")
+    );
+  }
   private async execute() {
     const a = this.active!,
       state = a.state;
     try {
+      if (a.input.skills?.length)
+        await verifyRunSkills(
+          this.root,
+          state.projectId,
+          state.id,
+          a.input.skills,
+        );
       state.status = "running";
       await this.emit(state, "run.status", { status: "running" });
+      await this.phase("preparing");
       a.abort.signal.throwIfAborted();
       await this.scene.serial(async () => {
         a.abort.signal.throwIfAborted();
         await this.scene.activate(state.projectId);
         a.abort.signal.throwIfAborted();
         const snapshot = await this.scene.snapshot("AI 操作前", state.id);
+        a.beforeSnapshot = snapshot;
         await this.emit(state, "snapshot.created", { snapshot });
+        if (a.input.qualityMode === "multi-view")
+          a.baselineInfo = await this.scene.info();
       });
       const baseline = await this.scene.serial(() => {
         a.abort.signal.throwIfAborted();
@@ -292,6 +395,7 @@ export class Jobs {
         home: path.join(this.root, "runtime", state.sessionId),
         cwd: root,
         settings: a.input.settings,
+        skills: a.input.skills,
         runnerUrl:
           process.env.PILOT_RUNNER_LOCAL_URL ||
           `http://127.0.0.1:${process.env.RUNNER_PORT || 8091}`,
@@ -335,7 +439,22 @@ export class Jobs {
             "\nExplicit reusable library references (inspect with get_library_asset, import with import_library_asset): " +
             JSON.stringify(a.input.libraryAssets || []) +
             "\nAttached baseline capture: " +
-            baseline.capture.id,
+            baseline.capture.id +
+            "\nOnly these skills are selected for THIS run (read bundled references via read_skill_resource). Previously loaded but no longer selected skills are historical context, not active instructions: " +
+            JSON.stringify(
+              (a.input.skills || []).map(({ id, name, sha256 }) => ({
+                id,
+                name,
+                sha256,
+              })),
+            ) +
+            (a.input.qualityMode === "multi-view"
+              ? "\nAcceptance: multi-view. Before success you MUST capture_views with front/right/top, then inspect_scene_quality, then report_verification with captureIds covering the whole current set and inspectionId. Capture first because viewport rendering can advance Blender's change counter. Machine warnings are candidates; visually explain them. For complex scenes first update_work_plan and update each phase with actual objectNames. Only mark a phase completed after actual scene readback."
+              : "") +
+            (a.input.workContext
+              ? "\nPrevious persisted work plan (context only, NOT automatic permission to replay actions; inspect actual scene and follow this new user request): " +
+                JSON.stringify(a.input.workContext)
+              : ""),
         },
         { type: "localImage", path: baseline.capture.path },
       ];
@@ -377,49 +496,75 @@ export class Jobs {
           input.push({ type: "localImage", path: imagePath });
         }
       }
+      await this.phase("waiting_model");
       await runtime.turn(input, a.abort.signal);
       a.review = { repairsLeft: 2, allowWrite: true };
       // End-of-turn verification is enforced outside the model's self-reported completion.
       for (let round = 0; round < 3 && !a.abort.signal.aborted; round++) {
         if (a.report?.passed) {
-          const current = await this.scene.serial(() => this.scene.info());
-          const cap = a.captures.find((c) => c.id === a.report!.captureId);
-          if (cap?.sceneRevision === current.revision) break;
+          if (await this.scene.serial(() => this.verificationCurrent())) break;
           a.report = undefined;
         }
-        if (a.captures.length >= 8) break;
+        if (
+          a.captures.length >=
+          this.captureLimit - (a.input.qualityMode === "multi-view" ? 2 : 0)
+        )
+          break;
         a.review.allowWrite = round < 2;
-        const final = await this.scene.serial(() => this.capture("final"));
+        await this.phase("inspecting");
+        const finals = await this.scene.serial(async () => {
+          if (a.input.qualityMode === "multi-view") {
+            const views = await this.captureViews("final");
+            await this.inspectQuality();
+            return views;
+          }
+          return [await this.capture("final")];
+        });
+        const final = finals[0];
         await runtime.turn(
           [
             {
               type: "text",
-              text: `Verify the current scene against the original request. Attached captureId=${final.capture.id}. Call report_verification with concrete visual observations. ${round < 2 ? "If needed, at most one small correction then inspect the updated image." : "Budget exhausted: do not mutate, report remaining differences."} Original request: ${a.input.prompt}`,
+              text: `Verify the current scene against the original request. Attached captureId=${final.capture.id}. captureIds=${JSON.stringify(finals.map((r) => r.capture.id))}. inspectionId=${a.inspection?.id || "none"}. Structural inspection=${JSON.stringify(a.inspection || null)}. Call report_verification with concrete visual observations and all supplied captureIds + inspectionId when present. ${round < 2 ? "If needed, at most one small correction then inspect the updated image." : "Budget exhausted: do not mutate, report remaining differences."} Original request: ${a.input.prompt}`,
             },
-            { type: "localImage", path: final.capture.path },
+            ...finals.map((r) => ({
+              type: "localImage" as const,
+              path: r.capture.path,
+            })),
           ],
           a.abort.signal,
         );
-        if (a.report?.passed) break;
+        if (await this.scene.serial(() => this.verificationCurrent())) break;
       }
       if (a.abort.signal.aborted) {
         state.status = a.budgetError ? "interrupted" : "cancelled";
         state.error = a.budgetError;
         state.verification = "unavailable";
       } else {
-        state.verification = a.report?.passed
-          ? "passed"
-          : a.report
-            ? "failed"
-            : "unavailable";
-        state.status =
-          state.verification === "passed" ? "succeeded" : "interrupted";
-        if (state.status === "interrupted")
-          state.error = "场景执行已结束，视觉检查未通过或未完成";
         await this.scene.serial(async () => {
-          await this.scene.save();
+          const verified = await this.verificationCurrent();
+          state.verification = verified
+            ? "passed"
+            : a.report?.passed === false
+              ? "failed"
+              : "unavailable";
+          state.status = verified ? "succeeded" : "interrupted";
+          if (!verified)
+            state.error =
+              "场景执行已结束，视觉检查未通过、已过期或尚有未完成阶段";
+          await this.phase("saving");
+          a.savedPath = await this.scene.save();
           const snapshot = await this.scene.snapshot("AI 操作结果", state.id);
+          a.finalSnapshot = snapshot;
           await this.emit(state, "snapshot.created", { snapshot });
+          if (
+            state.verification === "passed" &&
+            !(await this.verificationCurrent())
+          ) {
+            state.verification = "unavailable";
+            state.status = "interrupted";
+            state.error = "保存期间场景或阶段发生变化，结果已保存，请重新检查";
+          }
         });
       }
     } catch (e) {
@@ -448,6 +593,41 @@ export class Jobs {
           ]);
         }
         await this.scene.idle();
+        if (a.input.qualityMode === "multi-view") {
+          let changes: ReturnType<typeof receipt> | undefined;
+          let sceneChanged: boolean | undefined;
+          try {
+            if (a.baselineInfo) {
+              const current = await this.scene.serial(() => this.scene.info());
+              changes = receipt(a.baselineInfo, current);
+              sceneChanged =
+                a.mutations > 0 ||
+                changes.created.length +
+                  changes.modified.length +
+                  changes.deleted.length >
+                  0;
+            }
+          } catch {}
+          await this.emit(state, "work.summary", {
+            changes,
+            sceneChanged,
+            saved: !!a.savedPath,
+            savedFile: a.savedPath ? path.basename(a.savedPath) : undefined,
+            beforeSnapshot: a.beforeSnapshot,
+            finalSnapshot: a.finalSnapshot,
+            beforeCapture: a.captures.find((c) => c.phase === "before"),
+            afterCaptures:
+              a.viewCaptures ||
+              a.captures
+                .filter((capture) => capture.phase !== "before")
+                .slice(-1),
+            verification: state.verification,
+            inspection: a.inspection,
+            remainingSteps: a.plan?.steps.filter(
+              (s) => s.status !== "completed",
+            ),
+          });
+        }
         await this.emit(state, "run.status", {
           status: state.status,
           verification: state.verification,
@@ -520,9 +700,74 @@ export class Jobs {
           );
         let result: unknown;
         let image: any;
+        let images: any[] = [];
+        let resourceContent: any[] = [];
         let cap: Capture | undefined;
         if (name === "get_scene_info") result = await this.scene.info();
-        else if (name === "search_library") {
+        else if (name === "read_skill_resource") {
+          const request = z
+            .object({
+              skillId: z.string().uuid(),
+              path: z.string().min(1).max(500),
+            })
+            .strict()
+            .parse(args);
+          resourceContent = await readSkillResource(
+            a.input.skills || [],
+            request.skillId,
+            request.path,
+          );
+          result = {
+            skillId: request.skillId,
+            path: request.path,
+            kind: resourceContent.some((c) => c.type === "image")
+              ? "image"
+              : "text",
+          };
+        } else if (name === "inspect_scene_quality") {
+          await this.phase("inspecting");
+          result = await this.inspectQuality();
+        } else if (name === "capture_views") {
+          await this.phase("inspecting");
+          const views = await this.captureViews("inspection", args.views);
+          images = views.map((r) => r.image);
+          result = {
+            captures: views.map(({ capture, view }) => ({ capture, view })),
+            inspectionId: a.inspection?.id,
+          };
+        } else if (name === "update_work_plan") {
+          const plan = workPlanSchema.parse(args);
+          const newlyCompleted = plan.steps.filter(
+            (s) =>
+              s.status === "completed" &&
+              a.plan?.steps.find((p) => p.id === s.id)?.status !== "completed",
+          );
+          if (newlyCompleted.length) {
+            const current = await this.scene.info();
+            const names = new Set(current.objects.map((o) => o.name));
+            for (const step of newlyCompleted)
+              if (step.objectNames.some((n) => !names.has(n)))
+                throw new Error("阶段对象不在当前场景，请回读实际对象名称");
+            const snapshot = await this.scene.snapshot(
+              "阶段完成：" +
+                newlyCompleted
+                  .map((s) => s.step)
+                  .join("、")
+                  .slice(0, 80),
+              a.state.id,
+            );
+            await this.emit(a.state, "snapshot.created", { snapshot });
+          }
+          a.plan = plan;
+          a.report = undefined;
+          await this.emit(a.state, "work.plan", { plan });
+          await this.emit(a.state, "plan.updated", {
+            itemId: "work-plan",
+            explanation: plan.title,
+            steps: plan.steps,
+          });
+          result = { plan, checkpointed: newlyCompleted.length > 0 };
+        } else if (name === "search_library") {
           const query = z
             .object({
               search: z.string().max(200).optional(),
@@ -591,8 +836,49 @@ export class Jobs {
           const current = await this.scene.info();
           if (chosen.sceneRevision !== current.revision)
             throw new Error("截图已过期，请重新 capture 后检查");
+          if (a.input.qualityMode === "multi-view") {
+            const reviewed = z
+              .array(z.string())
+              .min(3)
+              .max(3)
+              .parse(args.captureIds);
+            if (
+              !a.inspection ||
+              a.inspection.id !== args.inspectionId ||
+              a.inspection.sceneRevision !== current.revision
+            )
+              throw new Error(
+                "结构检查缺失或已过期，请重新 inspect_scene_quality",
+              );
+            if (
+              !a.viewCaptures ||
+              a.viewCaptures.length !== 3 ||
+              a.viewCaptures.some(
+                (c) =>
+                  !reviewed.includes(c.id) ||
+                  c.sceneRevision !== current.revision,
+              ) ||
+              !reviewed.includes(chosen.id)
+            )
+              throw new Error(
+                "需要检查当前完整的三个角度，并提供其 captureIds",
+              );
+            if (args.passed && a.inspection.status === "structural-errors")
+              throw new Error("结构检查有阻断项，请修复后重新检查");
+            if (
+              args.passed &&
+              a.plan?.steps.some((s) => s.status !== "completed")
+            )
+              throw new Error("创作阶段尚未完成，请更新阶段或如实报告未通过");
+          }
           a.report = {
             captureId: chosen.id,
+            ...(a.input.qualityMode === "multi-view"
+              ? {
+                  captureIds: [...args.captureIds],
+                  inspectionId: a.inspection!.id,
+                }
+              : {}),
             passed: args.passed === true,
             observations: String(args.observations),
           };
@@ -625,8 +911,12 @@ export class Jobs {
               throw new Error("最终检查的修正预算已用完，请报告剩余差异");
             a.review.repairsLeft--;
           }
-          if (a.captures.length >= 7)
+          if (
+            a.captures.length >=
+            this.captureLimit - (a.input.qualityMode === "multi-view" ? 3 : 1)
+          )
             throw new Error("已保留最后一张截图额度，请结束修改并检查");
+          await this.phase("modeling");
           const before = await this.scene.info();
           let error: unknown;
           try {
@@ -653,6 +943,8 @@ export class Jobs {
           }
           a.mutations++;
           a.report = undefined;
+          a.inspection = undefined;
+          a.viewCaptures = undefined;
           const after = await this.scene.info();
           const diff = receipt(before, after);
           await this.emit(a.state, "scene.receipt", { callId, receipt: diff });
@@ -663,11 +955,14 @@ export class Jobs {
           if (error) throw error;
         } else throw new Error("未知工具");
         await this.emit(a.state, "tool.completed", { callId, name, result });
+        await this.phase(a.review ? "inspecting" : "waiting_model");
         a.lastFailure = undefined;
         return {
           content: [
             { type: "text", text: JSON.stringify(result) },
             ...(image ? [image] : []),
+            ...images,
+            ...resourceContent,
           ],
         };
       } catch (e) {
@@ -687,6 +982,73 @@ export class Jobs {
   }
 }
 export const toolDefinitions = [
+  {
+    name: "update_work_plan",
+    description:
+      "Persist a bounded staged creation plan before a complex scene. Keep stable step IDs, update actual status and objectNames after readback. Newly completed stages create restorable checkpoints. This does not execute or automatically replay work.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        steps: {
+          type: "array",
+          minItems: 1,
+          maxItems: 8,
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              step: { type: "string" },
+              status: {
+                type: "string",
+                enum: ["pending", "in_progress", "completed", "blocked"],
+              },
+              objectNames: { type: "array", items: { type: "string" } },
+              note: { type: "string" },
+            },
+            required: ["id", "step", "status"],
+          },
+        },
+      },
+      required: ["title", "steps"],
+    },
+  },
+  {
+    name: "inspect_scene_quality",
+    description:
+      "Read bounded structure, dimensions, materials and missing textures. Overlap/floating findings are candidates requiring visual review, never a beauty score. Inspection is bound to current scene revision.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "capture_views",
+    description:
+      "Capture real front/right/top viewport images (or up to three specified distinct views), then restore the original view. Use a full three-view set for multi-view acceptance; images are not a final render or topology proof.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        views: {
+          type: "array",
+          minItems: 1,
+          maxItems: 3,
+          uniqueItems: true,
+          items: {
+            type: "string",
+            enum: ["front", "right", "top", "isometric"],
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "read_skill_resource",
+    description:
+      "Read a selected skill's bundled UTF-8 reference/script or image using skillId and relative path. Reading a script does not execute it. Follow Blender-only task scope and use MCP for explicit scene operations.",
+    inputSchema: {
+      type: "object",
+      properties: { skillId: { type: "string" }, path: { type: "string" } },
+      required: ["skillId", "path"],
+    },
+  },
   {
     name: "get_library_asset",
     description:
@@ -809,6 +1171,14 @@ export const toolDefinitions = [
       type: "object",
       properties: {
         captureId: { type: "string" },
+        captureIds: {
+          type: "array",
+          minItems: 3,
+          maxItems: 3,
+          uniqueItems: true,
+          items: { type: "string" },
+        },
+        inspectionId: { type: "string" },
         passed: { type: "boolean" },
         observations: { type: "string" },
       },

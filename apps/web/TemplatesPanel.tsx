@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -18,6 +18,7 @@ import {
 import {
   TEMPLATE_CATEGORIES,
   renderTemplate,
+  templateVariableError,
   templateInputSchema,
   type CreationTemplate,
   type TemplateInput,
@@ -107,7 +108,13 @@ function readEditorDraft(editor: Editor): Editor {
         (v: any) =>
           typeof v?.key === "string" &&
           typeof v?.label === "string" &&
-          typeof v?.defaultValue === "string",
+          typeof v?.defaultValue === "string" &&
+          (v.type === undefined || v.type === "text" || v.type === "number") &&
+          (v.unit === undefined || typeof v.unit === "string") &&
+          [v.min, v.max, v.step].every(
+            (n) =>
+              n === undefined || (typeof n === "number" && Number.isFinite(n)),
+          ),
       ) &&
       Array.isArray(input.libraryAssetIds) &&
       input.libraryAssetIds.length <= 12 &&
@@ -820,25 +827,65 @@ export function TemplatesPanel({
                 </div>
                 {current.variables.length ? (
                   <div className="template-parameters">
-                    {current.variables.map((variable) => (
-                      <label key={variable.key}>
-                        {variable.label}
-                        <textarea
-                          aria-label={variable.label}
-                          rows={2}
-                          maxLength={2000}
-                          value={values[variable.key] ?? variable.defaultValue}
-                          disabled={applying}
-                          onChange={(e) => {
-                            setValues((v) => ({
-                              ...v,
-                              [variable.key]: e.target.value,
-                            }));
-                            setApplyError("");
-                          }}
-                        />
-                      </label>
-                    ))}
+                    {current.variables.map((variable) => {
+                      const value =
+                        values[variable.key] ?? variable.defaultValue;
+                      const error = templateVariableError(variable, value);
+                      const onChange = (
+                        e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+                      ) => {
+                        setValues((v) => ({
+                          ...v,
+                          [variable.key]: e.target.value,
+                        }));
+                        setApplyError("");
+                      };
+                      return (
+                        <label key={variable.key}>
+                          <span>
+                            {variable.label}
+                            {variable.unit ? `（${variable.unit}）` : ""}
+                          </span>
+                          {variable.type === "number" ? (
+                            <>
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                aria-label={variable.label}
+                                min={variable.min}
+                                max={variable.max}
+                                step={variable.step ?? "any"}
+                                value={value}
+                                disabled={applying}
+                                onChange={onChange}
+                                aria-invalid={!!error}
+                                aria-describedby={`template-hint-${variable.key}`}
+                              />
+                              <small
+                                id={`template-hint-${variable.key}`}
+                                className={
+                                  error
+                                    ? "template-parameter-error"
+                                    : "template-parameter-hint"
+                                }
+                              >
+                                {error ||
+                                  `${variable.min !== undefined ? `最小 ${variable.min}` : "无下限"} · ${variable.max !== undefined ? `最大 ${variable.max}` : "无上限"}${variable.step !== undefined ? ` · 步长 ${variable.step}` : ""}`}
+                              </small>
+                            </>
+                          ) : (
+                            <textarea
+                              aria-label={variable.label}
+                              rows={2}
+                              maxLength={2000}
+                              value={value}
+                              disabled={applying}
+                              onChange={onChange}
+                            />
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="template-help">
@@ -1037,70 +1084,178 @@ export function TemplatesPanel({
               </div>
               <div className="template-editor-variables">
                 {editor.input.variables.map((variable, index) => (
-                  <div className="template-variable-row" key={index}>
-                    <label>
-                      变量名称
-                      <input
-                        aria-label={`变量名称 ${index + 1}`}
-                        maxLength={80}
-                        value={variable.label}
-                        placeholder="例如：道具名称"
-                        onChange={(e) =>
+                  <div className="template-variable-card" key={index}>
+                    <div className="template-variable-row">
+                      <label>
+                        变量名称
+                        <input
+                          aria-label={`变量名称 ${index + 1}`}
+                          maxLength={80}
+                          value={variable.label}
+                          placeholder="例如：道具名称"
+                          onChange={(e) =>
+                            changeEditor({
+                              variables: editor.input.variables.map((v, i) =>
+                                i === index
+                                  ? { ...v, label: e.target.value }
+                                  : v,
+                              ),
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        变量标识
+                        <input
+                          aria-label={`变量标识 ${index + 1}`}
+                          maxLength={40}
+                          value={variable.key}
+                          placeholder="subject"
+                          onChange={(e) =>
+                            changeEditor({
+                              variables: editor.input.variables.map((v, i) =>
+                                i === index ? { ...v, key: e.target.value } : v,
+                              ),
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        默认值
+                        <input
+                          aria-label={`默认值 ${index + 1}`}
+                          type={variable.type === "number" ? "number" : "text"}
+                          min={
+                            variable.type === "number"
+                              ? variable.min
+                              : undefined
+                          }
+                          max={
+                            variable.type === "number"
+                              ? variable.max
+                              : undefined
+                          }
+                          step={
+                            variable.type === "number"
+                              ? (variable.step ?? "any")
+                              : undefined
+                          }
+                          maxLength={2000}
+                          value={variable.defaultValue}
+                          onChange={(e) =>
+                            changeEditor({
+                              variables: editor.input.variables.map((v, i) =>
+                                i === index
+                                  ? { ...v, defaultValue: e.target.value }
+                                  : v,
+                              ),
+                            })
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="icon"
+                        aria-label={`移除参数 ${index + 1}`}
+                        onClick={() =>
                           changeEditor({
-                            variables: editor.input.variables.map((v, i) =>
-                              i === index ? { ...v, label: e.target.value } : v,
+                            variables: editor.input.variables.filter(
+                              (_, i) => i !== index,
                             ),
                           })
                         }
-                      />
-                    </label>
-                    <label>
-                      变量标识
-                      <input
-                        aria-label={`变量标识 ${index + 1}`}
-                        maxLength={40}
-                        value={variable.key}
-                        placeholder="subject"
-                        onChange={(e) =>
-                          changeEditor({
-                            variables: editor.input.variables.map((v, i) =>
-                              i === index ? { ...v, key: e.target.value } : v,
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                    <label>
-                      默认值
-                      <input
-                        aria-label={`默认值 ${index + 1}`}
-                        maxLength={2000}
-                        value={variable.defaultValue}
-                        onChange={(e) =>
-                          changeEditor({
-                            variables: editor.input.variables.map((v, i) =>
-                              i === index
-                                ? { ...v, defaultValue: e.target.value }
-                                : v,
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="icon"
-                      aria-label={`移除参数 ${index + 1}`}
-                      onClick={() =>
-                        changeEditor({
-                          variables: editor.input.variables.filter(
-                            (_, i) => i !== index,
-                          ),
-                        })
-                      }
-                    >
-                      <X size={14} />
-                    </button>
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="template-variable-options">
+                      <label>
+                        参数类型
+                        <select
+                          aria-label={`参数类型 ${index + 1}`}
+                          value={variable.type ?? "text"}
+                          onChange={(e) =>
+                            changeEditor({
+                              variables: editor.input.variables.map((v, i) => {
+                                if (i !== index) return v;
+                                if (e.target.value === "number")
+                                  return { ...v, type: "number" as const };
+                                const {
+                                  min: _min,
+                                  max: _max,
+                                  step: _step,
+                                  unit: _unit,
+                                  ...text
+                                } = v;
+                                return { ...text, type: "text" as const };
+                              }),
+                            })
+                          }
+                        >
+                          <option value="text">文本</option>
+                          <option value="number">数值</option>
+                        </select>
+                      </label>
+                      {variable.type === "number" && (
+                        <>
+                          <label>
+                            单位
+                            <input
+                              aria-label={`参数单位 ${index + 1}`}
+                              maxLength={16}
+                              value={variable.unit ?? ""}
+                              placeholder="米 / 层"
+                              onChange={(e) =>
+                                changeEditor({
+                                  variables: editor.input.variables.map(
+                                    (v, i) =>
+                                      i === index
+                                        ? { ...v, unit: e.target.value }
+                                        : v,
+                                  ),
+                                })
+                              }
+                            />
+                          </label>
+                          {(
+                            [
+                              ["min", "最小值"],
+                              ["max", "最大值"],
+                              ["step", "步长"],
+                            ] as const
+                          ).map(([field, label]) => (
+                            <label key={field}>
+                              {label}
+                              <input
+                                aria-label={`${label} ${index + 1}`}
+                                type="number"
+                                step="any"
+                                min={field === "step" ? 0.000001 : -1e9}
+                                max={1e9}
+                                value={variable[field] ?? ""}
+                                placeholder="可选"
+                                onChange={(e) =>
+                                  changeEditor({
+                                    variables: editor.input.variables.map(
+                                      (v, i) =>
+                                        i === index
+                                          ? {
+                                              ...v,
+                                              [field]:
+                                                e.target.value === ""
+                                                  ? undefined
+                                                  : Number(e.target.value),
+                                            }
+                                          : v,
+                                    ),
+                                  })
+                                }
+                              />
+                            </label>
+                          ))}
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

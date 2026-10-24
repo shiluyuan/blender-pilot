@@ -280,6 +280,24 @@ try {
     : await api("/projects/" + project.id + "/sessions", {});
   assert(session, "previous live session must still exist");
   let images = 0;
+  let skillReport:
+    | {
+        passed: boolean;
+        id: string;
+        sha256: string;
+        nativeInput: boolean;
+        mcpResource: boolean;
+      }
+    | undefined;
+  let qualityReport:
+    | {
+        passed: boolean;
+        views: number;
+        inspectionId: string;
+        missingReportStatus: string;
+        readOnlySceneChanged: boolean;
+      }
+    | undefined;
   let liveReport: Awaited<ReturnType<typeof verifyRealModel>> | undefined;
   let templateReport:
     Awaited<ReturnType<typeof verifyTemplateRealModel>> | undefined;
@@ -321,6 +339,20 @@ try {
       secret: liveSettings.apiKey!,
     });
   } else if (!skipCodex && fixture) {
+    const skillMarker = "PILOT_NATIVE_SKILL_INSTRUCTIONS_7F32";
+    const skillText = `---\nname: native-blender-acceptance\ndescription: Synthetic skill for native Blender protocol acceptance only.\n---\n${skillMarker}\nInspect actual Blender state before modifications. Use the MCP read_skill_resource tool to read this SKILL.md when testing skill resource access.\n`;
+    const uploaded = await api("/skills/upload", {
+      name: "SKILL.md",
+      dataBase64: Buffer.from(skillText).toString("base64"),
+    });
+    const skill = uploaded.items[0];
+    assert(skill.id && /^[a-f0-9]{64}$/.test(skill.sha256));
+    await api(
+      "/projects/" + project.id + "/skills",
+      { skillIds: [skill.id] },
+      "PUT",
+    );
+    fixture.setSkillReference({ id: skill.id, path: "SKILL.md" });
     const body = {
       text: "添加一个绿色球体，保留原场景，并检查结果。",
       assetIds: [],
@@ -348,6 +380,9 @@ try {
     );
     console.log("Codex result", JSON.stringify(finished));
     assert.equal(finished.status, "succeeded", finished.error);
+    assert.deepEqual(finished.skillRefs, [
+      { id: skill.id, name: skill.name, sha256: skill.sha256 },
+    ]);
     const info = await api("/projects/" + project.id + "/scene");
     assert(info.objects.some((o: any) => o.name === "Pilot_Verified_Sphere"));
     images = fixture.requests.reduce(
@@ -362,6 +397,67 @@ try {
     );
     assert(journal.includes("scene.receipt"));
     assert(journal.includes("verification"));
+    const firstEvents = journal
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert(
+      firstEvents.some(
+        (event) =>
+          event.type === "tool.completed" &&
+          event.payload.name === "read_skill_resource" &&
+          event.payload.result.skillId === skill.id,
+      ),
+    );
+    const nativeSkillInput = fixture.requests.some((request) =>
+      request.input?.some(
+        (item: any) =>
+          item.type !== "function_call_output" &&
+          JSON.stringify(item).includes(skillMarker),
+      ),
+    );
+    const skillToolOutput = fixture.requests.some((request) =>
+      request.input?.some(
+        (item: any) =>
+          item.type === "function_call_output" &&
+          JSON.stringify(item.output).includes(skillMarker),
+      ),
+    );
+    assert(
+      nativeSkillInput,
+      "native Codex skill instruction must reach Responses input",
+    );
+    assert(
+      skillToolOutput,
+      "selected immutable SKILL.md must return through MCP to Responses input",
+    );
+    skillReport = {
+      passed: true,
+      id: skill.id,
+      sha256: skill.sha256,
+      nativeInput: nativeSkillInput,
+      mcpResource: skillToolOutput,
+    };
+    console.log(
+      "PASS uploaded skill → project selection → native Codex skill input → MCP resource text",
+    );
+    const verification = firstEvents.findLast(
+      (event) => event.type === "verification",
+    )?.payload;
+    const inspection = firstEvents.findLast(
+      (event) => event.type === "quality.inspection",
+    )?.payload.inspection;
+    assert.equal(finished.qualityMode, "multi-view");
+    assert.equal(verification.captureIds.length, 3);
+    assert.equal(verification.inspectionId, inspection.id);
+    for (const id of verification.captureIds) {
+      const capture = firstEvents.find(
+        (event) =>
+          event.type === "capture.created" && event.payload.capture.id === id,
+      )?.payload.capture;
+      assert.equal(capture?.sceneRevision, inspection.sceneRevision);
+      assert.equal(capture?.generation, inspection.generation);
+    }
     for (const tool of [
       "save_library_asset",
       "search_library",
@@ -390,13 +486,14 @@ try {
     const bound = (await api("/projects/" + project.id + "/sessions"))[0]
       .nativeThreadId;
     assert(bound);
+    fixture.setVerificationEnabled(false);
     const run2 = await api("/sessions/" + session.id + "/turns", {
       text: "确认当前场景。",
       clientRequestId: "fixture-resume",
       assetIds: [],
     });
     // The fixture's final-only response intentionally cannot assert verification.
-    await waitFor(
+    const resumed = await waitFor(
       async () => {
         const r = (await api("/sessions/" + session.id + "/runs")).find(
           (r: any) => r.id === run2.id,
@@ -406,6 +503,37 @@ try {
       "resume",
       120000,
     );
+    assert.equal(
+      resumed.status,
+      "interrupted",
+      "a resumed turn without a visual report must never become success",
+    );
+    assert.equal(resumed.verification, "unavailable");
+    const resumeEvents = (
+      await readFile(path.join(dir, "jobs", run2.id + ".ndjson"), "utf8")
+    )
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const summary = resumeEvents.findLast(
+      (event) => event.type === "work.summary",
+    )?.payload;
+    assert(
+      summary,
+      "read-only resumed turn must have a truthful completion summary",
+    );
+    assert.equal(
+      summary.sceneChanged,
+      false,
+      "viewport captures alone must not count as scene edits",
+    );
+    qualityReport = {
+      passed: true,
+      views: verification.captureIds.length,
+      inspectionId: inspection.id,
+      missingReportStatus: resumed.status,
+      readOnlySceneChanged: summary.sceneChanged,
+    };
     assert.equal(
       (await api("/projects/" + project.id + "/sessions"))[0].nativeThreadId,
       bound,
@@ -725,6 +853,8 @@ try {
         library: libraryReport,
         templates: templateReport,
         browser: browserReport,
+        skills: skillReport,
+        quality: qualityReport,
         checks: [
           "native MCP",
           "snapshots",
@@ -743,6 +873,16 @@ try {
                   "idempotency",
                   "thread resume",
                   "cancel",
+                  ...(skillReport
+                    ? ["uploaded skill -> native Codex -> MCP resource"]
+                    : []),
+                  ...(qualityReport
+                    ? [
+                        "multi-view current inspection",
+                        "missing visual report interrupted",
+                        "read-only truthful summary",
+                      ]
+                    : []),
                 ]),
           "browser VNC",
         ],

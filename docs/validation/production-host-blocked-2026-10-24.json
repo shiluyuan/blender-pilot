@@ -1,0 +1,23 @@
+{
+  "time": "2026-10-24T15:54:44.789Z",
+  "scope": "target-container-deployment",
+  "passed": false,
+  "status": "blocked",
+  "mode": "read-only",
+  "checks": [
+    {
+      "name": "deployment-context",
+      "passed": false,
+      "message": "Required executable is unavailable: docker"
+    }
+  ],
+  "observed": {},
+  "exercised": {
+    "nativePostgres": false,
+    "dockerContainers": false,
+    "restartPersistence": false,
+    "databaseServerRestart": false,
+    "freshImageBuild": false,
+    "modelInference": false
+  }
+}

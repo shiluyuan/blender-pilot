@@ -90,4 +90,21 @@ CREATE TABLE auth_sessions (
 CREATE INDEX auth_sessions_expiry ON auth_sessions(expires_at);
 `,
   },
+  {
+    version: 4,
+    sql: `
+CREATE TABLE installed_skills (
+ id text PRIMARY KEY, name text NOT NULL UNIQUE,
+ enabled boolean NOT NULL DEFAULT true,
+ created_at timestamptz NOT NULL,
+ data jsonb NOT NULL CHECK(data->>'id'=id)
+);
+CREATE TABLE project_skills (
+ project_id text NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ skill_id text NOT NULL REFERENCES installed_skills(id) ON DELETE CASCADE,
+ position integer NOT NULL CHECK(position>=0),
+ PRIMARY KEY(project_id,skill_id), UNIQUE(project_id,position)
+);
+`,
+  },
 ];

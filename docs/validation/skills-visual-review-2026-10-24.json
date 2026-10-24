@@ -1,0 +1,159 @@
+{
+  "passed": true,
+  "reviewedAt": "2026-10-24T16:21:25.933097+00:00",
+  "scope": "Direct inspection of all eleven final browser screenshots; not model output quality or full accessibility certification",
+  "checks": 18,
+  "screenshotsReviewed": [
+    {
+      "file": "01-skills-empty-dark.png",
+      "sha256": "40e0bbb07b4bc6ce26563f4214506cfbd8241f434cc5dcd14c85d523fd0a0701",
+      "size": [
+        1440,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "02-skills-upload-dark.png",
+      "sha256": "b48af2c5437470826819a8afb4df6bf6a8865ce3be286826455e8b7c18cbe625",
+      "size": [
+        1440,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "skills-dark-1440.png",
+      "sha256": "e46eaa02b1730dd193f92b02782535ebbcd5cf2a8f55f49ec0ac8624fdc50308",
+      "size": [
+        1440,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "skills-dark-1280.png",
+      "sha256": "b031d32baed963b4cfe9a59f1c159c39a665b059f3556e86bd4739a14437883f",
+      "size": [
+        1280,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "skills-dark-1024.png",
+      "sha256": "0f8d4fb7c82381f81d4610ed6160ea70bfd38f66ef0689b1a0ea26f58300d51c",
+      "size": [
+        1024,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "skills-light-1440.png",
+      "sha256": "0f5031d05ce230b95acb4b86c6a53cf2e48b460b710a3e16f13454cafb49c845",
+      "size": [
+        1440,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "skills-light-1280.png",
+      "sha256": "248fc445bc20cac5241865ce25777900d046ac2724e9bbece1a6f80eff1b9942",
+      "size": [
+        1280,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "skills-light-1024.png",
+      "sha256": "df6304ee55d0b8c349cc02466a60bc9bfeb6c592997c9d359c198c4d84fb4e61",
+      "size": [
+        1024,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "skills-install-light.png",
+      "sha256": "3d797b5186f161237653bafe929937880b723cb0d98dcc619f5e60951b0c7639",
+      "size": [
+        1440,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, correct empty/install/detail state, shared palette and responsive controls without horizontal overflow"
+    },
+    {
+      "file": "workflow-summary-dark.png",
+      "sha256": "7656112d9c462db91655e0b653af02e9c7ee1cb07b9e3e05324186c7f4dff7b1",
+      "size": [
+        1440,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, consistent shared palette, no clipping or overlapping controls; result view label matches actual front capture"
+    },
+    {
+      "file": "workflow-summary-light.png",
+      "sha256": "720f4b3315d4257cc1586690318f4f9c157a832f6afd46308e6d457aea87e0e2",
+      "size": [
+        1440,
+        960
+      ],
+      "accepted": true,
+      "observed": "Readable CJK text, consistent shared palette, no clipping or overlapping controls; result view label matches actual front capture"
+    }
+  ],
+  "findingsResolved": [
+    {
+      "issue": "Inherited label column layout stacked the search icon above the input",
+      "resolution": "Scoped skills toolbar uses row layout and removes global label bottom margin"
+    },
+    {
+      "issue": "Global button flex layout clipped work-summary comparison captions",
+      "resolution": "Root scoped comparison buttons to a vertical layout; browser asserts caption below image and inside frame"
+    },
+    {
+      "issue": "Result receipt object changes must use created/modified/deleted keys",
+      "resolution": "Root corrected actual receipt field mapping; browser asserts each count and object name"
+    },
+    {
+      "issue": "Metadata reads could remain loading indefinitely",
+      "resolution": "15-second bounded read signals; browser verifies real elapsed timeout and retry recovery"
+    },
+    {
+      "issue": "Successful uninstall response may still contain a cleanup warning",
+      "resolution": "UI surfaces warning; real deletion plus explicit warning fixture validates display"
+    },
+    {
+      "issue": "Cancelled task with only a before capture could show it as an after capture; fixed multi-angle label was not evidence-based",
+      "resolution": "Filter both phase=before and matching beforeCapture ID, show missing-after explanation, and derive result label from actual phase. Browser covers old malformed fallback and normal single screenshot."
+    }
+  ],
+  "fonts": [
+    {
+      "familyName": "Noto Sans CJK SC",
+      "postScriptName": "NotoSansCJKsc-Regular",
+      "isCustomFont": false,
+      "glyphCount": 3
+    }
+  ],
+  "limitations": [
+    "Runner, scene restore and npx network behavior are explicit protocol fixtures in this browser suite",
+    "Work-summary comparison images say UI protocol fixture; these are not generated Blender scenes",
+    "Database uses explicitly labeled PostgreSQL WASM over TCP/pg driver, not native PostgreSQL",
+    "Deep and light screenshots use current shared VoiceStudio-inspired tokens; no pixel-perfect clone claim"
+  ],
+  "supersedes": ".data/skills-browser-delivery/visual-review.json"
+}

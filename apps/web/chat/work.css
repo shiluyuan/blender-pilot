@@ -1,0 +1,133 @@
+.work-summary {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 12px;
+  margin: 14px 0;
+  overflow: hidden;
+  font-size: 12px;
+}
+.work-summary-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--soft-line);
+}
+.work-summary-heading > span,
+.work-save > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.work-change-list {
+  padding: 10px 14px;
+  display: grid;
+  gap: 7px;
+}
+.work-change-list > div {
+  display: flex;
+  gap: 10px;
+}
+.work-change-list b {
+  flex-shrink: 0;
+}
+.work-change-list span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.work-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px 14px;
+}
+.work-comparison button {
+  padding: 0;
+  overflow: hidden;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+  color: var(--text);
+  min-width: 0;
+}
+.work-comparison img {
+  width: 100%;
+  aspect-ratio: 1.5;
+  object-fit: cover;
+  display: block;
+}
+.work-comparison span {
+  padding: 7px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.work-inspection {
+  padding: 10px 14px;
+  border-top: 1px solid var(--soft-line);
+}
+.work-inspection summary {
+  cursor: pointer;
+}
+.work-inspection p,
+.work-remaining {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.work-issue {
+  display: grid;
+  gap: 3px;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
+}
+.work-issue span {
+  color: var(--muted);
+}
+.work-issue.error b {
+  color: var(--error);
+}
+.work-save {
+  padding: 10px 14px;
+  border-top: 1px solid var(--soft-line);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.work-save button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.work-remaining {
+  padding: 0 14px;
+}
+.chat-skill-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.chat-skill-refs span {
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--muted);
+}
+
+.work-comparison button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  white-space: normal;
+}
+.work-comparison button > span {
+  width: 100%;
+  box-sizing: border-box;
+}

@@ -81,6 +81,8 @@ export interface Snapshot {
 }
 export interface Run {
   id: string;
+  skillRefs?: Array<{ id: string; name: string; sha256: string }>;
+  qualityMode?: "multi-view";
   clientRequestId?: string;
   cancelRequestedAt?: string;
   attachmentRefs?: Array<{
@@ -126,6 +128,9 @@ export interface StartJob {
   libraryAssets?: Array<{ id: string; name: string }>;
   nativeThreadId?: string;
   settings: ModelSettings;
+  skills?: Array<{ id: string; name: string; path: string; sha256: string }>;
+  qualityMode?: "multi-view";
+  workContext?: import("./workflow.js").WorkContext;
 }
 export const terminal = new Set<RunStatus>([
   "succeeded",

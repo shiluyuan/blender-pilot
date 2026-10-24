@@ -24,7 +24,10 @@
     "verify:readiness": "node --import tsx scripts/verify-readiness.ts",
     "verify:journeys": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-journeys.ts",
     "verify:interface": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-interface.ts",
-    "test:deploy": "python3 -m unittest discover -s tests -p 'test_*.py' -v"
+    "test:deploy": "python3 -m unittest discover -s tests -p 'test_*.py' -v",
+    "verify:production": "node --import tsx scripts/verify-production.ts",
+    "verify:skills": "node --import tsx scripts/with-postgres.ts -- node --import tsx scripts/verify-skills.ts",
+    "verify:quality": "node --import tsx scripts/verify-quality.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.11",
@@ -41,6 +44,7 @@
     "remark-gfm": "4.0.1",
     "sharp": "0.35.5",
     "ws": "8.22.0",
+    "yaml": "2.9.1",
     "zod": "4.6.7"
   },
   "devDependencies": {

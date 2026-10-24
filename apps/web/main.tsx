@@ -79,6 +79,7 @@ import {
 } from "./api";
 import { LibraryPanel } from "./LibraryPanel";
 import { TemplatesPanel } from "./TemplatesPanel";
+import { SkillsPanel } from "./SkillsPanel";
 import { Viewport } from "./Viewport";
 import { ChatComposer } from "./chat/ChatComposer";
 import { ConversationTimeline } from "./chat/ConversationTimeline";
@@ -700,6 +701,7 @@ function App() {
     ["studio", "工作台", Box],
     ["library", "素材库", Layers3],
     ["templates", "模板中心", Grid2X2],
+    ["skills", "技能中心", Sparkles],
     ["assets", "资源库", FolderOpen],
     ["history", "快照与恢复", Clock3],
     ["console", "运行控制台", Activity],
@@ -1214,6 +1216,14 @@ function App() {
                   notify("模板已加入当前对话草稿，确认要求后发送");
                   requestAnimationFrame(() => draftRef.current?.focus());
                 }}
+              />
+            )}
+            {page === "skills" && (
+              <SkillsPanel
+                projectId={project?.id}
+                projectName={project?.name}
+                notify={notify}
+                busy={busy || !!opening || !!chat.outbox}
               />
             )}
             {page === "assets" && (

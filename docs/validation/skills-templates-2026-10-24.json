@@ -1,0 +1,152 @@
+{
+  "passed": true,
+  "time": "2026-10-24T16:00:19.008Z",
+  "environment": {
+    "api": "real Fastify",
+    "database": "PostgreSQL WASM over real TCP protocol/pg driver (not native PostgreSQL)",
+    "runner": "explicit protocol fixture; no Blender or live model inference",
+    "browser": "Chromium/Playwright"
+  },
+  "checks": [
+    "模板 API 需要登录；九种内置配方（含尺寸化书桌、置物架、办公室）可读取且禁止覆盖",
+    "数值参数使用专用输入；宽度步长与整数层数校验即时阻止无效套用，合法值展开为米制任务说明",
+    "浏览器可编辑参数类型、单位和范围；保存与刷新后从 PostgreSQL 恢复约束，仍拒绝越界值",
+    "数值模板与参数编辑器在1024px无横向溢出，深浅主题截图均来自真实界面，未发送建模任务",
+    "分类筛选与共享素材搜索选择可用，所选素材真实绑定到创作配方",
+    "模板中心内置分类与搜索呈现真实 API 结果",
+    "1440×1000 与1280×800 首屏主操作完整可见，参数与任务预览仍可滚动访问",
+    "截图DOM使用真实中文无衬线字库，标题与正文没有缺字方框或 serif 回退",
+    "参数展开后追加原草稿；素材引用去重合并；使用模板不会自动发送任务",
+    "刷新后从 PostgreSQL 恢复自定义模板，聊天草稿与引用仍然保留",
+    "合并超过对话长度上限时明确拒绝，原草稿与引用完整保留",
+    "模板校验期间上传完成，使用最新草稿原子合并，新增附件不会被旧回调覆盖",
+    "浏览器编辑持久化并递增版本；旧版本更新返回409且不覆盖新内容",
+    "浏览器新建配方真正保存到数据库，可按名称检索",
+    "素材校验未完成时切换会话，迟到的模板结果不会写入任何错误会话",
+    "数据库外键阻止删除仍被模板引用的素材",
+    "故意构造不一致恢复数据后，API明确报告丢失素材，界面阻止静默遗漏后套用",
+    "1280px 桌面视口模板列表、详情与操作无横向页面溢出",
+    "浏览、编辑、套用模板不会隐式提交任务或修改场景",
+    "聊天按事件显示可下载的真实磁盘恢复点，活动任务期间禁止恢复",
+    "工具完成后展示事件耗时与新增对象回执，回放关联到原工具卡片",
+    "任务完成后恢复需确认，通过真实API调用恢复并持久化恢复前备份",
+    "全流程无浏览器未捕获错误，仅显式发送产生一次协议夹具任务"
+  ],
+  "submissions": 1,
+  "restores": 1,
+  "uncaughtBrowserErrors": [],
+  "layoutAudit": {
+    "viewport": 1280,
+    "document": 1280,
+    "template": {
+      "width": 1025,
+      "scrollWidth": 1025
+    }
+  },
+  "applyLayoutAudit": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "button": {
+        "top": 929,
+        "bottom": 961,
+        "left": 1297,
+        "right": 1391
+      },
+      "main": {
+        "top": 90,
+        "bottom": 975
+      },
+      "hit": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "button": {
+        "top": 729,
+        "bottom": 761,
+        "left": 1137,
+        "right": 1231
+      },
+      "main": {
+        "top": 90,
+        "bottom": 775
+      },
+      "hit": true
+    }
+  ],
+  "fontAudit": {
+    "method": "Chromium CDP CSS.getPlatformFontsForNode against screenshot DOM",
+    "env": {},
+    "nodes": [
+      {
+        "selector": ".rail-brand>span",
+        "fonts": [
+          {
+            "familyName": "Noto Sans CJK SC",
+            "postScriptName": "NotoSansCJKsc-Regular",
+            "isCustomFont": false,
+            "glyphCount": 18
+          }
+        ],
+        "computed": "600 14px / 21px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", \"Noto Sans SC\", sans-serif"
+      },
+      {
+        "selector": ".templates-page h1",
+        "fonts": [
+          {
+            "familyName": "Noto Sans CJK SC",
+            "postScriptName": "NotoSansCJKsc-Regular",
+            "isCustomFont": false,
+            "glyphCount": 4
+          }
+        ],
+        "computed": "550 22px / 30.8px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", \"Noto Sans SC\", sans-serif"
+      },
+      {
+        "selector": ".template-card strong",
+        "fonts": [
+          {
+            "familyName": "Noto Sans CJK SC",
+            "postScriptName": "NotoSansCJKsc-Regular",
+            "isCustomFont": false,
+            "glyphCount": 5
+          }
+        ],
+        "computed": "550 13px / 19.5px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", \"Noto Sans SC\", sans-serif"
+      },
+      {
+        "selector": ".template-prompt",
+        "fonts": [
+          {
+            "familyName": "Noto Sans CJK SC",
+            "postScriptName": "NotoSansCJKsc-Regular",
+            "isCustomFont": false,
+            "glyphCount": 181
+          }
+        ],
+        "computed": "12px / 22.8px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", \"Noto Sans SC\", sans-serif"
+      },
+      {
+        "selector": ".eyebrow",
+        "fonts": [
+          {
+            "familyName": "Noto Sans CJK SC",
+            "postScriptName": "NotoSansCJKsc-Regular",
+            "isCustomFont": false,
+            "glyphCount": 16
+          }
+        ],
+        "computed": "600 12px / 18px Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", \"Noto Sans SC\", sans-serif"
+      }
+    ]
+  },
+  "screenshots": [
+    "templates-dark.png",
+    "templates-light.png",
+    "templates-recipe.png",
+    "templates-numeric-editor.png",
+    "templates-numeric-dark.png",
+    "templates-numeric-light-1024.png"
+  ]
+}

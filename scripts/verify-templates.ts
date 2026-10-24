@@ -290,7 +290,7 @@ try {
   };
   const recipe: CreationTemplate = await api("/templates", input);
   const builtins = await api("/templates?source=builtin");
-  assert(builtins.items.length >= 6);
+  assert(builtins.items.length >= 9);
   assert(
     builtins.items.every((item: CreationTemplate) => item.source === "builtin"),
   );
@@ -304,7 +304,9 @@ try {
     ).status,
     403,
   );
-  pass("模板 API 需要登录；六种内置配方可读取且禁止覆盖");
+  pass(
+    "模板 API 需要登录；九种内置配方（含尺寸化书桌、置物架、办公室）可读取且禁止覆盖",
+  );
 
   browser = await chromium.launch({
     headless: true,
@@ -355,6 +357,175 @@ try {
   await page
     .getByRole("button", { name: "打开模板：可复用道具", exact: true })
     .waitFor();
+  await page
+    .getByRole("button", { name: "打开模板：尺寸化书桌", exact: true })
+    .click();
+  const deskWidth = page.getByRole("spinbutton", {
+    name: "书桌宽度",
+    exact: true,
+  });
+  await deskWidth.fill("1.53");
+  assert.equal(await deskWidth.getAttribute("aria-invalid"), "true");
+  assert(
+    await page
+      .getByRole("button", { name: "使用模板", exact: true })
+      .isDisabled(),
+  );
+  await deskWidth.fill("1.55");
+  assert.equal(await deskWidth.getAttribute("aria-invalid"), "false");
+  assert(
+    (await page.locator(".template-prompt").innerText()).includes(
+      "外宽 1.55 米",
+    ),
+  );
+  assert(
+    !(await page
+      .getByRole("button", { name: "使用模板", exact: true })
+      .isDisabled()),
+  );
+  await page
+    .getByRole("button", { name: "打开模板：层数可调置物架", exact: true })
+    .click();
+  const levels = page.getByRole("spinbutton", {
+    name: "搁板层数",
+    exact: true,
+  });
+  await levels.fill("2.5");
+  assert(
+    await page
+      .getByRole("button", { name: "使用模板", exact: true })
+      .isDisabled(),
+  );
+  await levels.fill("5");
+  assert(
+    (await page.locator(".template-prompt").innerText()).includes(
+      "承载搁板共 5 层",
+    ),
+  );
+  pass(
+    "数值参数使用专用输入；宽度步长与整数层数校验即时阻止无效套用，合法值展开为米制任务说明",
+  );
+  await page
+    .getByRole("button", { name: "打开模板：尺寸化书桌", exact: true })
+    .click();
+  assert.equal(await deskWidth.inputValue(), "1.55");
+  await page
+    .getByRole("button", { name: "另存为我的模板", exact: true })
+    .click();
+  const numberEditor = page.getByRole("dialog", {
+    name: "新建模板",
+    exact: true,
+  });
+  await numberEditor
+    .getByLabel("模板名称", { exact: true })
+    .fill("数值参数浏览器验收书桌");
+  await numberEditor
+    .getByLabel("参数类型 1", { exact: true })
+    .selectOption("text");
+  assert.equal(
+    await numberEditor.getByLabel("最小值 1", { exact: true }).count(),
+    0,
+  );
+  await numberEditor
+    .getByLabel("参数类型 1", { exact: true })
+    .selectOption("number");
+  await numberEditor.getByLabel("参数单位 1", { exact: true }).fill("米");
+  await numberEditor.getByLabel("最小值 1", { exact: true }).fill("0.6");
+  await numberEditor.getByLabel("最大值 1", { exact: true }).fill("2");
+  await numberEditor.getByLabel("步长 1", { exact: true }).fill("0.1");
+  await numberEditor.getByLabel("默认值 1", { exact: true }).fill("1.6");
+  await page.screenshot({
+    path: path.join(output, "templates-numeric-editor.png"),
+  });
+  await numberEditor
+    .getByRole("button", { name: "保存模板", exact: true })
+    .click();
+  await wait(async () => !(await numberEditor.count()), "numeric recipe saved");
+  const numericSaved = (
+    await api(
+      "/templates?source=custom&search=" +
+        encodeURIComponent("数值参数浏览器验收书桌"),
+    )
+  ).items[0] as CreationTemplate;
+  assert.deepEqual(numericSaved.variables[0], {
+    key: "width",
+    label: "书桌宽度",
+    defaultValue: "1.6",
+    type: "number",
+    unit: "米",
+    min: 0.6,
+    max: 2,
+    step: 0.1,
+  });
+  await page.reload();
+  await openRecipe(page, numericSaved.name);
+  assert.equal(await deskWidth.inputValue(), "1.6");
+  await deskWidth.fill("2.1");
+  assert(
+    await page
+      .getByRole("button", { name: "使用模板", exact: true })
+      .isDisabled(),
+  );
+  await deskWidth.fill("1.7");
+  assert(
+    (await page.locator(".template-prompt").innerText()).includes(
+      "外宽 1.7 米",
+    ),
+  );
+  pass(
+    "浏览器可编辑参数类型、单位和范围；保存与刷新后从 PostgreSQL 恢复约束，仍拒绝越界值",
+  );
+  await page.screenshot({
+    path: path.join(output, "templates-numeric-dark.png"),
+  });
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "light";
+  });
+  await page.screenshot({
+    path: path.join(output, "templates-numeric-light-1024.png"),
+  });
+  assert(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  await page.getByRole("button", { name: "编辑模板", exact: true }).click();
+  const numericEdit = page.getByRole("dialog", {
+    name: "编辑模板",
+    exact: true,
+  });
+  await numericEdit
+    .getByLabel("参数单位 1", { exact: true })
+    .scrollIntoViewIfNeeded();
+  const editorBounds = await numericEdit.evaluate((el) => ({
+    width: el.clientWidth,
+    content: el.scrollWidth,
+  }));
+  assert(
+    editorBounds.content <= editorBounds.width + 1,
+    "numeric editor must not overflow at 1024px",
+  );
+  await numericEdit
+    .getByRole("button", { name: "暂存并关闭", exact: true })
+    .click();
+  assert.equal(submissions, 0);
+  pass(
+    "数值模板与参数编辑器在1024px无横向溢出，深浅主题截图均来自真实界面，未发送建模任务",
+  );
+  await api(
+    `/templates/${numericSaved.id}`,
+    { expectedVersion: numericSaved.version },
+    "DELETE",
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  await page.getByRole("tab", { name: "内置模板", exact: true }).click();
+  await page
+    .getByRole("button", { name: "打开模板：可复用道具", exact: true })
+    .click();
   await page
     .getByRole("textbox", { name: "搜索创作模板", exact: true })
     .fill("参考图");
@@ -485,6 +656,26 @@ try {
         !fonts.some((font) => /times|serif/i.test(font.familyName)),
       "actual platform fonts must be sans for " + selector,
     );
+    if (
+      [
+        ".templates-page h1",
+        ".template-card strong",
+        ".template-prompt",
+      ].includes(selector)
+    )
+      assert(
+        fonts.some(
+          (font) =>
+            font.glyphCount > 0 &&
+            /Noto|CJK|YaHei|PingFang|Heiti|WenQuanYi|Droid Sans Fallback|Source Han Sans|JhengHei/i.test(
+              font.familyName,
+            ),
+        ),
+        "Chinese screenshot text needs an actual CJK sans font, not missing glyph boxes: " +
+          selector +
+          ": " +
+          JSON.stringify(fonts),
+      );
     fontNodes.push({
       selector,
       fonts,
@@ -504,9 +695,7 @@ try {
     },
     nodes: fontNodes,
   };
-  pass(
-    "截图DOM真实字形为 DejaVu Sans 与 Noto Sans，品牌、标签、标题及正文无 serif 回退",
-  );
+  pass("截图DOM使用真实中文无衬线字库，标题与正文没有缺字方框或 serif 回退");
   await page.screenshot({ path: path.join(output, "templates-dark.png") });
   await page.evaluate(() => {
     document.documentElement.dataset.theme = "light";
@@ -832,6 +1021,9 @@ try {
       "templates-dark.png",
       "templates-light.png",
       "templates-recipe.png",
+      "templates-numeric-editor.png",
+      "templates-numeric-dark.png",
+      "templates-numeric-light-1024.png",
     ],
   };
   await writeFile(
