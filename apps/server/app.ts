@@ -1,3 +1,4 @@
+import { MODEL_EXTENSIONS } from "../../packages/contracts/asset-formats.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
 import staticPlugin from "@fastify/static";
@@ -925,6 +926,8 @@ export async function buildApp(options: AppOptions) {
     if (
       ![
         ...DOCUMENT_EXTENSIONS,
+        ...MODEL_EXTENSIONS,
+        ".zip",
         ".png",
         ".jpg",
         ".jpeg",
@@ -940,6 +943,11 @@ export async function buildApp(options: AppOptions) {
       ].includes(ext)
     )
       throw fail("不支持此文件格式");
+    if (
+      ext === ".zip" &&
+      (b.destination !== "library" || b.size > 100 * 1024 ** 2)
+    )
+      throw fail("ZIP 素材包请上传至素材库，压缩文件最大 100 MiB");
     const id = randomUUID(),
       file = safePath(options.dataRoot, "uploads", id + ".part");
     await mkdir(path.dirname(file), { recursive: true });
@@ -1087,7 +1095,9 @@ export async function buildApp(options: AppOptions) {
           (x) => x.uri && !String(x.uri).startsWith("data:"),
         );
         if (deps.length)
-          throw fail("首版仅支持内嵌资源的 glTF；请打包成 GLB 后上传");
+          throw fail(
+            "含外部依赖的 glTF 请连同 BIN、贴图一起打包 ZIP 上传至素材库，或转换为 GLB",
+          );
       }
       if (ext === ".glb") {
         const f = await open(u.path, "r");
@@ -1106,7 +1116,7 @@ export async function buildApp(options: AppOptions) {
         mime,
         size: u.size,
         sha256,
-        kind: [".glb", ".gltf", ".obj", ".fbx", ".blend"].includes(ext)
+        kind: (MODEL_EXTENSIONS as readonly string[]).includes(ext)
           ? "model"
           : [".hdr", ".exr"].includes(ext)
             ? "texture"

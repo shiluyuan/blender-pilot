@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { SceneBridge } from "../packages/blender-bridge/scene.js";
+import { verifyAssetFormats } from "./asset-format-checks.js";
 
 const directory = path.resolve(
   process.env.PILOT_TEST_DATA || ".data/quality-native",
@@ -93,6 +94,8 @@ try {
     path.resolve("deploy/bootstrap.py"),
   ]);
   await waitPort(port);
+  if (process.env.PILOT_TEST_ASSET_FORMATS === "true")
+    await verifyAssetFormats(bridge, directory);
   await bridge.activate("quality-native");
   await bridge.upstream.python(`from mathutils import Quaternion
 bpy.ops.object.select_all(action='SELECT')

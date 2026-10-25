@@ -1,3 +1,4 @@
+import { LIBRARY_ACCEPT } from "../../packages/contracts/asset-formats";
 import { useEffect, useRef, useState } from "react";
 import {
   Box,
@@ -312,7 +313,9 @@ export function LibraryPanel({
                         {a.description ||
                           (a.source === "blender"
                             ? `${a.objectNames.length} 个对象 · Blender 集合`
-                            : "上传素材")}
+                            : a.package
+                              ? `ZIP 素材包 · ${a.package.files} 个文件 · ${a.package.entry}`
+                              : "上传素材")}
                       </p>
                       <small>
                         {bytes(a.size)}
@@ -643,12 +646,14 @@ export function LibraryPanel({
                 name="files"
                 multiple
                 required
-                accept=".blend,.glb,.gltf,.fbx,.obj,.png,.jpg,.jpeg,.webp,.exr,.hdr"
+                accept={LIBRARY_ACCEPT}
               />
             </label>
             <p className="muted">
-              推荐 GLB 或已打包贴图的 .blend。多文件素材包请先在 Blender
-              中整理并打包；当前不解压 ZIP，也不自动抓取外链依赖。
+              支持 Blender
+              工程、GLB/glTF、FBX、OBJ、STL、PLY、USD、Alembic。带贴图、MTL 或
+              BIN 的素材请整体上传 ZIP（100 MiB
+              内），保留相对目录；不会抓取外部地址。
             </p>
             <label>
               分类

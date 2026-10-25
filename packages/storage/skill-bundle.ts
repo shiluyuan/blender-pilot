@@ -120,9 +120,16 @@ export function skillCRC32(data: Buffer) {
 }
 
 /** Ordinary single-disk ZIP only. Preflight all lengths before bounded inflation. */
-export function readSkillZip(zip: Buffer): SkillFile[] {
-  if (!zip.length || zip.length > MAX_SKILL_UPLOAD_BYTES)
-    throw skillError("技能压缩包不能超过 10 MiB");
+export function readSkillZip(
+  zip: Buffer,
+  limits = {
+    upload: MAX_SKILL_UPLOAD_BYTES,
+    expanded: MAX_SKILL_EXPANDED_BYTES,
+    files: MAX_SKILL_FILES,
+  },
+): SkillFile[] {
+  if (!zip.length || zip.length > limits.upload)
+    throw skillError(`压缩包不能超过 ${limits.upload / 1024 ** 2} MiB`);
   let eocd = -1;
   for (let p = zip.length - 22; p >= Math.max(0, zip.length - 65557); p--) {
     if (
@@ -142,10 +149,12 @@ export function readSkillZip(zip: Buffer): SkillFile[] {
     zip.readUInt16LE(eocd + 6) ||
     zip.readUInt16LE(eocd + 8) !== count ||
     !count ||
-    count > MAX_SKILL_FILES ||
+    count > limits.files ||
     centralOffset + centralSize !== eocd
   )
-    throw skillError("压缩包结构不受支持，最多允许 500 个文件及目录");
+    throw skillError(
+      `压缩包结构不受支持，最多允许 ${limits.files} 个文件及目录`,
+    );
   const entries: Array<{
     name: string;
     start: number;
@@ -190,8 +199,8 @@ export function readSkillZip(zip: Buffer): SkillFile[] {
     if (directory && (expanded || compressed))
       throw skillError("无效 ZIP 目录条目");
     total += expanded;
-    if (total > MAX_SKILL_EXPANDED_BYTES || compressed > MAX_SKILL_UPLOAD_BYTES)
-      throw skillError("技能解压后不能超过 50 MiB");
+    if (total > limits.expanded || compressed > limits.upload)
+      throw skillError(`解压后不能超过 ${limits.expanded / 1024 ** 2} MiB`);
     if (offset + 30 > centralOffset || zip.readUInt32LE(offset) !== 0x04034b50)
       throw skillError("无效 ZIP 文件头");
     const localNameLength = zip.readUInt16LE(offset + 26),

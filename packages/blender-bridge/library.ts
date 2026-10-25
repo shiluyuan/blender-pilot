@@ -3,6 +3,7 @@ import { mkdir, copyFile, stat, rm, open } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { unpackAssetPackage } from "../storage/asset-package.js";
 import { existingSafePath, now, safePath } from "../contracts/fs.js";
 import { LibraryCatalog } from "../storage/library-catalog.js";
 import { idSchema } from "../contracts/index.js";
@@ -48,6 +49,7 @@ export type LibraryAsset = z.infer<typeof libraryMetadataSchema> & {
   sourceAssetIds?: string[];
   path: string;
   previewPath?: string;
+  package?: { entry: string; files: number; expandedBytes: number };
   mime: string;
   size: number;
   sha256: string;
@@ -98,6 +100,15 @@ export class AssetLibrary {
         { statusCode: 409 },
       );
     }
+  }
+  async importFile(id: string) {
+    const asset = await this.get(id);
+    await this.file(id);
+    if (!asset.package) return asset.path;
+    return existingSafePath(
+      path.join(this.root(id), "content"),
+      path.join(this.root(id), "content", asset.package.entry),
+    );
   }
   async list(
     query: {
@@ -155,6 +166,10 @@ export class AssetLibrary {
         "asset" + path.extname(source.file).toLowerCase(),
       );
       if (file !== source.file) await copyFile(source.file, file);
+      const unpacked =
+        path.extname(file).toLowerCase() === ".zip"
+          ? await unpackAssetPackage(file, path.join(dir, "content"))
+          : undefined;
       let previewPath: string | undefined;
       if (source.preview) {
         previewPath = path.join(dir, "preview.jpg");
@@ -170,6 +185,15 @@ export class AssetLibrary {
         sourceAssetIds: source.sourceAssetIds || [],
         path: file,
         previewPath,
+        ...(unpacked
+          ? {
+              package: {
+                entry: unpacked.entry,
+                files: unpacked.files,
+                expandedBytes: unpacked.expandedBytes,
+              },
+            }
+          : {}),
         mime: source.mime,
         size: (await stat(file)).size,
         sha256: hash.digest("hex"),

@@ -1,0 +1,54 @@
+{
+  "passed": true,
+  "time": "2026-10-24T23:58:36.736Z",
+  "scope": "skills-and-workflow-ui-real-api-persistence",
+  "environment": {
+    "api": "real Fastify",
+    "database": "explicit PostgreSQL WASM over TCP/pg; not native PostgreSQL",
+    "runner": "explicit local scene fixture; no Blender or inference",
+    "installer": "explicit browser protocol fixture; real upload/catalog/files, no public npx execution",
+    "browser": "Chromium/Playwright"
+  },
+  "checks": [
+    "首次空技能库展示上传与 npx 入口，不虚构预装技能",
+    "错误 SKILL.md 经真实后端拒绝，错误留在窗口且目录未出现假成功",
+    "SKILL.md 上传真实落盘并进入 PostgreSQL 目录，详情说明、内容版本和资源列表可见",
+    "项目选择持久化，刷新页面后恢复；安装和选用是两个明确步骤",
+    "同名技能冲突不会覆盖已安装内容或项目选择",
+    "ZIP 技能包连同参考资料和素材一起安装，详情可展开相对文件清单",
+    "切换项目时迟到的技能响应不能污染新项目，两个项目选择互不串联",
+    "停用立即清除项目选择，重新启用后需要明确重新选用",
+    "npx UI 只接受仓库参数；下载失败和重试显示正确，等待期间禁重复提交（安装器为明确夹具）",
+    "技能搜索和项目已选筛选保持目录与项目归属一致",
+    "目录故障保留可见内容并标记过期，禁止依赖过期状态的操作，恢复后重读",
+    "请求无响应时 15 秒内结束等待并显示超时，重试恢复后不会一直停留在加载状态",
+    "卸载需要明确确认，取消保留技能，完成后目录同步；清理失败警告回执不会被成功提示覆盖",
+    "VoiceStudio 共用配色下深浅主题和 1440/1280/1024 桌面布局均无横向溢出，安装窗口入口可达",
+    "对话通过实际事件协议显示准备、等待模型、Blender 操作、检查、保存五个阶段及本轮技能版本",
+    "结果卡显示真实 receipt 字段、前后本地图片、待确认问题、保存位置和未完成阶段；恢复取消不执行，确认只提交一次（场景为夹具）",
+    "取消前只有操作前截图时不伪造前后对比；普通单张截图只标为最新画面，视角标签由实际 phase 决定",
+    "技能管理全部场景无未捕获的浏览器异常"
+  ],
+  "screenshots": [
+    "01-skills-empty-dark.png",
+    "02-skills-upload-dark.png",
+    "skills-dark-1440.png",
+    "skills-dark-1280.png",
+    "skills-dark-1024.png",
+    "skills-light-1440.png",
+    "skills-light-1280.png",
+    "skills-light-1024.png",
+    "skills-install-light.png",
+    "workflow-summary-dark.png",
+    "workflow-summary-light.png"
+  ],
+  "uncaughtBrowserErrors": [],
+  "actualChineseHeadingFonts": [
+    {
+      "familyName": "Noto Sans CJK SC",
+      "postScriptName": "NotoSansCJKsc-Regular",
+      "isCustomFont": false,
+      "glyphCount": 3
+    }
+  ]
+}

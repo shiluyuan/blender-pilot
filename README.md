@@ -10,9 +10,9 @@
 
 **技能与质量闭环**：技能中心支持上传 `SKILL.md`／ZIP 和固定版本 npx 安装，按项目选用并接入 Codex 原生技能。复杂任务可记录阶段与恢复点；结果包含结构检查、多角度画面、对象变更和保存状态。详见 [技能中心](docs/skills.md) 与 [创作阶段和质量检查](docs/quality-workflow.md)。
 
-![真实 Blender 多项目工作区](docs/screenshots/workspaces-dark.png)
+当前截图统一采用 voicestudio.sh 官网的中性黑灰／暖白风格。Blender 原生窗口保留自身主题。以下实拍来自真实 Blender、MCP 和 Codex 进程；模型响应是本地协议夹具，不代表真实模型作品。
 
-上图来自真实双 Blender 的隔离与恢复验收，模型响应由受控协议夹具提供；真实模型测试单独记录，见 [上线前验收](docs/release-readiness.md)。
+![Blender 工作区](docs/screenshots/current/workbench-dark.png)
 
 ## 一条命令部署
 
@@ -34,9 +34,9 @@ sudo ./docker-up.sh --install-docker
 
 启动后自动验证 **PostgreSQL → 登录 → 启动 Blender → MCP 读取场景 → 截图下载 → 保存**，失败会以非零状态退出。首次进入会创建一个入门项目。默认打开 `http://服务器IP:8090`，使用终端打印的密码登录，在「模型设置」中填写接口和模型。
 
-**本轮通过 114 项 Node 检查、11 项部署脚本检查、81 组浏览器检查、13 类单 Blender 完整链路、12 组双 Blender 场景及 4 组原生质量检查。** 公开仓库的真实 npx 安装也已通过。完整记录和当前截图见 [技能与创作质量验收](docs/skills-quality-acceptance.md)。Codex 联合测试使用本地模型协议夹具；真实模型能力单独验收，不混计。
+**最新通过 116 项 Node 检查、11 项部署脚本检查，并重跑技能界面与原生 Blender 完整链路。** 12 种模型格式和两种带依赖 ZIP 素材包的实际 Blender 验收见 [素材与配色验收](docs/asset-formats-and-theme.md)。此前的双项目与完整浏览器报告保留为历史记录。 公开仓库的真实 npx 安装也已通过。完整记录和当前截图见 [技能与创作质量验收](docs/skills-quality-acceptance.md)。Codex 联合测试使用本地模型协议夹具；真实模型能力单独验收，不混计。
 
-本轮对照 VoiceStudio 的实际截图统一深浅主题、导航、输入区与主要页面，新增逐组件系统状态和检查时间。详见 [界面与系统状态验收](docs/interface-acceptance.md)。
+本次以 [voicestudio.sh](https://voicestudio.sh/) 当前官网的黑灰、暖白为准，移除此前误选的紫色背景和强调色；README 只展示当前版本截图。之前的界面验收记录作为历史保留。
 
 此前真实模型核心与模板子套件已通过；最终真实模型浏览器阶段因自动审批中断待补，没有计作通过。正式发布还需完成实际主机的 Docker / 原生 PostgreSQL 验收。
 
@@ -44,15 +44,19 @@ sudo ./docker-up.sh --install-docker
 
 ## 技能、模板与结果
 
+![素材库](docs/screenshots/current/library-dark.png)
+
+![模板中心](docs/screenshots/current/templates-dark.png)
+
 在「技能中心」上传 `SKILL.md`／ZIP，或输入公开 GitHub 仓库通过 npx 安装，再选择用于当前项目。每轮固定技能内容与版本，技能资源通过 MCP 读取。
 
-![技能中心](docs/screenshots/skills/skills-dark-1440.png)
+![技能中心](docs/screenshots/current/skills-dark.png)
 
-![参数化模板](docs/screenshots/templates-numeric-light-1024.png)
+![设置](docs/screenshots/current/settings.png)
 
-![结果摘要与恢复](docs/screenshots/skills/workflow-summary-dark.png)
+![控制台](docs/screenshots/current/console-dark.png)
 
-上面的结果卡为标注清楚的 UI 测试画面；实际 Blender 三视角图及原生验收见 [报告](docs/skills-quality-acceptance.md)。目标服务器可运行新的 [Docker／PostgreSQL 验收命令](docs/deployment-acceptance.md)。
+实际 Blender 三视角图及原生验收见 [报告](docs/skills-quality-acceptance.md)。目标服务器可运行新的 [Docker／PostgreSQL 验收命令](docs/deployment-acceptance.md)。
 
 ## 按参数配置
 
@@ -110,47 +114,15 @@ docker compose --env-file .env exec -T web node dist/server/apps/server/readines
 
 此命令使用独立临时登录，检查服务、数据库、执行端、模型配置和空间，保留已有模型配置、场景和其他登录。升级后旧 Cookie 需重新登录一次，已保存模型 Key 保留。
 
-## 实际界面
+## 当前界面
 
-以下均为真实运行截图。演示对象是验收用合成素材与公开 GLB 示例，不代表成品角色或场景质量。部分截图来自显式数据库协议测试环境。
+以下图片全部来自本轮构建，使用同一套中性黑灰／暖白配色，没有混用旧主题。原生 Blender 保留它自己的配色；合成验收素材不代表最终作品质量。
 
-**聊天侧栏：输入、文档引用、计划、工具与 Markdown 回复。以下两张是明确标注的协议验收界面，用于展示交互，不代表真实模型生成。**
+![浅色工作区](docs/screenshots/current/workbench-light.png)
 
-![聊天侧栏浅色](docs/screenshots/chat-light.png)
-![聊天侧栏深色](docs/screenshots/chat-dark.png)
+![素材库浅色](docs/screenshots/current/library-light.png)
 
-**历史真实模型验收：参考图与 Markdown 组件说明驱动的合成场景。以下截图保留升级前界面，用于记录当时的真实推理结果。**
-
-![历史真实模型与 Blender 聊天链路](docs/screenshots/chat-blender-live.png)
-![历史真实模型对话与场景修改](docs/screenshots/workbench-light.png)
-
-**共享素材库：分类、预览、多选引用、批量导入与外部素材上传。**
-
-![素材库深色界面](docs/screenshots/library-dark.png)
-
-**模板中心：内置配方、参数预览与绑定共享素材。界面素材条目标注为协议验收示例，截图不代表模型生成质量。**
-
-![模板中心浅色](docs/screenshots/templates-light.png)
-![自己的素材组合模板](docs/screenshots/templates-recipe.png)
-
-**浅色工作区：每个项目独立 Blender、对话、草稿与引用。**
-
-![浅色多项目工作区](docs/screenshots/workspaces-light.png)
-
-**控制台：检查时间、执行端、模型配置、PostgreSQL、本地存储与每个 Blender 实例。过期状态和组件故障单独提示。**
-
-![运行控制台](docs/screenshots/console.png)
-
-<details>
-<summary>更多截图：素材库浅色、资源、模型配置与快照</summary>
-
-![素材库浅色](docs/screenshots/library-light.png)
-![项目资源](docs/screenshots/assets.png)
-![模型设置](docs/screenshots/settings.png)
-![快照与恢复](docs/screenshots/snapshots.png)
-![模板中心深色](docs/screenshots/templates-dark.png)
-
-</details>
+![项目资源](docs/screenshots/current/assets.png)
 
 ## 创作与复用
 
@@ -165,7 +137,7 @@ docker compose --env-file .env exec -T web node dist/server/apps/server/readines
 
 不同项目拥有独立 Blender 进程和原生 Codex 会话，可以同时执行；同一项目内操作串行。关闭项目会先保存再释放内存，活动任务需先停止。内存紧张时把 `--max-studios` 设为 1；同时打开多个大场景需要相应增加内存。
 
-外部模型推荐 **含贴图 GLB** 或打包后的 `.blend`。支持来源、作者和许可记录，以及 Poly Haven、Blendkit、Fab 原站入口。多文件 ZIP 素材包需要先整理并打包；不会自动购买、抓取外链依赖或把参考图转换为高精度三维角色。
+外部模型推荐 **含贴图 GLB** 或打包后的 `.blend`。支持来源、作者和许可记录，以及 Poly Haven、Blendkit、Fab 原站入口。多文件 ZIP 素材包可直接入库并保留相对依赖；支持类型和限制见 [格式说明](docs/asset-formats-and-theme.md)；不会自动购买、抓取外链依赖或把参考图转换为高精度三维角色。
 
 ## 数据与架构
 

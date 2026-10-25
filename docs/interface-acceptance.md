@@ -1,5 +1,7 @@
 # 界面一致性与系统状态验收
 
+> 历史验收记录：本页截图来自之前的紫色主题，保留以便追溯。当前配色与截图以 [素材与配色验收](asset-formats-and-theme.md) 和 README 为准。
+
 验收日期：2026-10-24（北京时间）。本轮修复界面和状态显示，并重新检查主要操作流程。正式生产发布的 Docker / 原生 PostgreSQL 及最终真实模型浏览器验收缺口仍见 [上线前验收](release-readiness.md)。本轮没有向外部模型接口发送数据。
 
 ## 视觉依据
@@ -69,3 +71,4 @@ npm run verify:workspaces
 浏览器命令需要先执行 `npm run build`。测试数据库必须可丢弃；无法运行原生 PostgreSQL 的受限环境需显式使用 `PILOT_TEST_POSTGRES_MODE=wasm-wire`。该模式运行 PostgreSQL WASM，通过 TCP 和 pg 驱动验证 SQL/协议，不等同于原生 PostgreSQL 进程及 Docker 部署。
 
 原生测试依赖和参数见 [验收记录](validation.md)。测试证据使用新建目录，失败或中断尝试不记作通过；脚本不调用付费模型，也不修改正常部署实例。完整机器记录与当前通过数量见 [本轮汇总](validation/interface-summary-2026-10-24.json)。
+

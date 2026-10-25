@@ -1,6 +1,6 @@
+/* Reference: https://voicestudio.sh/, inspected 2026-10-25.
+   Neutral charcoal surfaces, warm white actions; no plum/purple canvas. */
 :root {
-  /* VoiceStudio README's Original-style plum canvas, with the current source's
-     brighter rose for readable links/focus. Actions retain the shown magenta. */
   font-family:
     "Inter",
     -apple-system,
@@ -9,28 +9,27 @@
     "PingFang SC",
     "Microsoft YaHei",
     "Noto Sans CJK SC",
-    "Noto Sans SC",
     sans-serif;
   color-scheme: dark;
-  --bg: #211a25;
-  --chrome: #1a131c;
-  --panel: #281f2c;
-  --raised: #302637;
-  --input: #211a25;
-  --hover: #382c40;
-  --line: #483b50;
-  --soft-line: #352a3c;
-  --text: #f1eaf4;
-  --muted: #c6b8ce;
-  --faint: #ac9bb5;
-  --accent: #f09bb8;
-  --accent-ink: #291d29;
-  --accent-soft: #403049;
-  --action: #a3004c;
-  --action-ink: #fbd0e8;
-  --success: #5dd6a5;
-  --warning: #edc277;
-  --error: #ffaaa9;
+  --bg: #101112;
+  --chrome: #0c0d0e;
+  --panel: #171819;
+  --raised: #202122;
+  --input: #0c0d0e;
+  --hover: #292a2b;
+  --line: #353638;
+  --soft-line: #27282a;
+  --text: #eeede8;
+  --muted: #b4b3ac;
+  --faint: #9c9b94;
+  --accent: #e7e5dc;
+  --accent-ink: #151515;
+  --accent-soft: #2c2d2e;
+  --action: #eeece5;
+  --action-ink: #151515;
+  --success: #76c5a1;
+  --warning: #dfbb78;
+  --error: #f2a09b;
   --shadow: 0 20px 80px #0005;
   color: var(--text);
   background: var(--bg);
@@ -40,28 +39,27 @@
   line-height: 1.5;
 }
 :root[data-theme="light"] {
-  /* Complementary light palette from VoiceStudio Classic/heritage source. */
   color-scheme: light;
-  --bg: #faf6fc;
-  --chrome: #eee5f2;
-  --panel: #fffbff;
+  --bg: #f7f7f4;
+  --chrome: #efefec;
+  --panel: #ffffff;
   --raised: #ffffff;
-  --input: #fffbff;
-  --hover: #eadff0;
-  --line: #d9cddd;
-  --soft-line: #e7dfea;
-  --text: #392c42;
-  --muted: #725d7b;
-  --faint: #725d7b;
-  --accent: #8f3f71;
+  --input: #ffffff;
+  --hover: #e7e7e2;
+  --line: #d2d2cb;
+  --soft-line: #e6e6df;
+  --text: #202120;
+  --muted: #62635e;
+  --faint: #676862;
+  --accent: #292a28;
   --accent-ink: #ffffff;
-  --accent-soft: #eadff0;
-  --action: #8f3f71;
+  --accent-soft: #e5e5df;
+  --action: #222321;
   --action-ink: #ffffff;
   --success: #11724d;
-  --warning: #935b12;
+  --warning: #895a14;
   --error: #a02c36;
-  --shadow: 0 20px 80px #392c4220;
+  --shadow: 0 20px 80px #20212020;
 }
 * {
   box-sizing: border-box;

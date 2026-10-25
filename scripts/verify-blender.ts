@@ -13,6 +13,7 @@ import { SceneBridge } from "../packages/blender-bridge/scene.js";
 import { responsesFixture } from "../tests/fixtures/responses.js";
 import { modelSettingsSchema } from "../packages/contracts/index.js";
 import { verifyLibrary } from "./library-checks.js";
+import { verifyAssetFormats } from "./asset-format-checks.js";
 import { verifyRealModel } from "./real-model-checks.js";
 import { verifyTemplateRealModel } from "./template-model-checks.js";
 const configPath = process.env.PILOT_MODEL_CONFIG_FILE;
@@ -150,6 +151,8 @@ try {
   console.log("Starting MCP client");
   bridge = new SceneBridge(dir);
   await bridge.init();
+  if (process.env.PILOT_TEST_ASSET_FORMATS === "true")
+    await verifyAssetFormats(bridge, dir);
   await bridge.serial(() => bridge!.activate("native-smoke"));
   const before = await bridge.info();
   assert(before.objects.length >= 3);

@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "scope": "actual Blender roundtrips and ZIP library import, no model",
+  "checks": [
+    "blend export/import roundtrip",
+    "glb export/import roundtrip",
+    "gltf export/import roundtrip",
+    "fbx export/import roundtrip",
+    "obj export/import roundtrip",
+    "stl export/import roundtrip",
+    "ply export/import roundtrip",
+    "usd export/import roundtrip",
+    "usda export/import roundtrip",
+    "usdc export/import roundtrip",
+    "usdz export/import roundtrip",
+    "abc export/import roundtrip",
+    "gltf-package.zip library publish/import preserves relative resources",
+    "obj-package.zip library publish/import preserves relative resources"
+  ]
+}

@@ -8,17 +8,11 @@
 
 ## VoiceStudio 参考依据
 
-本轮对照 [VoiceStudio](https://github.com/debpalash/VoiceStudio) commit [`80a01e5`](https://github.com/debpalash/VoiceStudio/tree/80a01e595b5ae060e47fdeaa128d21f3a38de0df) 的真实 README 界面截图与 Electron 源码，重点查看：
+当前以用户指定的 [voicestudio.sh](https://voicestudio.sh/) 为参考，已查看实际官网与其产品界面图片。使用中性黑灰底色、细边框、暖白文字与主操作；浅色模式配套灰白，移除此前误选的紫色主题。
 
-- 当前 README 的 `voice-cloning.png` 截图：紫黑主画布、深色侧栏、玫红主要操作、底部圆角输入区。
-- `electron/src/renderer/src/styles/globals.css`：14px 界面正文、13px 标签、12px 辅助信息、52px 标题栏。
-- `electron/src/renderer/src/styles/t3-palettes.ts`：Original / `signal` 主题的紫色表面层次。
-- `electron/src/renderer/src/styles/tauri-palette.ts`：Classic / `heritage` 的配套浅色主题。
-- 工作区 `workspace-sidebar.tsx`、`top-bar.tsx`、`app-shell.tsx` 与 `status-bar.tsx`：可收起导航、细分隔线、分区标题和独立状态区。
+主画布 `#101112`、侧栏 `#0c0d0e`、面板 `#171819`，主操作 `#eeece5`；绿色、琥珀色、红色分别表示正常、待处理与异常。项目、素材、模板、对话、技能、设置和控制台共用这些变量。
 
-Blender Pilot 的深色视觉以该 README 截图为目标：主画布约 `#211a25`、侧栏 `#1a131c`、主要按钮 `#a3004c`。链接和键盘焦点采用当前源码较亮的玫瑰色 `#f09bb8`，保证深色背景上可读；绿色、琥珀色和红色分别表示正常、待处理和异常，不与品牌主色混用。浅色采用 Classic 源码的浅紫表面与 `#8f3f71` 操作色。项目、素材、模板、对话、设置和控制台共用这些 CSS 变量。
-
-这是一套针对 Blender 工作台的实现，不是 VoiceStudio 的完整克隆。参考项目支持多套主题，当前默认的中性蓝色主题、Original 当前源码的浅玫瑰按钮与 README 截图的深玫红按钮也存在差异；这里明确选择截图的可见风格，不把截图当成默认主题或宣称逐像素一致。保留 Blender Pilot 的中央原生 Blender、右侧可收起助手与项目标签：左栏 255px / 收起 48px，顶栏 52px，项目标签 38px，小屏自适应收缩。Blender 原生画面保持自身主题。
+保留 Blender 工作台的中央原生 Blender、右侧可收起助手与项目标签。左栏 255px／收起 48px，顶栏 52px，小屏自适应收缩；Blender 原生窗口保持自身主题。当前截图统一位于 `screenshots/current/`，详见 [本轮验收](asset-formats-and-theme.md)。这不是复制 VoiceStudio 的语音功能或宣称所有布局逐像素相同。
 
 ## 并发边界
 

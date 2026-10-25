@@ -400,6 +400,13 @@ export class SceneBridge {
       ".gltf": `bpy.ops.import_scene.gltf(filepath=${f})`,
       ".fbx": `bpy.ops.import_scene.fbx(filepath=${f})`,
       ".obj": `bpy.ops.wm.obj_import(filepath=${f})`,
+      ".stl": `bpy.ops.wm.stl_import(filepath=${f})`,
+      ".ply": `bpy.ops.wm.ply_import(filepath=${f})`,
+      ".usd": `bpy.ops.wm.usd_import(filepath=${f})`,
+      ".usda": `bpy.ops.wm.usd_import(filepath=${f})`,
+      ".usdc": `bpy.ops.wm.usd_import(filepath=${f})`,
+      ".usdz": `bpy.ops.wm.usd_import(filepath=${f})`,
+      ".abc": `bpy.ops.wm.alembic_import(filepath=${f})`,
     };
     if (commands[ext])
       return this.upstream.python(
@@ -477,7 +484,7 @@ finally:
   async importLibraryAsset(id: string) {
     const library = new AssetLibrary(this.dataRoot),
       asset = await library.get(id);
-    const file = await library.file(id);
+    const file = await library.importFile(id);
     const before = new Set((await this.info()).objects.map((o) => o.name));
     if (asset.source !== "blender") {
       await this.import(file);
