@@ -643,6 +643,7 @@ try {
           .click();
       for (const [name, slug, visible] of [
         ["工作台", "studio", ".composer textarea"],
+        ["项目", "projects", ".projects-page"],
         ["素材库", "library", ".library-page"],
         ["模板中心", "templates", ".templates-page"],
         ["运行控制台", "console", "[data-testid=system-health-summary]"],
@@ -656,7 +657,24 @@ try {
             .waitFor();
         if (slug === "templates")
           await page.locator(".template-card").first().waitFor();
+        await page.evaluate(() => document.fonts.ready);
+        if (slug === "settings") {
+          await wait(
+            async () =>
+              !!(await page.locator('input[type="url"]').inputValue()),
+            "settings loaded for screenshot",
+          );
+        }
         await capture(`08-${slug}-${theme}.png`);
+        if (slug === "projects") {
+          await page
+            .getByRole("button", { name: "重命名", exact: true })
+            .first()
+            .click();
+          await page.getByRole("dialog").waitFor();
+          await capture(`08-project-rename-${theme}.png`);
+          await page.getByRole("button", { name: "取消", exact: true }).click();
+        }
         const overflow = await page.evaluate(() => ({
           document:
             document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -670,7 +688,7 @@ try {
       }
     }
     pass(
-      "工作台、素材库、模板中心、控制台、设置五个页面深浅主题均可显示且无整页横向溢出",
+      "工作台、项目、素材库、模板中心、控制台、设置六个页面深浅主题均可显示且无整页横向溢出",
     );
 
     await nav("工作台");

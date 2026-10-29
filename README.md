@@ -13,7 +13,10 @@
 
 [Quick start](#quick-start) · [Screenshots](#screenshots) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
 
-![Blender Pilot workbench with Blender viewport and conversation sidebar](docs/screenshots/current/workbench-light.png)
+<img src="docs/screenshots/latest/chat-light.webp" width="360" alt="Light assistant: document references, plan and tool activity" />
+<img src="docs/screenshots/latest/chat-dark.webp" width="360" alt="Dark assistant with current sidebar typography" />
+
+<sub>Current UI captured 2026-10-29 · neutral light/dark themes · fixture data, not live model output</sub>
 
 </div>
 
@@ -83,40 +86,86 @@ Open **http://SERVER_IP:8090**. The script prints the login credentials. See [de
 
 ### Platform support
 
-| Environment | Deployment | Blender display | Validation status |
-| --- | --- | --- | --- |
-| Linux x86-64 server | Docker or native | Embedded browser desktop | Existing native Blender integration coverage; Docker target-host acceptance remains required |
-| Linux laptop, X11/XWayland | Native | Local windows or embedded desktop | New launcher and lifecycle regression coverage |
-| macOS Intel / Apple Silicon | Native, installed matching Blender | Local windows + browser screenshots | Implemented; physical Mac acceptance pending |
-| Windows | WSL2 Linux environment | Embedded desktop; WSLg windows where available | Physical Windows acceptance pending; native Windows launcher not provided |
+| Environment                 | Deployment                         | Blender display                                | Validation status                                                                            |
+| --------------------------- | ---------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Linux x86-64 server         | Docker or native                   | Embedded browser desktop                       | Existing native Blender integration coverage; Docker target-host acceptance remains required |
+| Linux laptop, X11/XWayland  | Native                             | Local windows or embedded desktop              | New launcher and lifecycle regression coverage                                               |
+| macOS Intel / Apple Silicon | Native, installed matching Blender | Local windows + browser screenshots            | Implemented; physical Mac acceptance pending                                                 |
+| Windows                     | WSL2 Linux environment             | Embedded desktop; WSLg windows where available | Physical Windows acceptance pending; native Windows launcher not provided                    |
 
 ## Asset library
 
-| Content | Accepted formats |
-| --- | --- |
-| Blender projects / components | `.blend` |
-| Portable models | `.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.ply` |
-| Scene interchange | `.usd`, `.usda`, `.usdc`, `.usdz`, `.abc` |
-| References / textures / lighting | `.png`, `.jpg`, `.jpeg`, `.webp`, `.exr`, `.hdr` |
-| Models with local dependencies | `.zip` with models, textures, buffers, and optional `pilot-asset.json` |
+| Content                          | Accepted formats                                                       |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| Blender projects / components    | `.blend`                                                               |
+| Portable models                  | `.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.ply`                        |
+| Scene interchange                | `.usd`, `.usda`, `.usdc`, `.usdz`, `.abc`                              |
+| References / textures / lighting | `.png`, `.jpg`, `.jpeg`, `.webp`, `.exr`, `.hdr`                       |
+| Models with local dependencies   | `.zip` with models, textures, buffers, and optional `pilot-asset.json` |
 
 Importing a `.blend` library asset appends objects to the current scene. ZIP uploads preserve relative dependencies (up to 100 MiB compressed / 512 MiB expanded). Format support does not imply perfect material, rig, or animation conversion. [Format details and limitations →](docs/asset-formats-and-theme.md)
 
 ## Screenshots
 
-These are captured application screens, not design mockups. They show the neutral light/dark theme; the gallery comes from the recorded pre-release acceptance build and does not depict the new rename/native-window controls.
+**All 16 captures were refreshed on 2026-10-29 from the current frontend**, including the sidebar typography, resizing and project rename updates. These are running application screens, without compositing or painted UI. Assets, tasks and runner responses use explicit test fixtures. The conversation panels are shown above; browse the rest by feature below. Open any image at its original size.
 
-| Shared asset library | Templates |
-| --- | --- |
-| ![Reusable asset library](docs/screenshots/current/library-light.png) | ![Scene templates](docs/screenshots/current/templates-dark.png) |
+[Capture revision, provenance and reproduction](docs/screenshots/latest/README.md) · [Machine-readable manifest](docs/screenshots/latest/manifest.json)
+
+### Assets and templates
+
+Organize reusable assets, reference them across projects and configure creation recipes.
+
+| Shared library · light                                                                     | Templates · light                                                                                       |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| ![Shared asset categories and import controls](docs/screenshots/latest/library-light.webp) | ![Template parameters, asset references and task preview](docs/screenshots/latest/templates-light.webp) |
 
 <details>
-<summary>More screens: dark workbench, skills, settings, and execution console</summary>
+<summary>View the dark asset library and templates</summary>
 
-![Dark workbench](docs/screenshots/current/workbench-dark.png)
-![Skills](docs/screenshots/current/skills-dark.png)
-![Model settings](docs/screenshots/current/settings.png)
-![Execution console](docs/screenshots/current/console-dark.png)
+![Dark asset library](docs/screenshots/latest/library-dark.webp)
+![Dark template center](docs/screenshots/latest/templates-dark.webp)
+
+</details>
+
+### Project management
+
+Each project keeps its own scene and conversations. Open and rename projects directly from the list.
+
+| Multiple projects                                                                         | Rename a project                                                                   |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| ![Project list and multi-project navigation](docs/screenshots/latest/projects-light.webp) | ![Actual project rename dialog](docs/screenshots/latest/project-rename-light.webp) |
+
+### Skills
+
+Inspect installed skills, select them per project and access upload or npx installation.
+
+![Skill details, project selection and installation controls](docs/screenshots/latest/skills-light.webp)
+
+<details>
+<summary>View dark skills and the npx installation form</summary>
+
+![Dark skills center](docs/screenshots/latest/skills-dark.webp)
+![npx installation form; no public package installed for this capture](docs/screenshots/latest/skills-install-light.webp)
+
+</details>
+
+### Model configuration and system health
+
+| Custom URL, key and model                                                                    | Execution, storage and service health                                                           |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| ![Model configuration without real credentials](docs/screenshots/latest/settings-light.webp) | ![System health console with a local runner fixture](docs/screenshots/latest/console-dark.webp) |
+
+<details>
+<summary>View both full workbench themes and the 375px narrow sidebar</summary>
+
+A real Blender process was not started for this screenshot run, so the workbench accurately shows a disconnected viewport. These captures demonstrate the current layout, not scene-generation acceptance.
+
+![Current light workbench with disconnected Blender viewport](docs/screenshots/latest/workbench-light.webp)
+![Current dark workbench with disconnected Blender viewport](docs/screenshots/latest/workbench-dark.webp)
+
+Assistant at a 375 × 667 window: long filenames truncate, code and tables scroll locally, and the send control stays visible.
+
+<img src="docs/screenshots/latest/chat-narrow.webp" width="327" alt="Narrow assistant with a document reference and visible send control" />
 
 </details>
 
@@ -124,12 +173,12 @@ These are captured application screens, not design mockups. They show the neutra
 
 The React workbench talks to a Fastify API. A separate runner manages project-specific Blender processes and Codex app-server sessions. The MCP adapter connects the agent to Blender; PostgreSQL stores metadata, while scenes, assets, and captures remain on the local filesystem.
 
-| Layer | Technology |
-| --- | --- |
-| UI | React, TypeScript, Vite, noVNC |
-| API / execution | Fastify, Codex app-server, MCP |
-| 3D runtime | Existing native Blender or isolated Docker Blender |
-| Storage | PostgreSQL metadata + local files |
+| Layer           | Technology                                         |
+| --------------- | -------------------------------------------------- |
+| UI              | React, TypeScript, Vite, noVNC                     |
+| API / execution | Fastify, Codex app-server, MCP                     |
+| 3D runtime      | Existing native Blender or isolated Docker Blender |
+| Storage         | PostgreSQL metadata + local files                  |
 
 The project wraps existing agent and Blender integrations rather than implementing a new agent core. [Architecture →](docs/architecture.md)
 

@@ -379,6 +379,10 @@ try {
   }
   await cdp.detach();
   pass("Chromium 实际平台字体为 sans，中文有真实字形且无 Times/serif 回退");
+  // Keep the first user turn visible in the documentation captures.
+  await page.locator(".chat-timeline").evaluate((node) => {
+    node.scrollTop = 0;
+  });
   await page.screenshot({ path: path.join(output, "chat-workbench.png") });
   await page
     .locator(".chat-panel")

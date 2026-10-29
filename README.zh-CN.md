@@ -12,7 +12,10 @@
 
 [快速开始](#快速开始) · [界面展示](#界面展示) · [文档](#文档) · [参与贡献](CONTRIBUTING.md)
 
-![Blender 工作台：中央场景与右侧对话](docs/screenshots/current/workbench-light.png)
+<img src="docs/screenshots/latest/chat-light.webp" width="360" alt="浅色创作助手：文档引用、计划和工具记录" />
+<img src="docs/screenshots/latest/chat-dark.webp" width="360" alt="深色创作助手：最新侧栏排版" />
+
+<sub>2026-10-29 最新界面实拍 · 中性深浅主题 · 演示数据，非真实模型生成结果</sub>
 
 </div>
 
@@ -80,12 +83,12 @@ sudo ./docker-up.sh --install-docker
 
 ### 平台与显示方式
 
-| 环境 | 运行方式 | 画面 | 验证范围 |
-| --- | --- | --- | --- |
-| Linux x86-64 服务器 | Docker / 原生 | 网页内嵌桌面 | 已有真实 Linux Blender 测试；目标机器 Docker 验收仍需执行 |
-| Linux 笔记本 | 原生 | 本机窗口 / 内嵌桌面 | 新增启动器与实例生命周期回归 |
-| macOS Intel / Apple Silicon | 原生，使用对应架构 Blender | 本机窗口 + 网页截图 | 已实现，尚未进行实体 Mac 验收 |
-| Windows | WSL2 Linux 环境 | 内嵌桌面；具备 WSLg 时可本机窗口 | 尚未实体机验收；没有 Windows 原生启动器 |
+| 环境                        | 运行方式                   | 画面                             | 验证范围                                                  |
+| --------------------------- | -------------------------- | -------------------------------- | --------------------------------------------------------- |
+| Linux x86-64 服务器         | Docker / 原生              | 网页内嵌桌面                     | 已有真实 Linux Blender 测试；目标机器 Docker 验收仍需执行 |
+| Linux 笔记本                | 原生                       | 本机窗口 / 内嵌桌面              | 新增启动器与实例生命周期回归                              |
+| macOS Intel / Apple Silicon | 原生，使用对应架构 Blender | 本机窗口 + 网页截图              | 已实现，尚未进行实体 Mac 验收                             |
+| Windows                     | WSL2 Linux 环境            | 内嵌桌面；具备 WSLg 时可本机窗口 | 尚未实体机验收；没有 Windows 原生启动器                   |
 
 ## 素材库
 
@@ -95,19 +98,65 @@ ZIP 上限为压缩 100 MiB / 解压 512 MiB；`.blend` 素材以追加对象方
 
 ## 界面展示
 
-下列均为应用实际截图，采用中性黑灰与暖白配色。图库来自已有预发布验收构建，不展示本次新增的重命名与本机窗口控件。
+**本组 16 张截图已于 2026-10-29 按最新前端重新采集**，包含侧栏字号、宽度调整及项目重命名更新。均来自运行中的应用，未拼接或绘制界面；素材、任务和执行器使用明确的验收数据。上方展示完整对话侧栏，下方按功能浏览，点击图片可查看原始尺寸。
 
-| 素材库 | 模板中心 |
-| --- | --- |
-| ![素材库](docs/screenshots/current/library-light.png) | ![模板中心](docs/screenshots/current/templates-dark.png) |
+[截图版本、来源与复现步骤](docs/screenshots/latest/README.md) · [机器可读清单](docs/screenshots/latest/manifest.json)
+
+### 素材与模板
+
+共享素材分类管理、跨项目引用，以及可配置的场景创作模板。
+
+| 素材库 · 浅色                                                             | 模板中心 · 浅色                                                               |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| ![共享素材库、分类与导入入口](docs/screenshots/latest/library-light.webp) | ![模板参数、素材引用与任务预览](docs/screenshots/latest/templates-light.webp) |
 
 <details>
-<summary>更多截图：深色工作台、技能、模型设置与控制台</summary>
+<summary>查看深色素材库与模板中心</summary>
 
-![深色工作台](docs/screenshots/current/workbench-dark.png)
-![技能中心](docs/screenshots/current/skills-dark.png)
-![模型配置](docs/screenshots/current/settings.png)
-![执行控制台](docs/screenshots/current/console-dark.png)
+![深色素材库](docs/screenshots/latest/library-dark.webp)
+![深色模板中心](docs/screenshots/latest/templates-dark.webp)
+
+</details>
+
+### 项目管理
+
+每个项目独立保存场景与对话；列表中可以打开项目、修改名称。
+
+| 多项目列表                                                           | 项目重命名                                                                   |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| ![项目列表与多项目导航](docs/screenshots/latest/projects-light.webp) | ![修改项目名称的实际弹窗](docs/screenshots/latest/project-rename-light.webp) |
+
+### 技能中心
+
+查看已安装技能、为项目选择技能，通过上传或 npx 安装入口扩展创作方法。
+
+![技能详情、项目选择与安装入口](docs/screenshots/latest/skills-light.webp)
+
+<details>
+<summary>查看深色技能中心与 npx 安装配置</summary>
+
+![深色技能中心](docs/screenshots/latest/skills-dark.webp)
+![npx 安装表单，截图未执行公共包安装](docs/screenshots/latest/skills-install-light.webp)
+
+</details>
+
+### 模型配置与系统状态
+
+| 自定义 URL、Key 与模型                                                   | 执行环境、存储与服务状态                                                           |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| ![模型设置，不展示真实密钥](docs/screenshots/latest/settings-light.webp) | ![系统状态控制台，执行器为本地验收夹具](docs/screenshots/latest/console-dark.webp) |
+
+<details>
+<summary>查看完整工作台深浅主题与 375px 窄屏侧栏</summary>
+
+本次截图环境未启动真实 Blender，因此工作台如实显示视口未连接；这里展示最新界面布局，不代表场景生成验收。
+
+![最新浅色工作台，未连接真实 Blender](docs/screenshots/latest/workbench-light.webp)
+![最新深色工作台，未连接真实 Blender](docs/screenshots/latest/workbench-dark.webp)
+
+375 × 667 窗口中的助手：长文件名可截断，代码和表格在各自区域滚动，发送入口保持可见。
+
+<img src="docs/screenshots/latest/chat-narrow.webp" width="327" alt="窄屏侧栏、文档附件与发送按钮" />
 
 </details>
 
