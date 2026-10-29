@@ -1,13 +1,13 @@
 {
-  "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8",
-  "packagedAt": "2026-10-29T06:59:02.000Z",
+  "applicationRevision": "bb00ea4cf7466da7b3063fe0227b566939e53711",
+  "packagedAt": "2026-10-29T07:47:14.808Z",
   "format": "Lossless WebP; original browser capture dimensions; no compositing",
   "scope": "Current application UI with explicit local fixtures; no live model or Blender runtime",
   "reports": [
     {
       "file": ".data/chat-acceptance/result.json",
-      "time": "2026-10-29T06:57:22.886Z",
-      "checks": 19,
+      "time": "2026-10-29T07:44:09.224Z",
+      "checks": 22,
       "environment": {
         "api": "real Fastify",
         "database": "PostgreSQL WASM over real TCP protocol/pg driver (not native PostgreSQL)",
@@ -45,24 +45,27 @@
       "source": ".data/chat-acceptance/chat-dark.png",
       "width": 600,
       "height": 885,
-      "bytes": 39318,
-      "sha256": "952acd3c61efa703ce0b8cbfcfb303214e84ed11f968fa8fe5fbefeb0fa8fa00"
+      "bytes": 37810,
+      "sha256": "8af9e266a4959120fe8046d6f2ae0906908fc37288ec391608fa1f4e886bf155",
+      "applicationRevision": "bb00ea4cf7466da7b3063fe0227b566939e53711"
     },
     {
       "file": "chat-light.webp",
       "source": ".data/chat-acceptance/chat-light.png",
       "width": 600,
       "height": 885,
-      "bytes": 38708,
-      "sha256": "a3f780500da4c5e28b4f02b819b6c118aedd6a25f3b184072fea6005c388dd27"
+      "bytes": 36758,
+      "sha256": "060506718f66b9348c0272af5f342b7072cf53817a5ed7009b9bae745f345d64",
+      "applicationRevision": "bb00ea4cf7466da7b3063fe0227b566939e53711"
     },
     {
       "file": "chat-narrow.webp",
       "source": ".data/chat-acceptance/chat-responsive-375.png",
       "width": 327,
       "height": 552,
-      "bytes": 19772,
-      "sha256": "cc01f95c3decc4453614f24ba4f695a4fe73fea88e8ac58e1b10c6377f3a3f63"
+      "bytes": 21500,
+      "sha256": "436381e5efaa219e04ebf15fad9c45abcf2fce9858cb01255915e43f562df85f",
+      "applicationRevision": "bb00ea4cf7466da7b3063fe0227b566939e53711"
     },
     {
       "file": "library-light.webp",
@@ -70,7 +73,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 67428,
-      "sha256": "ba1ece1f82fbbe53ae69727622ac39d5fc68c861993caefa08b3c4c0e2b3198e"
+      "sha256": "ba1ece1f82fbbe53ae69727622ac39d5fc68c861993caefa08b3c4c0e2b3198e",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "library-dark.webp",
@@ -78,7 +82,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 71986,
-      "sha256": "dd9ff2f222b7a3386d5942a0c892b4a0e8c2b1743a7b6b443d5c0d550b5d36b1"
+      "sha256": "dd9ff2f222b7a3386d5942a0c892b4a0e8c2b1743a7b6b443d5c0d550b5d36b1",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "templates-light.webp",
@@ -86,7 +91,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 105230,
-      "sha256": "681dd01786ba7a2453475303bb7d7bb75a63ab48bf8a249cdae40dfb8fac71eb"
+      "sha256": "681dd01786ba7a2453475303bb7d7bb75a63ab48bf8a249cdae40dfb8fac71eb",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "templates-dark.webp",
@@ -94,7 +100,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 116394,
-      "sha256": "cae834446206364407abcb73f09b6f98595433d01ed0e8c3558a2e43e1bd01d4"
+      "sha256": "cae834446206364407abcb73f09b6f98595433d01ed0e8c3558a2e43e1bd01d4",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "projects-light.webp",
@@ -102,7 +109,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 40114,
-      "sha256": "7023a58de1c855dda2dff67936fa3257b7e17c3d99ee89412f759e89d0cbb89c"
+      "sha256": "7023a58de1c855dda2dff67936fa3257b7e17c3d99ee89412f759e89d0cbb89c",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "project-rename-light.webp",
@@ -110,7 +118,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 59364,
-      "sha256": "bc7ea2c0e1a84939051e49412647cda59fab67d3f25385b2b30dcf3d5853f4f9"
+      "sha256": "bc7ea2c0e1a84939051e49412647cda59fab67d3f25385b2b30dcf3d5853f4f9",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "settings-light.webp",
@@ -118,7 +127,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 72916,
-      "sha256": "26e4f9ab727051a58be146d0b7c5a3b3f0d4d8d9bdfe3afa5b55f326a7a22087"
+      "sha256": "26e4f9ab727051a58be146d0b7c5a3b3f0d4d8d9bdfe3afa5b55f326a7a22087",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "console-dark.webp",
@@ -126,7 +136,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 67636,
-      "sha256": "46ba9bb4a63527af8938df11973dd04b05fcd70f2ed6ae6b7968b2f3e72f5190"
+      "sha256": "46ba9bb4a63527af8938df11973dd04b05fcd70f2ed6ae6b7968b2f3e72f5190",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "workbench-light.webp",
@@ -134,7 +145,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 70584,
-      "sha256": "282ccdaee1bd5c09aaf6f5966fecf95d47944a14fb9d9492dc4c43c5125740c2"
+      "sha256": "282ccdaee1bd5c09aaf6f5966fecf95d47944a14fb9d9492dc4c43c5125740c2",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "workbench-dark.webp",
@@ -142,7 +154,8 @@
       "width": 1440,
       "height": 1000,
       "bytes": 75354,
-      "sha256": "8d4829d234e3947b92f2c4bfa4adfa3b35d6669b018117de069aec2008bc0781"
+      "sha256": "8d4829d234e3947b92f2c4bfa4adfa3b35d6669b018117de069aec2008bc0781",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "skills-light.webp",
@@ -150,7 +163,8 @@
       "width": 1440,
       "height": 960,
       "bytes": 80202,
-      "sha256": "dc52f4361302e8d87e5d87a0ae35d1600885d7e28da9371d416824a4f93ce163"
+      "sha256": "dc52f4361302e8d87e5d87a0ae35d1600885d7e28da9371d416824a4f93ce163",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "skills-dark.webp",
@@ -158,7 +172,8 @@
       "width": 1440,
       "height": 960,
       "bytes": 85656,
-      "sha256": "1878e2d70d52a59a58d77e11b998d96edc1beaeb3f188d6793052623750aaa96"
+      "sha256": "1878e2d70d52a59a58d77e11b998d96edc1beaeb3f188d6793052623750aaa96",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     },
     {
       "file": "skills-install-light.webp",
@@ -166,7 +181,9 @@
       "width": 1440,
       "height": 960,
       "bytes": 100178,
-      "sha256": "87bcf36d3d3dbe01e72e063fe07dd180b6f2aba1ba9154743f40e2116661156a"
+      "sha256": "87bcf36d3d3dbe01e72e063fe07dd180b6f2aba1ba9154743f40e2116661156a",
+      "applicationRevision": "44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8"
     }
-  ]
+  ],
+  "revisionPolicy": "Per-image applicationRevision identifies the source of every capture; the top-level revision is the newest UI revision in this mixed gallery."
 }
