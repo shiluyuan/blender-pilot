@@ -97,7 +97,7 @@ ZIP 上限为压缩 100 MiB / 解压 512 MiB；`.blend` 素材以追加对象方
 
 ## 界面展示
 
-以下全部截图于 **2026-10-29** 基于[同一版紧凑对话界面](https://github.com/shiluyuan/blender-pilot/commit/c600b5d2125546aa1abbad43c764c8da4bd3ef3b)重新拍摄。主图为 **真实 Blender 4.0.2＋当前默认 400px 右侧助手**，已运行原生 Codex/MCP/Blender 链路；模型回复使用本地协议测试数据，不宣称真实模型推理。其他界面细节使用明确的本地演示数据。[真实工作台截图来源](docs/screenshots/workbench/README.md) · [排版与验收记录](docs/compact-conversation-review.md)。
+以下全部截图于 **2026-10-29** 基于[同一版回复优先的对话界面](https://github.com/shiluyuan/blender-pilot/commit/9b4f57598d0d7d036c1559666ee55da2314d9076)重新拍摄。主图为 **真实 Blender 4.0.2＋当前默认 400px 右侧助手**，已运行原生 Codex/MCP/Blender 链路；模型回复使用本地协议测试数据，不宣称真实模型推理。其他界面细节使用明确的本地演示数据。[真实工作台截图来源](docs/screenshots/workbench/README.md) · [排版与验收记录](docs/reply-first-conversation.md)。
 
 ### Blender + AI 创作助手
 

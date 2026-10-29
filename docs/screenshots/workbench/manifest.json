@@ -1,30 +1,30 @@
 {
-  "applicationRevision": "c600b5d2125546aa1abbad43c764c8da4bd3ef3b",
-  "packagedAt": "2026-10-29T08:56:33.410Z",
-  "capturedAt": "2026-10-29T08:52:04.613Z",
+  "applicationRevision": "9b4f57598d0d7d036c1559666ee55da2314d9076",
+  "packagedAt": "2026-10-29T09:40:11.058Z",
+  "capturedAt": "2026-10-29T09:38:50.099Z",
   "scope": "Actual Blender desktop over authenticated VNC in the production web UI; original browser pixels, lossless WebP, no compositing or retouching.",
   "blender": "4.0.2",
   "codex": "passed",
   "model": "deterministic Responses fixture (not real inference)",
   "mode": "protocol-fixture",
   "database": "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised",
-  "report": "../../validation/compact-native.json",
+  "report": "../../validation/reply-native.json",
   "images": [
     {
       "file": "workbench-light.webp",
-      "source": ".data/compact-workbench-final/workbench-light.png",
+      "source": ".data/reply-native-accepted/workbench-light.png",
       "width": 1600,
       "height": 1000,
-      "bytes": 385476,
-      "sha256": "a566afe0067e8f62a9c492f30503735c587ade639fe540f1aa947729c612f7b7"
+      "bytes": 385940,
+      "sha256": "cab30068f9637741dab30debb3f85a28c6b3c5978a7ba5ec5b9221704d39992d"
     },
     {
       "file": "workbench-dark.webp",
-      "source": ".data/compact-workbench-final/workbench-dark.png",
+      "source": ".data/reply-native-accepted/workbench-dark.png",
       "width": 1600,
       "height": 1000,
-      "bytes": 387920,
-      "sha256": "aaa2a86c3c7c54db7eb1899d746f7b4701dedfc26cc536181b2e116f8b695c69"
+      "bytes": 401870,
+      "sha256": "c7fd62c72d1e0959f38c457d94496a77babdf1082225323e00e06368b49a9b1b"
     }
   ]
 }

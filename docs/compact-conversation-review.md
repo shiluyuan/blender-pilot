@@ -1,5 +1,7 @@
 # Compact conversation layout
 
+> Historical review. The current implementation is documented in [Reply-focused conversation workspace](reply-first-conversation.md). Its per-turn disclosure replaces the adjacent grouping described below.
+
 This pass replaces the previous spacing-only adjustment with a denser message structure. The central Blender viewport and collapsible right assistant remain the core workspace.
 
 ## Structure

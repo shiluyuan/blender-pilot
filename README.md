@@ -106,7 +106,7 @@ Importing a `.blend` library asset appends objects to the current scene. ZIP upl
 
 ## Screenshots
 
-All screenshots below were recaptured on **2026-10-29** from the [compact conversation revision](https://github.com/shiluyuan/blender-pilot/commit/c600b5d2125546aa1abbad43c764c8da4bd3ef3b). The main images show **real Blender 4.0.2 and the current 400px conversation sidebar** together. The native Codex/MCP/Blender chain was exercised with deterministic model responses; no live inference is claimed. Other interface details use explicit local fixtures. [Real desktop provenance](docs/screenshots/workbench/README.md) · [Layout and acceptance](docs/compact-conversation-review.md).
+All screenshots below were recaptured on **2026-10-29** from the [reply-focused conversation revision](https://github.com/shiluyuan/blender-pilot/commit/9b4f57598d0d7d036c1559666ee55da2314d9076). The main images show **real Blender 4.0.2 and the current 400px conversation sidebar** together. The native Codex/MCP/Blender chain was exercised with deterministic model responses; no live inference is claimed. Other interface details use explicit local fixtures. [Real desktop provenance](docs/screenshots/workbench/README.md) · [Layout and acceptance](docs/reply-first-conversation.md).
 
 ### Blender + AI copilot
 

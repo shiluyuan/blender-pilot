@@ -1,6 +1,6 @@
 # Current UI screenshots
 
-All **16 UI-detail and diagnostic captures** were refreshed on **2026-10-29** from application revision [`c600b5d`](https://github.com/shiluyuan/blender-pilot/commit/c600b5d2125546aa1abbad43c764c8da4bd3ef3b). Assistant details now use the real default **400px** panel width and the compact conversation structure, grouped operations and inline identities.
+All **16 UI-detail and diagnostic captures** were refreshed on **2026-10-29** from application revision [`9b4f575`](https://github.com/shiluyuan/blender-pilot/commit/9b4f57598d0d7d036c1559666ee55da2314d9076). Assistant details now use the real default **400px** panel width and the reply-focused layout, one execution disclosure per turn and the integrated composer.
 
 The English and Chinese READMEs lead with **two real-Blender workbench images** from `../workbench/` (a fresh actual-Blender run of the same frontend revision). They supplement those with **14 current UI-detail images** from this directory. The two disconnected workbench captures in this directory remain diagnostic evidence and are not embedded in either README. Both main workbench captures and the details in this directory now contain the current layout.
 

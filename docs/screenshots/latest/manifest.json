@@ -1,13 +1,13 @@
 {
-  "applicationRevision": "c600b5d2125546aa1abbad43c764c8da4bd3ef3b",
-  "packagedAt": "2026-10-29T08:56:31.297Z",
+  "applicationRevision": "9b4f57598d0d7d036c1559666ee55da2314d9076",
+  "packagedAt": "2026-10-29T09:41:45.481Z",
   "format": "Lossless WebP; original browser capture dimensions; no compositing",
   "scope": "Current application UI with explicit local fixtures; no live model or Blender runtime",
   "reports": [
     {
       "file": ".data/chat-acceptance/result.json",
-      "time": "2026-10-29T08:54:29.774Z",
-      "checks": 23,
+      "time": "2026-10-29T09:38:39.900Z",
+      "checks": 24,
       "environment": {
         "api": "real Fastify",
         "database": "PostgreSQL WASM over real TCP protocol/pg driver (not native PostgreSQL)",
@@ -17,7 +17,7 @@
     },
     {
       "file": ".data/readme-interface/visual-result.json",
-      "time": "2026-10-29T08:51:38.843Z",
+      "time": "2026-10-29T09:40:44.907Z",
       "checks": 4,
       "environment": {
         "api": "real Fastify",
@@ -28,7 +28,7 @@
     },
     {
       "file": ".data/readme-skills/result.json",
-      "time": "2026-10-29T08:51:58.972Z",
+      "time": "2026-10-29T09:41:04.693Z",
       "checks": 18,
       "environment": {
         "api": "real Fastify",
@@ -45,40 +45,40 @@
       "source": ".data/chat-acceptance/chat-dark.png",
       "width": 400,
       "height": 793,
-      "bytes": 36354,
-      "sha256": "cf9f3983beb97a784ab063a90827f8151d26b772e8b7da671de136842119a516"
+      "bytes": 31956,
+      "sha256": "357a55e1308054a3f706ef8b3aa23a05c595e1e25bc3919b0545860696f619f6"
     },
     {
       "file": "chat-light.webp",
       "source": ".data/chat-acceptance/chat-light.png",
       "width": 400,
       "height": 793,
-      "bytes": 36078,
-      "sha256": "83b350ee151a85426df127864a59b83299c54c77a970c423c9240a1c47205202"
+      "bytes": 31004,
+      "sha256": "6e78b7f961388fe8c13c02d90a01128d62e5de53266ad110d2e917f7174220f0"
     },
     {
       "file": "chat-narrow.webp",
       "source": ".data/chat-acceptance/chat-responsive-375.png",
       "width": 327,
       "height": 560,
-      "bytes": 21314,
-      "sha256": "d6ea01a385210bc77d3fe6aa08b485d3b69cef737645316a53473fe81f55da92"
+      "bytes": 20950,
+      "sha256": "4d6c2314dbfe8bc4d7d212c5e819e86f01c1c2e943c34c85d332f0f7c6010b9f"
     },
     {
       "file": "library-light.webp",
       "source": ".data/readme-interface/08-library-light.png",
       "width": 1440,
       "height": 1000,
-      "bytes": 69152,
-      "sha256": "437e09cc5f2319795e1e860aed509565a1ae1e1ced248aaca61b42c7b955cbf7"
+      "bytes": 69214,
+      "sha256": "6911f248369d7a66ae4a6150ccbf23647ef44acdbc100154af8feaee668c7b4e"
     },
     {
       "file": "library-dark.webp",
       "source": ".data/readme-interface/08-library-dark.png",
       "width": 1440,
       "height": 1000,
-      "bytes": 72664,
-      "sha256": "b46d727ab0fdf8f1b4e8da0d02bee903f36c4ca1047cbe3f5c3f3f3c81bb780e"
+      "bytes": 72708,
+      "sha256": "ebe9ee10a72c03f00be61d93de7d128f2de966daad91b6434831ec78d8687688"
     },
     {
       "file": "templates-light.webp",
@@ -101,16 +101,16 @@
       "source": ".data/readme-interface/08-projects-light.png",
       "width": 1440,
       "height": 1000,
-      "bytes": 39674,
-      "sha256": "77308efc5ee0799dd11990a76c7ce2b2af160f02c1c775bf93bcab6e684c9967"
+      "bytes": 39672,
+      "sha256": "136f18d5642bd5fba5a251e4d2141feb6c0e17a76058dabd125d32fe7946467a"
     },
     {
       "file": "project-rename-light.webp",
       "source": ".data/readme-interface/08-project-rename-light.png",
       "width": 1440,
       "height": 1000,
-      "bytes": 59466,
-      "sha256": "c184a727409cda02f5cc7ca769d161bada438da32db2e8752bf2633a2f438520"
+      "bytes": 59538,
+      "sha256": "6c2ab03d343aa7e815c9b49eaa00fe38f4809c59d817cc5a955d58a0752c6236"
     },
     {
       "file": "settings-light.webp",
@@ -125,40 +125,40 @@
       "source": ".data/readme-interface/08-console-dark.png",
       "width": 1440,
       "height": 1000,
-      "bytes": 66594,
-      "sha256": "112a3e43009276940c913e5e1f8fe850337356fd36613b08fc600cc32e54a091"
+      "bytes": 66842,
+      "sha256": "a88dc4806746cd80c5d8b2981a168cda19ee74a1cdc7410a0f22bd1f4cd0c6f1"
     },
     {
       "file": "workbench-light.webp",
       "source": ".data/readme-interface/08-studio-light.png",
       "width": 1440,
       "height": 1000,
-      "bytes": 69412,
-      "sha256": "0bbc5fcc78144854af22416f7452d54d8e9e34b34f69df9a62b54ae24b5d792c"
+      "bytes": 70096,
+      "sha256": "f86f7cbe389fdd59aa5b9cc3e2a72726c35fe1259bf58afef47ee00078a31a3d"
     },
     {
       "file": "workbench-dark.webp",
       "source": ".data/readme-interface/08-studio-dark.png",
       "width": 1440,
       "height": 1000,
-      "bytes": 72710,
-      "sha256": "db59c545ab230b5a2e0aecf16538310241b2d09681428de33eb21fbf7fd1bf44"
+      "bytes": 72266,
+      "sha256": "ecede8b35a9bbac185207c1f4e0326126ffb696d77fd12f5517f30417e7218bd"
     },
     {
       "file": "skills-light.webp",
       "source": ".data/readme-skills/skills-light-1440.png",
       "width": 1440,
       "height": 960,
-      "bytes": 79976,
-      "sha256": "211d11ebeb26d49c8dc08d34355ad485fc2d01bb8b87aa5dd4c211bc5b6c352a"
+      "bytes": 79930,
+      "sha256": "a8b33f6bbb982bf6847b8723eed1efc9e50f8d8c1b34bee12ea65891221f6774"
     },
     {
       "file": "skills-dark.webp",
       "source": ".data/readme-skills/skills-dark-1440.png",
       "width": 1440,
       "height": 960,
-      "bytes": 87388,
-      "sha256": "4f25de7fbf8804b398ef5d39f59a0d1d9e6dd9d96d32f78dfe9c47bc2ba09351"
+      "bytes": 87356,
+      "sha256": "95553f19af94402d4e652a3de2791fb06abbedfc61c2c9e519f6811e87b874e7"
     },
     {
       "file": "skills-install-light.webp",

@@ -1,12 +1,12 @@
 # Current real Blender workbench
 
-Captured on **2026-10-29** from application revision [`c600b5d`](https://github.com/shiluyuan/blender-pilot/commit/c600b5d2125546aa1abbad43c764c8da4bd3ef3b). These are the two images used at the top of the English and Chinese README galleries.
+Captured on **2026-10-29** from application revision [`9b4f575`](https://github.com/shiluyuan/blender-pilot/commit/9b4f57598d0d7d036c1559666ee55da2314d9076). These are the two images used at the top of the English and Chinese README galleries.
 
 - Actual **Blender 4.0.2**, mcp-for-blender 2.2.2 and native Codex app-server, viewed through the application's authenticated VNC connection.
-- Current compact frontend and its default **400px** assistant. The screenshot is scrolled to the successful creative turn; intermediate screenshots remain expandable thumbnail rows, and failed tool attempts remain visible in the event history.
+- Current frontend and its default **400px** assistant. The screenshot starts at the successful creative turn: the reply and one result card are foregrounded; intermediate screenshots, restore points and historical failures remain available in the per-turn execution disclosure. Later negative acceptance cases can also be seen in the conversation.
 - The local Responses fixture drives real tool calls and scene changes. It is **not live model inference**. PostgreSQL uses the explicitly selected WASM-over-TCP test engine, not a native database installation.
 - The scene contains real created Blender objects. The browser waits for a painted framebuffer before capture. No UI or scene is composited, retouched or replaced.
-- Full original 1600 × 1000 browser screenshots, converted to lossless WebP. [Manifest](manifest.json) records hashes and source paths. [Native acceptance report](../../validation/compact-native.json) records the passed checks.
+- Full original 1600 × 1000 browser screenshots, converted to lossless WebP. [Manifest](manifest.json) records hashes and source paths. [Native acceptance report](../../validation/reply-native.json) records the passed checks.
 
 ## Reproduce
 

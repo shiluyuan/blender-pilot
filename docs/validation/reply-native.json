@@ -1,0 +1,84 @@
+{
+  "passed": true,
+  "codex": "passed",
+  "time": "2026-10-29T09:38:50.099Z",
+  "blender": "4.0.2",
+  "model": "deterministic Responses fixture (not real inference)",
+  "databaseValidation": "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised",
+  "mode": "protocol-fixture",
+  "reusedLiveChecks": false,
+  "imageInputs": 34,
+  "library": {
+    "passed": true,
+    "blender": "4.0.2",
+    "checks": [
+      "selected hierarchy only",
+      "packed texture survives deletion of original",
+      "materials and transforms",
+      "source scene unchanged",
+      "cross-project append",
+      "repeated imports have independent meshes and materials",
+      "scene collection merge",
+      "category/tag search",
+      "favorite survives reload",
+      "empty selection rejected"
+    ],
+    "assetIds": [
+      "a7058968-5f81-46e4-84ee-68361e785564",
+      "df22d52c-1c54-49a2-8ce4-8fbbe4bfd689"
+    ]
+  },
+  "conversationFontAudit": [
+    {
+      "selector": ".chat-header strong",
+      "fonts": [
+        {
+          "familyName": "Noto Sans CJK SC",
+          "postScriptName": "NotoSansCJKsc-Regular",
+          "isCustomFont": false,
+          "glyphCount": 4
+        }
+      ]
+    },
+    {
+      "selector": ".chat-reply p",
+      "fonts": [
+        {
+          "familyName": "Noto Sans CJK SC",
+          "postScriptName": "NotoSansCJKsc-Regular",
+          "isCustomFont": false,
+          "glyphCount": 35
+        }
+      ]
+    }
+  ],
+  "skills": {
+    "passed": true,
+    "id": "4c434d66-6613-4d0f-9379-21a809e82e82",
+    "sha256": "e62825998712b3da95e519912434499bf23d406544c15802c666a62a3c3ad937",
+    "nativeInput": true,
+    "mcpResource": true
+  },
+  "quality": {
+    "passed": true,
+    "views": 3,
+    "inspectionId": "96535c1f-0df2-4f25-b54d-cac2b8e48037",
+    "missingReportStatus": "interrupted",
+    "readOnlySceneChanged": false
+  },
+  "checks": [
+    "native MCP",
+    "snapshots",
+    "GLB/glTF/blend exports",
+    "Codex tool calls",
+    "image input",
+    "idempotency",
+    "thread resume",
+    "cancel",
+    "uploaded skill -> native Codex -> MCP resource",
+    "multi-view current inspection",
+    "missing visual report interrupted",
+    "read-only truthful summary",
+    "browser VNC"
+  ]
+}
