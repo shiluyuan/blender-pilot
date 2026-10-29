@@ -5,8 +5,8 @@ import { mkdir } from "node:fs/promises";
 import { StudioPool } from "./pool.js";
 import { StartupJobs } from "./dispatch.js";
 import { collectRunnerHealth } from "./health.js";
-import { saveLibrarySchema } from "../../packages/blender-bridge/library.js";
-import { toolDefinitions } from "./jobs.js";
+import { saveLibrarySchema } from "../../packages/contracts/library.js";
+import { toolDefinitions } from "./tool-definitions.js";
 import { equal } from "../server/security.js";
 import {
   idSchema,

@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { idSchema } from "../contracts/index.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, stat, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
@@ -21,6 +23,7 @@ const py = (v: unknown) => JSON.stringify(v);
 export class SceneBridge {
   upstream: Upstream;
   private stateFile: string;
+  private boundProject?: string;
   activeProject?: string;
   generation = 0;
   private queue: Promise<unknown> = Promise.resolve();
@@ -29,6 +32,7 @@ export class SceneBridge {
     options: { environment?: Record<string, string>; projectId?: string } = {},
   ) {
     this.upstream = new Upstream(options.environment);
+    this.boundProject = options.projectId;
     this.stateFile = options.projectId
       ? path.join(this.projectRoot(options.projectId), "runtime-scene.json")
       : path.join(dataRoot, "scene.json");
@@ -38,15 +42,30 @@ export class SceneBridge {
     return safePath(this.dataRoot, "projects", id);
   }
   async init() {
+    let raw: string;
     try {
-      const s = JSON.parse(await readFile(this.stateFile, "utf8"));
-      this.generation = s.generation + 1;
-      // A restarted Blender starts with its factory scene. Reload the saved
-      // project instead of trusting the previous process's in-memory binding.
-      await this.activate(s.projectId);
-    } catch {
+      raw = await readFile(this.stateFile, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       this.generation = 1;
+      return;
     }
+    const state = z
+      .object({
+        projectId: idSchema,
+        generation: z.number().int().nonnegative(),
+      })
+      .parse(JSON.parse(raw));
+    if (this.boundProject && state.projectId !== this.boundProject)
+      throw new Error("场景恢复记录属于其他项目，已停止加载");
+    // A persisted binding means a scene was saved previously. Missing scene
+    // data is a recovery error, not permission to replace it with a blank scene.
+    const saved = await stat(
+      path.join(this.projectRoot(state.projectId), "scene.blend"),
+    );
+    if (!saved.isFile()) throw new Error("保存的场景路径不是文件，已停止恢复");
+    this.generation = state.generation + 1;
+    await this.activate(state.projectId);
   }
   serial<T>(fn: () => Promise<T>): Promise<T> {
     const next = this.queue.catch(() => {}).then(fn);
@@ -57,6 +76,9 @@ export class SceneBridge {
     await this.queue.catch(() => {});
   }
   async activate(projectId: string) {
+    idSchema.parse(projectId);
+    if (this.boundProject && projectId !== this.boundProject)
+      throw new Error("实例不属于当前项目");
     if (this.activeProject === projectId) return;
     if (this.activeProject) await this.save();
     const root = this.projectRoot(projectId);
@@ -64,20 +86,24 @@ export class SceneBridge {
     const target = path.join(root, "scene.blend");
     let exists = false;
     try {
-      await stat(target);
+      const file = await stat(target);
+      if (!file.isFile()) throw new Error("场景路径不是文件");
       exists = true;
-    } catch {}
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    // Once Blender starts loading, the old scene can no longer be trusted.
+    // Keep operations disabled until both loading and metadata commit succeed.
+    this.activeProject = undefined;
     await this.upstream.python(
       exists
         ? `bpy.ops.wm.open_mainfile(filepath=${py(target)}, load_ui=False, use_scripts=False)`
         : `bpy.ops.wm.read_factory_settings(use_empty=False)\nbpy.ops.wm.save_as_mainfile(filepath=${py(target)}, check_existing=False)`,
     );
+    const generation = this.generation + 1;
+    await atomicJson(this.stateFile, { projectId, generation });
+    this.generation = generation;
     this.activeProject = projectId;
-    this.generation++;
-    await atomicJson(this.stateFile, {
-      projectId,
-      generation: this.generation,
-    });
   }
   async info(): Promise<SceneInfo> {
     const info = await this.upstream.json(

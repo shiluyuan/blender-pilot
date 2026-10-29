@@ -1,4 +1,5 @@
-import type { LibraryAsset } from "../blender-bridge/library.js";
+import type { PoolClient } from "pg";
+import type { LibraryAsset } from "../contracts/library.js";
 import { Database, sharedDatabase } from "./database.js";
 export class LibraryCatalog {
   constructor(public db: Database = sharedDatabase()) {}
@@ -35,7 +36,7 @@ export class LibraryCatalog {
     );
     return { ...r.rows[0], page };
   }
-  private async insert(tx: any, a: LibraryAsset) {
+  private async insert(tx: PoolClient, a: LibraryAsset) {
     await tx.query(
       `INSERT INTO ${this.db.table("library_assets")}(id,name,category,tags,favorite,source_project_id,path,sha256,size_bytes,created_at,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
@@ -53,7 +54,7 @@ export class LibraryCatalog {
       ],
     );
   }
-  async importMany(assets: LibraryAsset[], tx: any) {
+  async importMany(assets: LibraryAsset[], tx: PoolClient) {
     for (const a of assets) await this.insert(tx, a);
     for (const a of assets)
       for (const source of new Set(a.sourceAssetIds || []))

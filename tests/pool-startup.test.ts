@@ -248,3 +248,54 @@ test("native window mode launches only owned Blender, shares pending open and re
     await f.close();
   }
 });
+
+test("close reserves the instance before saving, rejects reopen and coalesces duplicate closes", async () => {
+  const f = await fixture();
+  f.pool.nativeWindow = true;
+  try {
+    const studio = await f.pool.open("closing-project");
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let saves = 0;
+    studio.scene.save = async () => {
+      saves++;
+      await gate;
+      return "" as any;
+    };
+    const closing = f.pool.close("closing-project");
+    const duplicate = f.pool.close("closing-project");
+    await assert.rejects(f.pool.open("closing-project"), /尚未就绪/);
+    release();
+    await Promise.all([closing, duplicate]);
+    assert.equal(saves, 1);
+    assert.equal(f.pool.studios.has("closing-project"), false);
+    assert.ok(
+      studio.children.every(
+        (c) => c.exitCode !== null || c.signalCode !== null,
+      ),
+    );
+  } finally {
+    await f.close();
+  }
+});
+test("save failure during close preserves a live instance for retry without killing its Blender", async () => {
+  const f = await fixture();
+  f.pool.nativeWindow = true;
+  try {
+    const studio = await f.pool.open("retry-project");
+    studio.scene.save = async () => {
+      throw new Error("disk unavailable");
+    };
+    await assert.rejects(f.pool.close("retry-project"), /disk unavailable/);
+    assert.equal(studio.status, "ready");
+    assert.equal(studio.children[0].killed, false);
+    assert.equal(await f.pool.open("retry-project"), studio);
+    studio.scene.save = async () => "" as any;
+    await f.pool.close("retry-project");
+    assert.equal(f.pool.studios.has("retry-project"), false);
+  } finally {
+    await f.close();
+  }
+});

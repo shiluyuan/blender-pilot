@@ -10,18 +10,44 @@ import socket
 import subprocess
 import sys
 import time
+import tempfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 
 def blender_binary(explicit=None):
-    candidates = [explicit, os.environ.get('BLENDER_BIN'), shutil.which('blender')]
-    if sys.platform == 'darwin':
+    # An explicit selection must never silently launch another installation.
+    selected = explicit or os.environ.get('BLENDER_BIN')
+    candidates = [selected] if selected else [shutil.which('blender')]
+    if not selected and sys.platform == 'darwin':
         candidates += ['/Applications/Blender.app/Contents/MacOS/Blender', str(Path.home() / 'Applications/Blender.app/Contents/MacOS/Blender')]
     for candidate in candidates:
         if candidate and Path(candidate).is_file() and os.access(candidate, os.X_OK):
             return str(Path(candidate).resolve())
     raise RuntimeError('Blender not found. Install Blender or pass --blender /absolute/path/to/blender. No existing Blender installation is replaced.')
+
+def load_config(file):
+    try:
+        config = json.loads(file.read_text())
+    except FileNotFoundError:
+        return {}
+    except (ValueError, OSError) as error:
+        raise RuntimeError('Cannot read local-config.json; restore the configuration before restarting.') from error
+    if not isinstance(config, dict) or any(not isinstance(value, str) for value in config.values()):
+        raise RuntimeError('local-config.json must contain string configuration values.')
+    return config
+
+def save_config(file, config):
+    # Replacement is atomic; a failed write must not truncate working credentials.
+    fd, temporary = tempfile.mkstemp(prefix='.local-config-', dir=file.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(config, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, file)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 def run(command, **kwargs):
     subprocess.run(command, cwd=ROOT, check=True, **kwargs)
@@ -55,7 +81,7 @@ def main():
     data = Path(os.environ.get('PILOT_DATA', ROOT / '.data')).expanduser().resolve()
     data.mkdir(parents=True, exist_ok=True)
     config_path = data / 'local-config.json'
-    config = json.loads(config_path.read_text()) if config_path.exists() else {}
+    config = load_config(config_path)
     env = {**os.environ}
     for key in ('DATABASE_URL', 'PILOT_PASSWORD', 'PILOT_INTERNAL_TOKEN'):
         if not env.get(key) and config.get(key):
@@ -67,8 +93,11 @@ def main():
         env['DATABASE_URL'] = getpass.getpass('PostgreSQL URL (hidden): ').strip()
     if not env['DATABASE_URL'].startswith(('postgres://', 'postgresql://')):
         raise RuntimeError('DATABASE_URL must be a PostgreSQL URL.')
-    env.setdefault('PILOT_PASSWORD', secrets.token_urlsafe(18))
-    env.setdefault('PILOT_INTERNAL_TOKEN', secrets.token_urlsafe(32))
+    for key, size, minimum in [('PILOT_PASSWORD', 18, 12), ('PILOT_INTERNAL_TOKEN', 32, 24)]:
+        if not env.get(key):
+            env[key] = secrets.token_urlsafe(size)
+        if len(env[key]) < minimum:
+            raise RuntimeError(key + ' is too short; update the configuration before starting.')
     venv = ROOT / '.local-runtime' / 'mcp'
     python = venv / 'bin/python'
     npm = shutil.which('npm')
@@ -108,10 +137,7 @@ def main():
         print('Native preflight passed:', mode)
         return
     config = {key: env[key] for key in ('DATABASE_URL', 'PILOT_PASSWORD', 'PILOT_INTERNAL_TOKEN')}
-    fd = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)
-    with os.fdopen(fd, 'w') as stream:
-        json.dump(config, stream)
+    save_config(config_path, config)
     children = []
     def stop(*_):
         raise KeyboardInterrupt

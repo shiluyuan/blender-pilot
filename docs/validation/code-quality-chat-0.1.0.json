@@ -1,0 +1,95 @@
+{
+  "passed": true,
+  "time": "2026-10-29T05:49:03.581Z",
+  "environment": {
+    "api": "real Fastify",
+    "database": "PostgreSQL WASM over real TCP protocol/pg driver (not native PostgreSQL)",
+    "runner": "explicit deterministic protocol fixture; no Blender or live inference",
+    "browser": "Chromium/Playwright"
+  },
+  "checks": [
+    "中文 IME 回车不误发送，Shift+Enter 保留换行",
+    "MD 上传自动引用；真实 API/SQL 保留正文并交给 Runner；Markdown/代码/表格与工具按事件顺序展示",
+    "SSE 首次断开后自动重连，重放完整有序消息而不重复",
+    "Chromium 实际平台字体为 sans，中文有真实字形且无 Times/serif 回退",
+    "草稿按 session 隔离，切换不会串到其他对话",
+    "上传中切换会话，完成后的附件仍只引用到原会话",
+    "回执丢失复用 requestId，不重复执行；旧发送回调不会清空新草稿",
+    "用户向上回看时新事件保持位置；明确回到最新后恢复跟随",
+    "切换会话后延迟事件仍归原会话；停止任务获得真实取消终态",
+    "取消结束后可以继续发送并完成下一轮",
+    "未知回执刷新后自动查询原requestId并恢复，未产生重复执行",
+    "刷新后由 PostgreSQL/SSE 还原历史消息、工具与取消状态",
+    "不支持的附件显示失败，阻止发送时静默遗漏",
+    "1280px 视口、340px 最小侧栏：输入工具栏/附件不溢出，长代码与宽表格只在各自区域横滚",
+    "收起再展开侧栏，历史、草稿和未发送附件完整保留"
+  ],
+  "submissions": 6,
+  "uncaughtBrowserErrors": [],
+  "fontAudit": [
+    {
+      "selector": ".assistant-label strong",
+      "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
+      "fonts": [
+        {
+          "familyName": "Noto Sans CJK SC",
+          "postScriptName": "NotoSansCJKsc-Regular",
+          "isCustomFont": false,
+          "glyphCount": 13
+        }
+      ]
+    },
+    {
+      "selector": ".chat-markdown p",
+      "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
+      "fonts": [
+        {
+          "familyName": "Noto Sans CJK SC",
+          "postScriptName": "NotoSansCJKsc-Regular",
+          "isCustomFont": false,
+          "glyphCount": 18
+        }
+      ]
+    }
+  ],
+  "layoutAudit": {
+    "viewport": 1280,
+    "panelWidth": 340,
+    "panels": [
+      {
+        "selector": ".chat-panel",
+        "width": 340,
+        "scrollWidth": 340,
+        "overflowX": "visible"
+      },
+      {
+        "selector": ".composer-controls",
+        "width": 310,
+        "scrollWidth": 310,
+        "overflowX": "visible"
+      },
+      {
+        "selector": ".chat-attachments",
+        "width": 312,
+        "scrollWidth": 312,
+        "overflowX": "auto"
+      }
+    ],
+    "code": {
+      "width": 302,
+      "scrollWidth": 4052,
+      "overflowX": "auto"
+    },
+    "table": {
+      "width": 304,
+      "scrollWidth": 1729,
+      "overflowX": "auto"
+    }
+  },
+  "screenshots": [
+    "chat-dark.png",
+    "chat-light.png",
+    "chat-errors.png",
+    "chat-narrow.png"
+  ]
+}

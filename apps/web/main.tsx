@@ -1,3 +1,5 @@
+import { Modal } from "./components/Modal";
+import { ProjectDialog } from "./projects/ProjectDialog";
 import { requestId } from "./request-id";
 import React, {
   useState,
@@ -115,40 +117,6 @@ function Mark() {
     </svg>
   );
 }
-function Modal({
-  title,
-  children,
-  onClose,
-  wide = false,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-  wide?: boolean;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      className={wide ? "modal wide" : "modal"}
-      onCancel={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-    >
-      <div className="modal-head">
-        <h2>{title}</h2>
-        <button className="icon" aria-label="关闭" onClick={onClose}>
-          <X size={18} />
-        </button>
-      </div>
-      {children}
-    </dialog>
-  );
-}
 function Login({ onLogin, notice }: { onLogin: () => void; notice?: string }) {
   const [password, setPassword] = useState(""),
     [error, setError] = useState(""),
@@ -264,7 +232,6 @@ function App() {
     [modal, setModal] = useState<
       "project" | "sessions" | "attach" | "export" | null
     >(null),
-    [projectName, setProjectName] = useState(""),
     [lightbox, setLightbox] = useState<{ src: string; title: string }>(),
     [uploadRows, setUploadRows] = useState<
       Array<{ name: string; progress: number; error?: string }>
@@ -272,8 +239,6 @@ function App() {
     [renaming, setRenaming] = useState<Asset>();
   const [restoringProject, setRestoringProject] = useState<string>();
   const [editingProject, setEditingProject] = useState<Project>();
-  const [projectSubmitting, setProjectSubmitting] = useState(false);
-  const projectSubmitLock = useRef(false);
   const creationReceipt = useRef<
     { name: string; requestId: string } | undefined
   >(undefined);
@@ -757,7 +722,6 @@ function App() {
                 className="icon"
                 aria-label="新建项目"
                 onClick={() => {
-                  setProjectName("");
                   setModal("project");
                 }}
               >
@@ -884,7 +848,6 @@ function App() {
             className="icon"
             title="新建项目"
             onClick={() => {
-              setProjectName("");
               setModal("project");
             }}
           >
@@ -1094,7 +1057,6 @@ function App() {
                     <button
                       className="primary"
                       onClick={() => {
-                        setProjectName("");
                         setModal("project");
                       }}
                     >
@@ -1138,7 +1100,6 @@ function App() {
                       <button
                         onClick={() => {
                           setEditingProject(p);
-                          setProjectName(p.name);
                         }}
                       >
                         重命名
@@ -1796,140 +1757,46 @@ function App() {
         </div>
       )}
       {modal === "project" && (
-        <Modal
-          title="创建项目"
-          onClose={() => {
-            if (!projectSubmitLock.current) setModal(null);
+        <ProjectDialog
+          mode="create"
+          onClose={() => setModal(null)}
+          onSubmit={async (name) => {
+            if (creationReceipt.current?.name !== name)
+              creationReceipt.current = { name, requestId: requestId() };
+            const p = await post<Project>("/projects", creationReceipt.current);
+            creationReceipt.current = undefined;
+            setProjects((prev) => [p, ...prev.filter((x) => x.id !== p.id)]);
+            setModal(null);
+            setPage("projects");
+            try {
+              await chooseProject(p);
+              setPage("studio");
+            } catch (error) {
+              notify(
+                `项目已创建，打开失败；请在项目列表重试打开。${String(error)}`,
+              );
+            }
           }}
-        >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (projectSubmitLock.current || !projectName.trim()) return;
-              projectSubmitLock.current = true;
-              setProjectSubmitting(true);
-              void action(async () => {
-                const name = projectName.trim();
-                if (creationReceipt.current?.name !== name)
-                  creationReceipt.current = {
-                    name,
-                    requestId: requestId(),
-                  };
-                const p = await post<Project>(
-                  "/projects",
-                  creationReceipt.current,
-                );
-                setProjects((prev) => [
-                  p,
-                  ...prev.filter((x) => x.id !== p.id),
-                ]);
-                creationReceipt.current = undefined;
-                setModal(null);
-                setPage("projects");
-                setProjectName("");
-                try {
-                  await chooseProject(p);
-                  setPage("studio");
-                } catch (error) {
-                  notify(
-                    `项目已创建，打开失败；请在项目列表重试打开。${String(error)}`,
-                  );
-                }
-              }).finally(() => {
-                projectSubmitLock.current = false;
-                setProjectSubmitting(false);
-              });
-            }}
-          >
-            <p className="muted">独立保存场景、参考资源和对话。</p>
-            <label>
-              项目名称
-              <input
-                disabled={projectSubmitting}
-                autoFocus
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="例如：海边工作室"
-                maxLength={80}
-                required
-              />
-            </label>
-            <div className="modal-actions">
-              <button
-                type="button"
-                disabled={projectSubmitting}
-                onClick={() => setModal(null)}
-              >
-                取消
-              </button>
-              <button
-                className="primary"
-                disabled={projectSubmitting || !projectName.trim()}
-              >
-                {projectSubmitting ? "正在创建…" : "创建并打开"}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        />
       )}
       {editingProject && (
-        <Modal
-          title="重命名项目"
-          onClose={() => {
-            if (!projectSubmitLock.current) setEditingProject(undefined);
+        <ProjectDialog
+          key={editingProject.id}
+          mode="rename"
+          initialName={editingProject.name}
+          onClose={() => setEditingProject(undefined)}
+          onSubmit={async (name) => {
+            const id = editingProject.id;
+            const updated = await api<Project>(`/projects/${id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ name }),
+            });
+            setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+            setProject((prev) => (prev?.id === id ? updated : prev));
+            setEditingProject(undefined);
+            notify("项目名称已更新");
           }}
-        >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (projectSubmitLock.current || !projectName.trim()) return;
-              projectSubmitLock.current = true;
-              setProjectSubmitting(true);
-              const id = editingProject.id;
-              void action(async () => {
-                const updated = await api<Project>(`/projects/${id}`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ name: projectName.trim() }),
-                });
-                setProjects((prev) =>
-                  prev.map((p) => (p.id === id ? updated : p)),
-                );
-                setProject((prev) => (prev?.id === id ? updated : prev));
-                setEditingProject(undefined);
-                setProjectName("");
-              }, "项目名称已更新").finally(() => {
-                projectSubmitLock.current = false;
-                setProjectSubmitting(false);
-              });
-            }}
-          >
-            <label>
-              项目名称
-              <input
-                autoFocus
-                required
-                maxLength={80}
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-              />
-            </label>
-            <div className="modal-actions">
-              <button
-                type="button"
-                disabled={projectSubmitting}
-                onClick={() => setEditingProject(undefined)}
-              >
-                取消
-              </button>
-              <button
-                className="primary"
-                disabled={projectSubmitting || !projectName.trim()}
-              >
-                {projectSubmitting ? "保存中…" : "保存名称"}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        />
       )}
       {modal === "sessions" && (
         <Modal title="项目对话" onClose={() => setModal(null)}>

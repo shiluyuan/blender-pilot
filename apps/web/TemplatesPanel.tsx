@@ -23,7 +23,7 @@ import {
   type CreationTemplate,
   type TemplateInput,
 } from "../../packages/contracts/templates";
-import type { LibraryAsset } from "../../packages/blender-bridge/library";
+import type { LibraryAsset } from "../../packages/contracts/library";
 import { api, ApiError } from "./api";
 import "./templates.css";
 

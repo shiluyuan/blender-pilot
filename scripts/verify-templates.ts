@@ -11,7 +11,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { buildApp } from "../apps/server/app.js";
 import { LibraryCatalog } from "../packages/storage/library-catalog.js";
-import type { LibraryAsset } from "../packages/blender-bridge/library.js";
+import type { LibraryAsset } from "../packages/contracts/library.js";
 import type {
   CreationTemplate,
   TemplateInput,

@@ -19,7 +19,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { api, post, bytes, date, upload } from "./api";
-import type { LibraryAsset } from "../../packages/blender-bridge/library";
+import type { LibraryAsset } from "../../packages/contracts/library";
 const categories = [
   ["all", "全部素材", Layers3],
   ["character", "人物", Users],

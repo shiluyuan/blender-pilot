@@ -40,6 +40,7 @@ export class StudioPool {
   studios = new Map<string, Studio>();
   stopping = false;
   pending = new Map<string, Promise<Studio>>();
+  private closing = new Map<string, Promise<void>>();
   history: Jobs;
   external = process.env.PILOT_EXTERNAL_DESKTOP === "true";
   nativeWindow = process.env.PILOT_DESKTOP_MODE === "native-window";
@@ -338,19 +339,44 @@ export class StudioPool {
     );
   }
   async close(projectId: string) {
+    const pendingClose = this.closing.get(projectId);
+    if (pendingClose) return pendingClose;
     if (this.pending.has(projectId)) throw problem("项目正在启动，请稍后关闭");
     const s = this.studios.get(projectId);
     if (!s) return;
     if (s.jobs.active) throw problem("该项目正在执行，请先停止任务");
-    if (s.status === "ready") await s.scene.serial(() => s.scene.save());
+    const wasReady = s.status === "ready";
+    // Reserve the lifecycle before save yields: open()/job admission must not
+    // reuse a desktop that is about to be terminated.
     s.status = "closing";
-    await s.scene.upstream.close().catch(() => {});
-    await this.stopProcesses(s);
-    this.studios.delete(projectId);
+    const task = (async () => {
+      try {
+        if (wasReady) await s.scene.serial(() => s.scene.save());
+      } catch (error) {
+        const alive = s.children.every(
+          (c) => c.exitCode === null && c.signalCode === null && !c.killed,
+        );
+        s.status = !this.stopping && alive ? "ready" : "failed";
+        if (s.status === "failed") s.error = "关闭时场景保存失败，实例已不可用";
+        throw error;
+      }
+      await s.scene.upstream.close().catch(() => {});
+      await this.stopProcesses(s);
+      if (this.studios.get(projectId) === s) this.studios.delete(projectId);
+    })();
+    this.closing.set(projectId, task);
+    try {
+      await task;
+    } finally {
+      if (this.closing.get(projectId) === task) this.closing.delete(projectId);
+    }
   }
   async shutdown() {
     this.stopping = true;
-    await Promise.allSettled([...this.pending.values()]);
+    await Promise.allSettled([
+      ...this.pending.values(),
+      ...this.closing.values(),
+    ]);
     for (const s of this.studios.values()) {
       try {
         const active = s.jobs.active;

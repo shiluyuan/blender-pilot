@@ -1,3 +1,5 @@
+import { ProjectService } from "./projects.js";
+import { registerProjectRoutes } from "./project-routes.js";
 import { MODEL_EXTENSIONS } from "../../packages/contracts/asset-formats.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
@@ -52,7 +54,6 @@ import {
   type Run,
   type Asset,
   type Session,
-  type Project,
   type ModelSettings,
 } from "../../packages/contracts/index.js";
 import {
@@ -192,12 +193,9 @@ export async function buildApp(options: AppOptions) {
     if (!res.ok) throw fail(json.error || "执行服务请求失败", res.status);
     return json;
   };
-  const project = async (id: string) => {
-    idSchema.parse(id);
-    const p = await store.get<Project>("project", id);
-    if (!p) throw fail("项目不存在", 404);
-    return p;
-  };
+  const projects = new ProjectService(store);
+  registerProjectRoutes(app, projects);
+  const project = (id: string) => projects.get(id);
   const model = async (): Promise<ModelSettings> => {
     const s = await store.get<any>("config", "model");
     if (!s?.encryptedKey)
@@ -428,58 +426,6 @@ export async function buildApp(options: AppOptions) {
             : "pending",
       },
     };
-  });
-  app.get("/api/projects", async () => store.list<Project>("project"));
-  app.post("/api/projects", async (req) => {
-    const input = z
-      .object({
-        name: z.string().trim().min(1).max(80),
-        requestId: z.string().uuid().optional(),
-      })
-      .parse(req.body);
-    const id = input.requestId || randomUUID();
-    return store.db.transaction(async (tx) => {
-      await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
-        "create-project:" + store.db.schema + ":" + id,
-      ]);
-      const receipt = await store.get<{ name: string; projectId: string }>(
-        "config",
-        "project-request:" + id,
-        tx,
-      );
-      if (receipt) {
-        if (receipt.name !== input.name)
-          throw fail("创建编号已用于其他名称", 409);
-        return store.get<Project>("project", receipt.projectId, tx);
-      }
-      const p: Project = {
-        id: randomUUID(),
-        name: input.name,
-        createdAt: now(),
-        updatedAt: now(),
-      };
-      await mkdir(safePath(options.dataRoot, "projects", p.id), {
-        recursive: true,
-      });
-      await store.put("project", p.id, p, tx);
-      await store.put(
-        "config",
-        "project-request:" + id,
-        { name: input.name, projectId: p.id },
-        tx,
-      );
-      return p;
-    });
-  });
-  app.patch("/api/projects/:id", async (req) => {
-    const p = await project((req.params as any).id);
-    const { name } = z
-      .object({ name: z.string().trim().min(1).max(80) })
-      .parse(req.body);
-    p.name = name;
-    p.updatedAt = now();
-    await store.put("project", p.id, p);
-    return p;
   });
   app.post("/api/projects/:id/activate", async (req) =>
     exclusive(req, async () => {

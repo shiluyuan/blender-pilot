@@ -55,6 +55,21 @@ try {
     .last()
     .click();
   await page.getByPlaceholder("例如：海边工作室").fill("Retry test");
+  let releaseCreate!: () => void;
+  let intercepted!: () => void;
+  const createGate = new Promise<void>((resolve) => {
+    releaseCreate = resolve;
+  });
+  const interceptReady = new Promise<void>((resolve) => {
+    intercepted = resolve;
+  });
+  await page.route("**/api/projects", async (route) => {
+    if (route.request().method() === "POST") {
+      intercepted();
+      await createGate;
+    }
+    await route.continue();
+  });
   let creates = 0;
   page.on("request", (r) => {
     if (r.method() === "POST" && r.url() === base + "/api/projects") creates++;
@@ -67,6 +82,18 @@ try {
       new Event("submit", { bubbles: true, cancelable: true }),
     );
   });
+  await interceptReady;
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page.locator("dialog[open]").count(),
+    1,
+    "Escape must not hide a pending submission",
+  );
+  assert.equal(
+    await page.getByRole("button", { name: "取消", exact: true }).isDisabled(),
+    true,
+  );
+  releaseCreate();
   await page
     .locator(".project-row strong")
     .filter({ hasText: "Retry test" })
@@ -76,6 +103,26 @@ try {
   assert.equal(await page.locator(".project-row").count(), 1);
   await page.getByRole("button", { name: "重命名", exact: true }).click();
   await page.locator(".modal input").fill("Renamed project");
+  let rejectRename = true;
+  await page.route("**/api/projects/*", async (route) => {
+    if (route.request().method() === "PATCH" && rejectRename) {
+      rejectRename = false;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "temporary rename failure" }),
+      });
+    } else await route.continue();
+  });
+  await page.getByRole("button", { name: "保存名称", exact: true }).click();
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "temporary rename failure" })
+    .waitFor();
+  assert.equal(
+    await page.locator(".modal input").inputValue(),
+    "Renamed project",
+  );
   await page.getByRole("button", { name: "保存名称", exact: true }).click();
   await page
     .locator(".project-row strong")
@@ -104,6 +151,8 @@ try {
       {
         checks: [
           "double submit sends one request",
+          "Escape cannot dismiss a pending submit",
+          "rename failure retains input and allows retry",
           "activation failure keeps one existing project",
           "rename updates list",
           "rename survives reload",

@@ -1,11 +1,15 @@
-import { mkdir, writeFile, rename, realpath } from "node:fs/promises";
+import { mkdir, writeFile, rename, realpath, rm } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 export async function atomicJson(file: string, value: unknown) {
   await mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${randomUUID()}.tmp`;
-  await writeFile(tmp, JSON.stringify(value), { mode: 0o600 });
-  await rename(tmp, file);
+  try {
+    await writeFile(tmp, JSON.stringify(value), { mode: 0o600 });
+    await rename(tmp, file);
+  } finally {
+    await rm(tmp, { force: true }).catch(() => {});
+  }
 }
 export function safePath(root: string, ...parts: string[]) {
   const resolved = path.resolve(root, ...parts);
