@@ -2,7 +2,7 @@
 
 Captured on **2026-10-29** from application revision [`44e6af9`](https://github.com/shiluyuan/blender-pilot/commit/44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8), which includes the sidebar typography and module refactor. This documentation update changes capture scripts and documentation only, not application behavior.
 
-The English and Chinese READMEs use the same **16 images** from this directory. Older images under `../current/` remain historical artifacts and are no longer embedded in either README.
+The English and Chinese READMEs lead with **two real-Blender workbench images** from `../current/` (the recorded earlier integration run). They supplement those with **14 current UI-detail images** from this directory. The two disconnected workbench captures in this directory remain diagnostic evidence and are not embedded in either README. The earlier real-Blender images are not claimed to contain the newest sidebar typography.
 
 ## Provenance
 

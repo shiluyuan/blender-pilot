@@ -13,10 +13,9 @@
 
 [Quick start](#quick-start) · [Screenshots](#screenshots) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
 
-<img src="docs/screenshots/latest/chat-light.webp" width="360" alt="Light assistant: document references, plan and tool activity" />
-<img src="docs/screenshots/latest/chat-dark.webp" width="360" alt="Dark assistant with current sidebar typography" />
+![Real Blender viewport with the AI conversation sidebar](docs/screenshots/current/workbench-light.png)
 
-<sub>Current UI captured 2026-10-29 · neutral light/dark themes · fixture data, not live model output</sub>
+**Your Blender scene in the center. Your AI copilot beside it.**
 
 </div>
 
@@ -107,9 +106,28 @@ Importing a `.blend` library asset appends objects to the current scene. ZIP upl
 
 ## Screenshots
 
-**All 16 captures were refreshed on 2026-10-29 from the current frontend**, including the sidebar typography, resizing and project rename updates. These are running application screens, without compositing or painted UI. Assets, tasks and runner responses use explicit test fixtures. The conversation panels are shown above; browse the rest by feature below. Open any image at its original size.
+The main images show the core product: **a real Blender viewport and the conversation sidebar in one workspace**. These workbench captures come from the recorded real-Blender integration run. Asset, project, skill and sidebar-detail captures below were refreshed from the current frontend on 2026-10-29 with explicit demo fixtures. Their provenance is distinguished rather than presenting management pages as the Blender experience.
 
-[Capture revision, provenance and reproduction](docs/screenshots/latest/README.md) · [Machine-readable manifest](docs/screenshots/latest/manifest.json)
+### Blender + AI copilot
+
+Keep Blender's native viewport, object tree and editing tools. Describe changes, inspect tool activity and review scene captures in the assistant beside your scene.
+
+![Real Blender dark workbench and conversation sidebar](docs/screenshots/current/workbench-dark.png)
+
+<details>
+<summary>Inspect current sidebar details: both themes, document references, task plans and narrow layout</summary>
+
+These current sidebar captures use local protocol fixtures to demonstrate typography and interaction.
+
+| Light assistant                                                                    | Dark assistant                                                             |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| ![Light sidebar with document references](docs/screenshots/latest/chat-light.webp) | ![Dark sidebar with tool activity](docs/screenshots/latest/chat-dark.webp) |
+
+<img src="docs/screenshots/latest/chat-narrow.webp" width="327" alt="Assistant, document reference and send control in a 375px window" />
+
+</details>
+
+[Capture provenance and reproduction](docs/screenshots/latest/README.md) · [Current UI capture manifest](docs/screenshots/latest/manifest.json)
 
 ### Assets and templates
 
@@ -154,20 +172,6 @@ Inspect installed skills, select them per project and access upload or npx insta
 | Custom URL, key and model                                                                    | Execution, storage and service health                                                           |
 | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | ![Model configuration without real credentials](docs/screenshots/latest/settings-light.webp) | ![System health console with a local runner fixture](docs/screenshots/latest/console-dark.webp) |
-
-<details>
-<summary>View both full workbench themes and the 375px narrow sidebar</summary>
-
-A real Blender process was not started for this screenshot run, so the workbench accurately shows a disconnected viewport. These captures demonstrate the current layout, not scene-generation acceptance.
-
-![Current light workbench with disconnected Blender viewport](docs/screenshots/latest/workbench-light.webp)
-![Current dark workbench with disconnected Blender viewport](docs/screenshots/latest/workbench-dark.webp)
-
-Assistant at a 375 × 667 window: long filenames truncate, code and tables scroll locally, and the send control stays visible.
-
-<img src="docs/screenshots/latest/chat-narrow.webp" width="327" alt="Narrow assistant with a document reference and visible send control" />
-
-</details>
 
 ## Architecture
 

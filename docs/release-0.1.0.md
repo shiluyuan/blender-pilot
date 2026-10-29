@@ -34,7 +34,7 @@ The SQL tests explicitly used PostgreSQL WASM over TCP in this restricted cloud 
 
 Before a production release claim, run `./local-up.sh --setup` and `--check` on each target OS, create/open two projects, rename/reload, import an asset, execute an authorized real-model task with screenshots, save/restart/reopen, and verify clean process teardown. For Docker deployments run the documented production acceptance procedure against the actual target.
 
-The bilingual README gallery was refreshed on 2026-10-29 with 16 current frontend screenshots, including the refactored sidebar and project rename controls. Captures use explicit fixture data and do not claim live Blender/model execution. See [capture provenance](screenshots/latest/README.md).
+The bilingual README leads with recorded real-Blender workbench images. Supporting UI-detail screenshots were refreshed on 2026-10-29, including the refactored sidebar and project rename controls; these supporting captures use explicit fixture data and do not claim new live Blender/model execution. See [capture provenance](screenshots/latest/README.md).
 
 ## Reproduce
 

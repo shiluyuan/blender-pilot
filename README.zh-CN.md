@@ -12,10 +12,9 @@
 
 [快速开始](#快速开始) · [界面展示](#界面展示) · [文档](#文档) · [参与贡献](CONTRIBUTING.md)
 
-<img src="docs/screenshots/latest/chat-light.webp" width="360" alt="浅色创作助手：文档引用、计划和工具记录" />
-<img src="docs/screenshots/latest/chat-dark.webp" width="360" alt="深色创作助手：最新侧栏排版" />
+![真实 Blender 画布与右侧 AI 创作助手同屏](docs/screenshots/current/workbench-light.png)
 
-<sub>2026-10-29 最新界面实拍 · 中性深浅主题 · 演示数据，非真实模型生成结果</sub>
+**中央操作真实 Blender，右侧通过对话创作、观察与检查。**
 
 </div>
 
@@ -98,9 +97,28 @@ ZIP 上限为压缩 100 MiB / 解压 512 MiB；`.blend` 素材以追加对象方
 
 ## 界面展示
 
-**本组 16 张截图已于 2026-10-29 按最新前端重新采集**，包含侧栏字号、宽度调整及项目重命名更新。均来自运行中的应用，未拼接或绘制界面；素材、任务和执行器使用明确的验收数据。上方展示完整对话侧栏，下方按功能浏览，点击图片可查看原始尺寸。
+主图首先展示产品的核心：**真实 Blender 视口与右侧对话助手同屏**。工作台主图来自已记录的真实 Blender 联调；下方素材、项目、技能和侧栏细节图来自 2026-10-29 最新前端验收，使用明确的演示数据。两类图片分别标注来源，不将管理界面截图代替 Blender 创作体验。
 
-[截图版本、来源与复现步骤](docs/screenshots/latest/README.md) · [机器可读清单](docs/screenshots/latest/manifest.json)
+### Blender + AI 创作助手
+
+保留 Blender 的原生视口、对象树和编辑工具，在同一工作台中通过右侧助手提出需求、查看执行记录和场景截图。
+
+![真实 Blender 深色工作台与对话助手](docs/screenshots/current/workbench-dark.png)
+
+<details>
+<summary>查看最新侧栏细节：深浅主题、文档引用、任务计划与窄屏布局</summary>
+
+以下是当前侧栏的界面验收截图，消息使用本地协议夹具，用于展示排版与交互。
+
+| 浅色助手                                                       | 深色助手                                                      |
+| -------------------------------------------------------------- | ------------------------------------------------------------- |
+| ![浅色侧栏及文档引用](docs/screenshots/latest/chat-light.webp) | ![深色侧栏及工具记录](docs/screenshots/latest/chat-dark.webp) |
+
+<img src="docs/screenshots/latest/chat-narrow.webp" width="327" alt="375px 窗口中的侧栏、附件与发送入口" />
+
+</details>
+
+[截图来源与复现步骤](docs/screenshots/latest/README.md) · [最新界面截图清单](docs/screenshots/latest/manifest.json)
 
 ### 素材与模板
 
@@ -145,20 +163,6 @@ ZIP 上限为压缩 100 MiB / 解压 512 MiB；`.blend` 素材以追加对象方
 | 自定义 URL、Key 与模型                                                   | 执行环境、存储与服务状态                                                           |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | ![模型设置，不展示真实密钥](docs/screenshots/latest/settings-light.webp) | ![系统状态控制台，执行器为本地验收夹具](docs/screenshots/latest/console-dark.webp) |
-
-<details>
-<summary>查看完整工作台深浅主题与 375px 窄屏侧栏</summary>
-
-本次截图环境未启动真实 Blender，因此工作台如实显示视口未连接；这里展示最新界面布局，不代表场景生成验收。
-
-![最新浅色工作台，未连接真实 Blender](docs/screenshots/latest/workbench-light.webp)
-![最新深色工作台，未连接真实 Blender](docs/screenshots/latest/workbench-dark.webp)
-
-375 × 667 窗口中的助手：长文件名可截断，代码和表格在各自区域滚动，发送入口保持可见。
-
-<img src="docs/screenshots/latest/chat-narrow.webp" width="327" alt="窄屏侧栏、文档附件与发送按钮" />
-
-</details>
 
 ## 技术架构
 
