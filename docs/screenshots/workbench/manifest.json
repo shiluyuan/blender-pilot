@@ -1,0 +1,30 @@
+{
+  "applicationRevision": "c600b5d2125546aa1abbad43c764c8da4bd3ef3b",
+  "packagedAt": "2026-10-29T08:56:33.410Z",
+  "capturedAt": "2026-10-29T08:52:04.613Z",
+  "scope": "Actual Blender desktop over authenticated VNC in the production web UI; original browser pixels, lossless WebP, no compositing or retouching.",
+  "blender": "4.0.2",
+  "codex": "passed",
+  "model": "deterministic Responses fixture (not real inference)",
+  "mode": "protocol-fixture",
+  "database": "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised",
+  "report": "../../validation/compact-native.json",
+  "images": [
+    {
+      "file": "workbench-light.webp",
+      "source": ".data/compact-workbench-final/workbench-light.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 385476,
+      "sha256": "a566afe0067e8f62a9c492f30503735c587ade639fe540f1aa947729c612f7b7"
+    },
+    {
+      "file": "workbench-dark.webp",
+      "source": ".data/compact-workbench-final/workbench-dark.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 387920,
+      "sha256": "aaa2a86c3c7c54db7eb1899d746f7b4701dedfc26cc536181b2e116f8b695c69"
+    }
+  ]
+}

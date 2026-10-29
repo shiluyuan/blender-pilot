@@ -12,7 +12,7 @@
 
 [快速开始](#快速开始) · [界面展示](#界面展示) · [文档](#文档) · [参与贡献](CONTRIBUTING.md)
 
-![真实 Blender 画布与右侧 AI 创作助手同屏](docs/screenshots/current/workbench-light.png)
+![真实 Blender 画布与右侧 AI 创作助手同屏](docs/screenshots/workbench/workbench-light.webp)
 
 **中央操作真实 Blender，右侧通过对话创作、观察与检查。**
 
@@ -97,13 +97,13 @@ ZIP 上限为压缩 100 MiB / 解压 512 MiB；`.blend` 素材以追加对象方
 
 ## 界面展示
 
-主图首先展示产品的核心：**真实 Blender 视口与右侧对话助手同屏**。工作台主图来自已记录的真实 Blender 联调；下方素材、项目、技能和侧栏细节图来自 2026-10-29 最新前端验收，使用明确的演示数据。两类图片分别标注来源，不将管理界面截图代替 Blender 创作体验。
+以下全部截图于 **2026-10-29** 基于[同一版紧凑对话界面](https://github.com/shiluyuan/blender-pilot/commit/c600b5d2125546aa1abbad43c764c8da4bd3ef3b)重新拍摄。主图为 **真实 Blender 4.0.2＋当前默认 400px 右侧助手**，已运行原生 Codex/MCP/Blender 链路；模型回复使用本地协议测试数据，不宣称真实模型推理。其他界面细节使用明确的本地演示数据。[真实工作台截图来源](docs/screenshots/workbench/README.md) · [排版与验收记录](docs/compact-conversation-review.md)。
 
 ### Blender + AI 创作助手
 
 保留 Blender 的原生视口、对象树和编辑工具，在同一工作台中通过右侧助手提出需求、查看执行记录和场景截图。
 
-![真实 Blender 深色工作台与对话助手](docs/screenshots/current/workbench-dark.png)
+![真实 Blender 深色工作台与对话助手](docs/screenshots/workbench/workbench-dark.webp)
 
 <details>
 <summary>查看最新侧栏细节：深浅主题、文档引用、任务计划与窄屏布局</summary>

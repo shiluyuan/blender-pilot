@@ -13,7 +13,7 @@
 
 [Quick start](#quick-start) · [Screenshots](#screenshots) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
 
-![Real Blender viewport with the AI conversation sidebar](docs/screenshots/current/workbench-light.png)
+![Real Blender viewport with the AI conversation sidebar](docs/screenshots/workbench/workbench-light.webp)
 
 **Your Blender scene in the center. Your AI copilot beside it.**
 
@@ -106,13 +106,13 @@ Importing a `.blend` library asset appends objects to the current scene. ZIP upl
 
 ## Screenshots
 
-The main images show the core product: **a real Blender viewport and the conversation sidebar in one workspace**. These workbench captures come from the recorded real-Blender integration run. Asset, project, skill and sidebar-detail captures below were refreshed from the current frontend on 2026-10-29 with explicit demo fixtures. Their provenance is distinguished rather than presenting management pages as the Blender experience.
+All screenshots below were recaptured on **2026-10-29** from the [compact conversation revision](https://github.com/shiluyuan/blender-pilot/commit/c600b5d2125546aa1abbad43c764c8da4bd3ef3b). The main images show **real Blender 4.0.2 and the current 400px conversation sidebar** together. The native Codex/MCP/Blender chain was exercised with deterministic model responses; no live inference is claimed. Other interface details use explicit local fixtures. [Real desktop provenance](docs/screenshots/workbench/README.md) · [Layout and acceptance](docs/compact-conversation-review.md).
 
 ### Blender + AI copilot
 
 Keep Blender's native viewport, object tree and editing tools. Describe changes, inspect tool activity and review scene captures in the assistant beside your scene.
 
-![Real Blender dark workbench and conversation sidebar](docs/screenshots/current/workbench-dark.png)
+![Real Blender dark workbench and conversation sidebar](docs/screenshots/workbench/workbench-dark.webp)
 
 <details>
 <summary>Inspect current sidebar details: both themes, document references, task plans and narrow layout</summary>

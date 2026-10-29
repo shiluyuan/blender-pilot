@@ -1,8 +1,8 @@
 # Current UI screenshots
 
-The **three assistant detail captures** (`chat-dark`, `chat-light`, `chat-narrow`) were refreshed on **2026-10-29** from application revision [`bb00ea4`](https://github.com/shiluyuan/blender-pilot/commit/bb00ea4cf7466da7b3063fe0227b566939e53711), after the project-switching and compact-sidebar improvements. The other captures remain from revision [`44e6af9`](https://github.com/shiluyuan/blender-pilot/commit/44e6af9a188ad8b3bbcbf2f6c28df1f6b3de90b8). Each image now has an explicit source revision in the manifest.
+All **16 UI-detail and diagnostic captures** were refreshed on **2026-10-29** from application revision [`c600b5d`](https://github.com/shiluyuan/blender-pilot/commit/c600b5d2125546aa1abbad43c764c8da4bd3ef3b). Assistant details now use the real default **400px** panel width and the compact conversation structure, grouped operations and inline identities.
 
-The English and Chinese READMEs lead with **two real-Blender workbench images** from `../current/` (the recorded earlier integration run). They supplement those with **14 current UI-detail images** from this directory. The two disconnected workbench captures in this directory remain diagnostic evidence and are not embedded in either README. The earlier real-Blender images are not claimed to contain the newest sidebar typography.
+The English and Chinese READMEs lead with **two real-Blender workbench images** from `../workbench/` (a fresh actual-Blender run of the same frontend revision). They supplement those with **14 current UI-detail images** from this directory. The two disconnected workbench captures in this directory remain diagnostic evidence and are not embedded in either README. Both main workbench captures and the details in this directory now contain the current layout.
 
 ## Provenance
 
