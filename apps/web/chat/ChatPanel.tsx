@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Clock3, PanelRightClose, Plus, Sparkles } from "lucide-react";
+import { Camera, Clock3, PanelRightClose, Plus, Sparkles } from "lucide-react";
 import { usePanelWidth } from "./usePanelWidth";
 
 /** Presentation boundary: conversation state and commands remain in the workspace. */
@@ -40,12 +40,33 @@ export function ChatPanel({
         style={{ width }}
       >
         <div className="chat-header">
-          <div>
-            <Sparkles size={16} />
-            <strong>创作助手</strong>
-            <span className="badge small">CODEX</span>
+          <div className="chat-heading">
+            <div className="chat-heading-title">
+              <Sparkles size={14} />
+              <strong>创作助手</strong>
+              <span className="chat-engine">CODEX</span>
+            </div>
+            <div className="chat-context">
+              <span
+                className={"dot " + (reconnecting ? "" : "green")}
+                aria-hidden="true"
+              />
+              <span className="chat-session-title" title={sessionTitle}>
+                {sessionTitle}
+              </span>
+              <span
+                className="chat-connection"
+                role="status"
+                aria-label={
+                  reconnecting ? "正在重连，恢复消息中" : "自动截图已开启"
+                }
+                title={reconnecting ? "正在重连，恢复消息中" : "自动截图已开启"}
+              >
+                {reconnecting ? "重连中…" : <Camera size={12} />}
+              </span>
+            </div>
           </div>
-          <div>
+          <div className="chat-header-actions">
             <button
               className="icon"
               title="对话历史"
@@ -72,17 +93,6 @@ export function ChatPanel({
               <PanelRightClose size={16} />
             </button>
           </div>
-        </div>
-        <div className="chat-context">
-          <span
-            className={"dot " + (reconnecting ? "" : "green")}
-            aria-hidden="true"
-          />
-          <span className="chat-connection" role="status">
-            {reconnecting ? "正在重连，恢复消息中…" : "自动截图已开启"}
-          </span>
-          <span className="grow" />
-          <span title={sessionTitle}>{sessionTitle}</span>
         </div>
         {children}
       </aside>

@@ -1,0 +1,60 @@
+{
+  "passed": true,
+  "codex": "passed",
+  "time": "2026-10-29T08:52:04.613Z",
+  "blender": "4.0.2",
+  "model": "deterministic Responses fixture (not real inference)",
+  "databaseValidation": "PostgreSQL WASM engine over TCP protocol; native PostgreSQL not exercised",
+  "mode": "protocol-fixture",
+  "reusedLiveChecks": false,
+  "imageInputs": 34,
+  "library": {
+    "passed": true,
+    "blender": "4.0.2",
+    "checks": [
+      "selected hierarchy only",
+      "packed texture survives deletion of original",
+      "materials and transforms",
+      "source scene unchanged",
+      "cross-project append",
+      "repeated imports have independent meshes and materials",
+      "scene collection merge",
+      "category/tag search",
+      "favorite survives reload",
+      "empty selection rejected"
+    ],
+    "assetIds": [
+      "cd45af39-df87-4434-952f-ac823749a3b9",
+      "b7b0fad5-fdb6-40d1-9668-c2b14bb64d8a"
+    ]
+  },
+  "skills": {
+    "passed": true,
+    "id": "a7d97f48-f77a-4a73-9c55-24069bd1697f",
+    "sha256": "e62825998712b3da95e519912434499bf23d406544c15802c666a62a3c3ad937",
+    "nativeInput": true,
+    "mcpResource": true
+  },
+  "quality": {
+    "passed": true,
+    "views": 3,
+    "inspectionId": "000479f9-f17a-47ae-9819-877b5292225c",
+    "missingReportStatus": "interrupted",
+    "readOnlySceneChanged": false
+  },
+  "checks": [
+    "native MCP",
+    "snapshots",
+    "GLB/glTF/blend exports",
+    "Codex tool calls",
+    "image input",
+    "idempotency",
+    "thread resume",
+    "cancel",
+    "uploaded skill -> native Codex -> MCP resource",
+    "multi-view current inspection",
+    "missing visual report interrupted",
+    "read-only truthful summary",
+    "browser VNC"
+  ]
+}

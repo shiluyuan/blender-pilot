@@ -693,3 +693,162 @@
     transition: none;
   }
 }
+
+/* Dense conversation structure: one heading, inline identity, one activity rail. */
+.chat-header .chat-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.chat-heading-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 20px;
+}
+.chat-engine {
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.6px;
+}
+.chat-context .chat-session-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.chat-context .chat-connection {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.chat-header .chat-header-actions {
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.user-message > :not(.user-label):not(p) {
+  grid-column: 2;
+}
+.chat-user-refs,
+.chat-skill-refs {
+  margin-top: 5px;
+}
+.chat-message-part {
+  margin: 4px 0 6px;
+}
+.chat-message-part.commentary .chat-markdown {
+  color: var(--muted);
+}
+.chat-activity {
+  margin: 4px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.chat-activity.attention {
+  color: var(--error);
+}
+.chat-activity-toggle {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  gap: 5px;
+  border: 0;
+  border-radius: 3px;
+  padding: 3px 2px;
+  min-height: 26px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.chat-activity-toggle:hover {
+  background: var(--raised);
+}
+.chat-activity-toggle > svg {
+  flex-shrink: 0;
+}
+.chat-activity-toggle > svg.expanded {
+  transform: rotate(90deg);
+}
+.chat-activity-toggle > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.chat-activity-toggle > small {
+  margin-left: auto;
+  font-size: 12px;
+  flex-shrink: 0;
+  color: var(--faint);
+}
+.chat-activity-items {
+  border-left: 1px solid var(--line);
+  margin-left: 8px;
+  padding-left: 10px;
+}
+.chat-activity-items .chat-tool,
+.chat-activity-items .chat-plan {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+.chat-activity-items .chat-plan > summary,
+.chat-activity-items .chat-tool > summary {
+  min-height: 26px;
+  padding: 3px 0;
+}
+.welcome-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.chat-welcome p {
+  margin: 0;
+}
+.chat-template-entry {
+  justify-content: flex-start;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  margin-top: 6px;
+}
+.chat-template-entry > svg:last-child {
+  margin-left: auto;
+}
+@container (max-width: 370px) {
+  .chat-context {
+    padding-inline: 0;
+  }
+  .chat-welcome h2 {
+    font-size: 16px;
+  }
+}
+
+/* Intermediate visual receipts stay inspectable without displacing the reply. */
+.chat-capture.compact {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0;
+  margin: 6px 0;
+  text-align: left;
+}
+.chat-capture.compact > img {
+  width: 76px;
+  height: 58px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: var(--input);
+}
+.chat-capture.compact > span {
+  border-top: 0;
+  padding: 6px 10px;
+  flex: 1;
+  gap: 8px;
+}

@@ -44,6 +44,8 @@ const logs: string[] = [];
 let childFailure: Error | undefined;
 const env = {
   ...process.env,
+  BLENDER_PORT: process.env.BLENDER_PORT || "9876",
+  VNC_PORT: process.env.VNC_PORT || "5900",
   PILOT_DEBUG: "true",
   PILOT_EXTERNAL_DESKTOP: "true",
   PILOT_DATA: dir,
@@ -68,8 +70,10 @@ const launch = (name: string, bin: string, args: string[], extra = {}) => {
     env: { ...env, ...extra },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  child.stdout!.pipe(stream);
-  child.stderr!.pipe(stream);
+  // Both pipes share one log. EOF on one must not close the other.
+  child.stdout!.pipe(stream, { end: false });
+  child.stderr!.pipe(stream, { end: false });
+  child.once("close", () => stream.end());
   child.on("error", (e) => stream.write(String(e)));
   children.push(child);
   child.on("exit", (code) => {
@@ -117,7 +121,7 @@ try {
     `:${display}`,
     "-screen",
     "0",
-    "1440x900x24",
+    process.env.PILOT_RESOLUTION || "1440x900x24",
     "-ac",
     "-nolisten",
     "unix",
@@ -133,7 +137,11 @@ try {
     "--python",
     path.join(root, "deploy/bootstrap.py"),
   ]);
-  await waitFor(() => port(9876), "Blender addon", 120000);
+  await waitFor(
+    () => port(Number(env.BLENDER_PORT || 9876)),
+    "Blender addon",
+    120000,
+  );
   console.log("PASS Blender GUI and addon started");
   launch("vnc", process.env.X11VNC_BIN || "x11vnc", [
     "-display",
@@ -144,7 +152,7 @@ try {
     "-listen",
     "127.0.0.1",
     "-rfbport",
-    "5900",
+    String(env.VNC_PORT || 5900),
     "-noxdamage",
     "-noshm",
   ]);
@@ -571,7 +579,7 @@ try {
     console.log("PASS native turn interruption");
   } else console.log("SKIP Codex: desktop/Blender-only validation requested");
   if (process.env.PILOT_BROWSER_BIN) {
-    await waitFor(() => port(5900), "VNC", 20000);
+    await waitFor(() => port(Number(env.VNC_PORT || 5900)), "VNC", 20000);
     const { chromium } = await import("@playwright/test");
     browser = await chromium.launch({
       executablePath: process.env.PILOT_BROWSER_BIN,
@@ -671,6 +679,34 @@ try {
         "PASS browser conversation with the real model and screenshot verification",
       );
     }
+    // A connected VNC socket can precede its first framebuffer. Capture only
+    // after Blender has actually painted a nonempty, varied desktop image.
+    await page.waitForFunction(() => {
+      const canvas =
+        document.querySelector<HTMLCanvasElement>(".rfb-host canvas");
+      if (!canvas || canvas.width < 400 || canvas.height < 300) return false;
+      const context = canvas.getContext("2d");
+      if (!context) return false;
+      const pixels = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ).data;
+      const colors = new Set<number>();
+      for (let i = 0; i < pixels.length; i += 4096) {
+        colors.add((pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2]);
+        if (colors.size > 32) return true;
+      }
+      return false;
+    });
+    await page.evaluate(() => document.fonts.ready);
+    await page.mouse.move(10, 10);
+    // Show the successful creative turn in the README hero; cancellation and
+    // missing-verification cases remain covered by the preceding assertions.
+    await page.locator(".chat-timeline").evaluate((node: HTMLElement) => {
+      node.scrollTop = 0;
+    });
     await page.screenshot({ path: path.join(dir, "workbench-dark.png") });
     const canvas = await page.locator(".rfb-host canvas").elementHandle();
     await page
@@ -683,6 +719,10 @@ try {
       "sidebar must not remount Blender",
     );
     await page.getByRole("button", { name: "切换主题" }).click();
+    await page.locator(".chat-timeline").evaluate((node: HTMLElement) => {
+      node.scrollTop = 0;
+    });
+    await page.mouse.move(10, 10);
     await page.screenshot({ path: path.join(dir, "workbench-light.png") });
     await page.getByRole("button", { name: "切换主题" }).click();
     await page.getByRole("button", { name: "截图", exact: true }).click();

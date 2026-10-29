@@ -257,7 +257,7 @@ try {
       : {}),
   });
   const context = await browser.newContext({
-    viewport: { width: 1440, height: 1000 },
+    viewport: { width: 1440, height: 900 },
   });
   await context.addInitScript(
     ({ pid, sid }) => {
@@ -268,7 +268,7 @@ try {
           JSON.stringify({ sessionId: sid }),
         );
         localStorage.setItem("pilot-theme", "dark");
-        localStorage.setItem("pilot-panel-width", "600");
+        localStorage.setItem("pilot-panel-width", "400");
       }
     },
     { pid: project.id, sid: sessionA.id },
@@ -322,6 +322,10 @@ try {
   await input.press("Enter");
   await wait(async () => submissions.length === 1, "chat submission");
   assert.equal(submissions[0].assets.length, 1);
+  await wait(
+    async () => documents.length === 1,
+    "runner finished reading the uploaded document",
+  );
   assert.equal(documents[0], md);
   await page
     .locator(".chat-timeline h3")
@@ -329,6 +333,18 @@ try {
     .waitFor();
   assert(await page.locator(".chat-timeline pre code").count());
   assert(await page.locator(".chat-timeline table").count());
+  await page.locator(".run-badge.succeeded").first().waitFor();
+  const activity = page.locator(".chat-activity-toggle").first();
+  await wait(
+    async () => (await activity.getAttribute("aria-expanded")) === "false",
+    "completed operations collapse into one row",
+  );
+  assert.equal(
+    await page.locator(".chat-tool").count(),
+    0,
+    "collapsed group unmounts operation rows",
+  );
+  await activity.click();
   const timelineText = await page.locator(".chat-timeline").innerText();
   assert(
     timelineText.indexOf("我先阅读参考说明") < timelineText.indexOf("读取场景"),
@@ -368,6 +384,9 @@ try {
   pass(
     "完成计划默认折叠且可展开；工具详情按需渲染，折叠后释放隐藏的 JSON 内容",
   );
+  await activity.click();
+  assert.equal(await activity.getAttribute("aria-expanded"), "false");
+  pass("完成后的计划与工具合并为单条操作记录，展开后事件顺序与完整详情保留");
   await page.evaluate(() => document.fonts.ready);
   const cdp = await context.newCDPSession(page);
   await cdp.send("DOM.enable");
@@ -404,6 +423,7 @@ try {
   await page.locator(".chat-timeline").evaluate((node) => {
     node.scrollTop = 0;
   });
+  await page.mouse.move(10, 10);
   await page.screenshot({ path: path.join(output, "chat-workbench.png") });
   await page
     .locator(".chat-panel")
@@ -865,6 +885,8 @@ try {
   );
   pass("正文与输入区 14px、身份标签 13px，消息标题保持清晰字号层级");
   const density = await page.locator(".chat-panel").evaluate((panel) => ({
+    headerHeight: panel.querySelector(".chat-header")!.getBoundingClientRect()
+      .height,
     contextHeight: panel.querySelector(".chat-context")!.getBoundingClientRect()
       .height,
     turnPadding: parseFloat(
@@ -877,11 +899,14 @@ try {
       getComputedStyle(panel.querySelector(".chat-markdown p")!).lineHeight,
     ),
   }));
-  assert(density.contextHeight <= 30);
-  assert(density.turnPadding <= 12);
-  assert(density.messageGap <= 12);
+  assert(density.headerHeight <= 50);
+  assert(density.contextHeight <= 18);
+  assert(density.turnPadding <= 10);
+  assert(density.messageGap <= 9);
   assert(density.bodyLineHeight >= 21 && density.bodyLineHeight <= 23);
-  pass("侧栏状态行不超过 30px、轮次间距 12px，正文行高保持 21–23px 的可读密度");
+  pass(
+    "侧栏标题与上下文共 50px、轮次间距 10px、消息间距 9px，正文保持 14px / 21px",
+  );
   for (const width of [900, 768, 375]) {
     await page.setViewportSize({ width, height: width === 375 ? 667 : 900 });
     const fit = await page.locator(".chat-panel").evaluate((panel) => {
@@ -930,6 +955,7 @@ try {
     uncaughtBrowserErrors: uncaught,
     fontAudit,
     typography,
+    density,
     layoutAudit,
     screenshots: [
       "chat-dark.png",

@@ -1,5 +1,7 @@
 # Project switching and compact sidebar
 
+> The later [compact conversation layout](compact-conversation-review.md) supersedes the spacing-only layout described below. The project-switching changes remain in effect.
+
 This pass improves the web workspace's project/conversation switching and reading density. The central Blender viewport and right-hand, collapsible assistant remain the primary product layout. The neutral light/dark palette is unchanged.
 
 ## Findings and changes

@@ -338,3 +338,33 @@ export function reduceTimeline(events: readonly PilotEvent[]): ChatBlock[] {
       block.kind !== "message" || block.text || block.status === "streaming",
   );
 }
+
+export type ActivityBlock = {
+  kind: "activity";
+  id: string;
+  items: Array<Extract<ChatBlock, { kind: "tool" | "plan" }>>;
+};
+
+/** Group adjacent operational rows only. Images, notices and messages keep their order. */
+export function groupActivity(
+  blocks: readonly ChatBlock[],
+): Array<Exclude<ChatBlock, { kind: "tool" | "plan" }> | ActivityBlock> {
+  const result: Array<
+    Exclude<ChatBlock, { kind: "tool" | "plan" }> | ActivityBlock
+  > = [];
+  for (const block of blocks) {
+    if (block.kind !== "tool" && block.kind !== "plan") {
+      result.push(block);
+      continue;
+    }
+    const previous = result.at(-1);
+    if (previous?.kind === "activity") previous.items.push(block);
+    else
+      result.push({
+        kind: "activity",
+        id: "activity-" + block.id,
+        items: [block],
+      });
+  }
+  return result;
+}

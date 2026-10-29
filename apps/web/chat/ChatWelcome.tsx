@@ -16,15 +16,13 @@ export function ChatWelcome({
 }) {
   return (
     <div className="chat-welcome">
-      <div className="assistant-emblem">
-        <Mark />
+      <div className="welcome-heading">
+        <div className="assistant-emblem">
+          <Mark />
+        </div>
+        <h2>一起，把场景做好。</h2>
       </div>
-      <h2>一起，把场景做好。</h2>
-      <p>
-        描述你想创建或调整的内容。
-        <br />
-        我会观察场景，执行修改，再截图检查。
-      </p>
+      <p>描述要创建或调整的内容，我会查看场景、执行修改并截图检查。</p>
       <div className="suggestions">
         {suggestions.map((text, index) => (
           <button key={text} onClick={() => onSuggestion(text)}>

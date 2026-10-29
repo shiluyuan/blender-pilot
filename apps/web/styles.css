@@ -449,7 +449,7 @@ button svg {
   flex-direction: column;
 }
 .workspace-toolbar {
-  height: 43px;
+  height: 36px;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
@@ -692,10 +692,10 @@ button svg {
   min-width: 0;
   background: var(--chrome);
   container-type: inline-size;
-  --line-reading: 1.55;
+  --line-reading: 1.5;
 }
 .chat-header {
-  height: 40px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -705,7 +705,7 @@ button svg {
 }
 .chat-header > div {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
 }
 .chat-header strong {
@@ -723,16 +723,16 @@ button svg {
 .chat-context {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  font-size: var(--font-caption);
+  gap: 5px;
+  padding: 0;
+  font-size: 12px;
   flex-shrink: 0;
-  min-height: 28px;
+  min-height: 16px;
   color: var(--muted);
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 0;
 }
 .chat-context > span:last-child {
-  max-width: 36%;
+  max-width: none;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -746,24 +746,24 @@ button svg {
   scroll-behavior: smooth;
 }
 .chat-welcome {
-  padding: 20px 0 16px;
+  padding: 16px 0 12px;
 }
 .assistant-emblem {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 0;
   color: var(--accent);
   border-radius: 10px;
-  margin-bottom: 12px;
-  background: var(--accent-soft);
+  margin-bottom: 0;
+  background: transparent;
 }
 .chat-welcome h2 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.3px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 .chat-welcome p {
   font-size: var(--font-body);
@@ -773,19 +773,22 @@ button svg {
 .suggestions {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 16px;
+  gap: 0;
+  margin-top: 12px;
 }
 .suggestions button {
   justify-content: flex-start;
   text-align: left;
   white-space: normal;
   background: transparent;
-  min-height: 34px;
+  min-height: 32px;
   font-size: var(--font-label);
   line-height: 1.6;
-  padding: 6px 8px;
+  padding: 5px 2px;
   gap: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--soft-line);
+  border-radius: 0;
 }
 .suggestions button > span:first-child {
   color: var(--faint);
@@ -806,7 +809,7 @@ button svg {
   border-color: var(--muted);
 }
 .welcome-tip {
-  margin-top: 12px;
+  margin-top: 10px;
   display: flex;
   gap: 6px;
   align-items: flex-start;
@@ -910,20 +913,24 @@ button svg {
   min-height: 19px;
 }
 .conversation-turn {
-  padding: 12px 0 6px;
+  padding: 10px 0 8px;
 }
 .user-message {
-  padding: 8px 10px;
-  border: 1px solid var(--soft-line);
-  border-radius: 6px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 4px;
   background: var(--raised);
-  margin-bottom: 12px;
+  margin-bottom: 9px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 6px;
 }
 .user-label {
   display: flex;
-  justify-content: space-between;
-  font-size: 13px;
+  justify-content: flex-start;
+  font-size: 12px;
   color: var(--muted);
+  line-height: 21px;
 }
 .user-label time {
   color: var(--faint);
@@ -933,8 +940,9 @@ button svg {
   font-size: var(--font-body);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  margin-top: 6px;
+  margin-top: 0;
   line-height: var(--line-reading);
+  margin: 0;
 }
 .user-message > small {
   display: flex;
@@ -945,12 +953,12 @@ button svg {
 .assistant-label {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 7px;
+  gap: 5px;
+  margin-bottom: 4px;
 }
 .assistant-label svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   color: var(--accent);
 }
 .assistant-label strong {
@@ -958,7 +966,7 @@ button svg {
   font-weight: 600;
 }
 .run-badge {
-  margin-left: auto;
+  margin-left: 3px;
   font-size: 12px;
   color: var(--muted);
 }
@@ -2369,7 +2377,7 @@ button svg {
   padding: 14px 8px;
 }
 .topbar {
-  height: 52px;
+  height: 44px;
   background: var(--chrome);
 }
 .topbar .brand-text {
