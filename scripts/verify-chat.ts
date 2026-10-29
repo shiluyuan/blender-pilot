@@ -347,6 +347,27 @@ try {
       (await api(`/sessions/${sessionA.id}/runs`))[0]?.status === "succeeded",
     "first completion",
   );
+  const finishedPlan = page.locator(".chat-plan").first();
+  assert.equal(
+    await finishedPlan.getAttribute("open"),
+    null,
+    "completed plans start compact",
+  );
+  await finishedPlan.locator("summary").click();
+  await finishedPlan.locator("li").first().waitFor({ state: "visible" });
+  await finishedPlan.locator("summary").click();
+  const tool = page.locator(".chat-tool").first();
+  assert.equal(await tool.locator(".chat-tool-detail").count(), 0);
+  await tool.locator("summary").click();
+  await tool.locator(".chat-tool-detail").first().waitFor({ state: "visible" });
+  await tool.locator("summary").click();
+  await wait(
+    async () => (await tool.locator(".chat-tool-detail").count()) === 0,
+    "tool payload unmounted when folded",
+  );
+  pass(
+    "完成计划默认折叠且可展开；工具详情按需渲染，折叠后释放隐藏的 JSON 内容",
+  );
   await page.evaluate(() => document.fonts.ready);
   const cdp = await context.newCDPSession(page);
   await cdp.send("DOM.enable");
@@ -404,7 +425,38 @@ try {
     "new session empty draft",
   );
   await input.fill("B 会话独立草稿");
+  let releaseHistory: () => void = () => {};
+  let historyWaiting = false;
+  const historyGate = new Promise<void>((resolve) => {
+    releaseHistory = resolve;
+  });
+  await page.route(`**/api/sessions/${sessionA.id}/runs`, async (route) => {
+    historyWaiting = true;
+    await historyGate;
+    await route.continue();
+  });
+  let historyReplays = 0;
+  await page.route("**/api/runs/*/events*", async (route) => {
+    historyReplays++;
+    await route.continue();
+  });
   await openHistory(page, "场景参考 A");
+  await wait(async () => historyWaiting, "background history refresh is gated");
+  await page.getByRole("heading", { name: "组合结果", exact: true }).waitFor();
+  assert.equal(
+    historyReplays,
+    0,
+    "completed cached transcripts must not replay SSE from zero",
+  );
+  assert.equal(
+    await page.locator(".chat-welcome").count(),
+    0,
+    "cached conversation must not flash a welcome screen",
+  );
+  releaseHistory();
+  await page.unroute(`**/api/sessions/${sessionA.id}/runs`);
+  await page.unroute("**/api/runs/*/events*");
+  pass("切回会话时，历史接口阻塞仍立即显示已缓存消息；已完成事件不重复回放");
   await wait(
     async () => (await input.inputValue()) === "A 会话独立草稿",
     "A session draft restore",
@@ -812,6 +864,24 @@ try {
     "heading hierarchy must exceed body text",
   );
   pass("正文与输入区 14px、身份标签 13px，消息标题保持清晰字号层级");
+  const density = await page.locator(".chat-panel").evaluate((panel) => ({
+    contextHeight: panel.querySelector(".chat-context")!.getBoundingClientRect()
+      .height,
+    turnPadding: parseFloat(
+      getComputedStyle(panel.querySelector(".conversation-turn")!).paddingTop,
+    ),
+    messageGap: parseFloat(
+      getComputedStyle(panel.querySelector(".user-message")!).marginBottom,
+    ),
+    bodyLineHeight: parseFloat(
+      getComputedStyle(panel.querySelector(".chat-markdown p")!).lineHeight,
+    ),
+  }));
+  assert(density.contextHeight <= 30);
+  assert(density.turnPadding <= 12);
+  assert(density.messageGap <= 12);
+  assert(density.bodyLineHeight >= 21 && density.bodyLineHeight <= 23);
+  pass("侧栏状态行不超过 30px、轮次间距 12px，正文行高保持 21–23px 的可读密度");
   for (const width of [900, 768, 375]) {
     await page.setViewportSize({ width, height: width === 375 ? 667 : 900 });
     const fit = await page.locator(".chat-panel").evaluate((panel) => {

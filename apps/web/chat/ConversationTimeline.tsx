@@ -43,6 +43,12 @@ export function ConversationTimeline({
     const node = content.current;
     if (!node) return;
     const observer = new ResizeObserver(() => {
+      const scroller = viewport.current;
+      if (scroller && scroller.scrollHeight <= scroller.clientHeight + 1) {
+        follow.current = true;
+        userScroll.current = false;
+        setAway(false);
+      }
       if (follow.current) goBottom();
     });
     observer.observe(node);
@@ -105,6 +111,13 @@ export function ConversationTimeline({
         onScroll={() => {
           const node = viewport.current;
           if (!node) return;
+          if (node.scrollHeight <= node.clientHeight + 1) {
+            follow.current = true;
+            userScroll.current = false;
+            lastTop.current = node.scrollTop;
+            setAway(false);
+            return;
+          }
           const bottom =
             node.scrollHeight - node.clientHeight - node.scrollTop < 24;
           const moved = node.scrollTop - lastTop.current;

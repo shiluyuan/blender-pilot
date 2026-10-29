@@ -692,13 +692,14 @@ button svg {
   min-width: 0;
   background: var(--chrome);
   container-type: inline-size;
+  --line-reading: 1.55;
 }
 .chat-header {
-  height: 44px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
@@ -723,10 +724,10 @@ button svg {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 16px;
+  padding: 5px 12px;
   font-size: var(--font-caption);
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: 28px;
   color: var(--muted);
   border-bottom: 1px solid var(--soft-line);
 }
@@ -740,29 +741,29 @@ button svg {
 .chat-timeline {
   flex: 1;
   overflow: auto;
-  padding: 0 18px;
+  padding: 0 12px;
   min-height: 0;
   scroll-behavior: smooth;
 }
 .chat-welcome {
-  padding: 36px 2px 24px;
+  padding: 20px 0 16px;
 }
 .assistant-emblem {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
   color: var(--accent);
   border-radius: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   background: var(--accent-soft);
 }
 .chat-welcome h2 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.3px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 .chat-welcome p {
   font-size: var(--font-body);
@@ -772,19 +773,19 @@ button svg {
 .suggestions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 24px;
+  gap: 4px;
+  margin-top: 16px;
 }
 .suggestions button {
   justify-content: flex-start;
   text-align: left;
   white-space: normal;
   background: transparent;
-  min-height: 43px;
+  min-height: 34px;
   font-size: var(--font-label);
   line-height: 1.6;
-  padding: 9px 10px;
-  gap: 10px;
+  padding: 6px 8px;
+  gap: 8px;
 }
 .suggestions button > span:first-child {
   color: var(--faint);
@@ -805,22 +806,22 @@ button svg {
   border-color: var(--muted);
 }
 .welcome-tip {
-  margin-top: 22px;
+  margin-top: 12px;
   display: flex;
-  gap: 9px;
+  gap: 6px;
   align-items: flex-start;
   font-size: 12px;
   color: var(--faint);
-  line-height: 1.8;
+  line-height: 1.5;
 }
 .composer-wrap {
-  padding: 12px 14px 7px;
+  padding: 8px 10px 6px;
   border-top: 1px solid var(--soft-line);
   background: var(--chrome);
 }
 .composer {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--panel);
   transition: border-color 0.2s;
 }
@@ -842,7 +843,7 @@ button svg {
 .composer-controls {
   display: flex;
   align-items: center;
-  padding: 0 8px 8px;
+  padding: 0 6px 6px;
   gap: 2px;
 }
 .shortcut {
@@ -868,7 +869,7 @@ button svg {
   justify-content: space-between;
   font-size: 12px;
   color: var(--faint);
-  padding-top: 8px;
+  padding-top: 5px;
 }
 .composer-foot > span {
   display: flex;
@@ -909,14 +910,14 @@ button svg {
   min-height: 19px;
 }
 .conversation-turn {
-  padding: 22px 0 10px;
+  padding: 12px 0 6px;
 }
 .user-message {
-  padding: 12px 13px;
+  padding: 8px 10px;
   border: 1px solid var(--soft-line);
   border-radius: 6px;
   background: var(--raised);
-  margin-bottom: 23px;
+  margin-bottom: 12px;
 }
 .user-label {
   display: flex;
@@ -945,11 +946,11 @@ button svg {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 13px;
+  margin-bottom: 7px;
 }
 .assistant-label svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: var(--accent);
 }
 .assistant-label strong {

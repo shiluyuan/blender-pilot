@@ -534,6 +534,16 @@ try {
       await editor.fill("项目A独立草稿 · activation ownership");
       let releaseActivation: () => void = () => {};
       let activationWaiting = false;
+      let activationRequests = 0;
+      let sessionsStartedDuringActivation = false;
+      await page.route(
+        `**/api/projects/${other.id}/sessions`,
+        async (route) => {
+          if (route.request().method() === "GET")
+            sessionsStartedDuringActivation = true;
+          await route.continue();
+        },
+      );
       const activationGate = new Promise<void>((resolve) => {
         releaseActivation = resolve;
       });
@@ -541,6 +551,7 @@ try {
         `**/api/projects/${other.id}/activate`,
         async (route) => {
           activationWaiting = true;
+          activationRequests++;
           await activationGate;
           await route.continue();
         },
@@ -549,6 +560,17 @@ try {
       await wait(
         async () => activationWaiting,
         "delayed project activation request",
+      );
+      await wait(
+        async () => sessionsStartedDuringActivation,
+        "session read starts before activation finishes",
+      );
+      await choose(other.name);
+      await choose(other.name);
+      assert.equal(
+        activationRequests,
+        1,
+        "repeated clicks must coalesce while activation is pending",
       );
       assert(
         await editor.isDisabled(),
@@ -565,6 +587,10 @@ try {
         "project B owns composer after activation",
       );
       await page.unroute(`**/api/projects/${other.id}/activate`);
+      await page.unroute(`**/api/projects/${other.id}/sessions`);
+      pass(
+        "会话读取与 Blender 激活并行；启动期间连续点击同一项目只提交一次激活",
+      );
       assert.equal(await editor.inputValue(), "");
       await editor.fill("项目B独立草稿 · activation ownership");
       await choose(project.name);
@@ -620,6 +646,58 @@ try {
       pass(
         "项目激活期间暂停编辑，完成后草稿归属正确；激活失败保留原项目草稿，重试可恢复",
       );
+      let sameProjectActivations = 0;
+      await page.route(
+        `**/api/projects/${project.id}/activate`,
+        async (route) => {
+          sameProjectActivations++;
+          await route.continue();
+        },
+      );
+      await choose(project.name);
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      assert.equal(sameProjectActivations, 0, "selected project is a no-op");
+      let releaseStale: () => void = () => {};
+      let staleWaiting = false;
+      const staleGate = new Promise<void>((resolve) => {
+        releaseStale = resolve;
+      });
+      await page.route(
+        `**/api/projects/${other.id}/activate`,
+        async (route) => {
+          staleWaiting = true;
+          await staleGate;
+          await route.continue();
+        },
+      );
+      await choose(other.name);
+      await wait(async () => staleWaiting, "slow B activation");
+      await choose(project.name);
+      await wait(async () => selected(project.id), "latest selection A wins");
+      const staleResponse = page.waitForResponse((response) =>
+        response.url().endsWith(`/projects/${other.id}/activate`),
+      );
+      releaseStale();
+      await staleResponse;
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      assert(await selected(project.id), "late B response must not replace A");
+      assert.equal(
+        await editor.inputValue(),
+        "项目A独立草稿 · activation ownership",
+      );
+      await page.unroute(`**/api/projects/${other.id}/activate`);
+      await page.unroute(`**/api/projects/${project.id}/activate`);
+      pass("重复选择当前项目无网络激活；快速 A→B→A 时迟到响应不抢占项目或草稿");
       if (await page.locator(".toast button").isVisible())
         await page.locator(".toast button").click();
     } else {

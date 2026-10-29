@@ -1,0 +1,111 @@
+{
+  "passed": true,
+  "time": "2026-10-29T07:44:09.224Z",
+  "environment": {
+    "api": "real Fastify",
+    "database": "PostgreSQL WASM over real TCP protocol/pg driver (not native PostgreSQL)",
+    "runner": "explicit deterministic protocol fixture; no Blender or live inference",
+    "browser": "Chromium/Playwright"
+  },
+  "checks": [
+    "中文 IME 回车不误发送，Shift+Enter 保留换行",
+    "MD 上传自动引用；真实 API/SQL 保留正文并交给 Runner；Markdown/代码/表格与工具按事件顺序展示",
+    "SSE 首次断开后自动重连，重放完整有序消息而不重复",
+    "完成计划默认折叠且可展开；工具详情按需渲染，折叠后释放隐藏的 JSON 内容",
+    "Chromium 实际平台字体为 sans，中文有真实字形且无 Times/serif 回退",
+    "切回会话时，历史接口阻塞仍立即显示已缓存消息；已完成事件不重复回放",
+    "草稿按 session 隔离，切换不会串到其他对话",
+    "上传中切换会话，完成后的附件仍只引用到原会话",
+    "回执丢失复用 requestId，不重复执行；旧发送回调不会清空新草稿",
+    "用户向上回看时新事件保持位置；明确回到最新后恢复跟随",
+    "切换会话后延迟事件仍归原会话；停止任务获得真实取消终态",
+    "取消结束后可以继续发送并完成下一轮",
+    "未知回执刷新后自动查询原requestId并恢复，未产生重复执行",
+    "刷新后由 PostgreSQL/SSE 还原历史消息、工具与取消状态",
+    "不支持的附件显示失败，阻止发送时静默遗漏",
+    "助手宽度支持键盘边界、真实拖拽、取消拖拽及双击重置，ARIA 数值同步",
+    "1280px 视口、340px 最小侧栏：输入工具栏/附件不溢出，长代码与宽表格只在各自区域横滚",
+    "收起再展开侧栏，历史、草稿和未发送附件完整保留",
+    "侧栏宽度刷新后保留，非法和越界持久值自动恢复到有效范围",
+    "正文与输入区 14px、身份标签 13px，消息标题保持清晰字号层级",
+    "侧栏状态行不超过 30px、轮次间距 12px，正文行高保持 21–23px 的可读密度",
+    "900/768/375px 窗口内助手与输入区完整可见，无侧栏横向溢出"
+  ],
+  "submissions": 6,
+  "uncaughtBrowserErrors": [],
+  "fontAudit": [
+    {
+      "selector": ".assistant-label strong",
+      "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
+      "fonts": [
+        {
+          "familyName": "Noto Sans CJK SC",
+          "postScriptName": "NotoSansCJKsc-Regular",
+          "isCustomFont": false,
+          "glyphCount": 13
+        }
+      ]
+    },
+    {
+      "selector": ".chat-markdown p",
+      "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
+      "fonts": [
+        {
+          "familyName": "Noto Sans CJK SC",
+          "postScriptName": "NotoSansCJKsc-Regular",
+          "isCustomFont": false,
+          "glyphCount": 18
+        }
+      ]
+    }
+  ],
+  "typography": {
+    "body": 14,
+    "title": 15,
+    "input": 14,
+    "label": 13
+  },
+  "layoutAudit": {
+    "viewport": 1280,
+    "panelWidth": 340,
+    "panels": [
+      {
+        "selector": ".chat-panel",
+        "width": 340,
+        "scrollWidth": 340,
+        "overflowX": "visible"
+      },
+      {
+        "selector": ".composer-controls",
+        "width": 318,
+        "scrollWidth": 318,
+        "overflowX": "visible"
+      },
+      {
+        "selector": ".chat-attachments",
+        "width": 320,
+        "scrollWidth": 320,
+        "overflowX": "auto"
+      }
+    ],
+    "code": {
+      "width": 314,
+      "scrollWidth": 4052,
+      "overflowX": "auto"
+    },
+    "table": {
+      "width": 316,
+      "scrollWidth": 1729,
+      "overflowX": "auto"
+    }
+  },
+  "screenshots": [
+    "chat-dark.png",
+    "chat-light.png",
+    "chat-errors.png",
+    "chat-narrow.png",
+    "chat-responsive-900.png",
+    "chat-responsive-768.png",
+    "chat-responsive-375.png"
+  ]
+}

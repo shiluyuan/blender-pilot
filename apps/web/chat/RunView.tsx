@@ -1,5 +1,5 @@
 import { copyText } from "./clipboard";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -66,6 +66,7 @@ function ToolCard({
   block: Extract<ChatBlock, { kind: "tool" }>;
   finished: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const interrupted = finished && block.status === "running";
   const elapsed =
     Date.parse(block.completedAt || "") - Date.parse(block.startedAt || "");
@@ -88,6 +89,7 @@ function ToolCard({
         "tool-row chat-tool " + (block.status === "failed" ? "failed" : "")
       }
       data-call-id={block.callId}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary>
         {block.status === "running" && !finished ? (
@@ -110,7 +112,7 @@ function ToolCard({
         </small>
         <ChevronRight size={12} />
       </summary>
-      {receipt && (
+      {expanded && receipt && (
         <div className="chat-change-receipt">
           {[
             ["created", "新增"],
@@ -144,23 +146,25 @@ function ToolCard({
           <small>对象变化回读；完整范围见结果。</small>
         </div>
       )}
-      {block.args !== undefined && (
+      {expanded && block.args !== undefined && (
         <div className="chat-tool-detail">
           <span>输入</span>
           <pre>{pretty(block.args)}</pre>
         </div>
       )}
-      {block.result !== undefined && (
+      {expanded && block.result !== undefined && (
         <div className="chat-tool-detail">
           <span>结果</span>
           <pre>{pretty(block.result)}</pre>
         </div>
       )}
-      {block.error && <div className="chat-notice error">{block.error}</div>}
+      {expanded && block.error && (
+        <div className="chat-notice error">{block.error}</div>
+      )}
     </details>
   );
 }
-export function RunView({
+export const RunView = memo(function RunView({
   run,
   events,
   lightbox,
@@ -263,7 +267,7 @@ export function RunView({
             );
           if (block.kind === "plan")
             return (
-              <details className="chat-plan" key={block.id} open>
+              <details className="chat-plan" key={block.id} open={!finished}>
                 <summary>
                   创作计划
                   <span>
@@ -445,4 +449,4 @@ export function RunView({
       </div>
     </article>
   );
-}
+});

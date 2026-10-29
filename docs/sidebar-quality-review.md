@@ -1,5 +1,7 @@
 # Sidebar and frontend module review — 2026-10-29
 
+> This records the earlier module extraction. The subsequent [project switching and compact sidebar review](project-switching-review.md) supersedes its spacing values and describes the current conversation state owner.
+
 This change focuses on the conversation sidebar and frontend maintainability. The user has verified Blender locally; this review does not claim a new real-Blender or live-model acceptance run.
 
 ## Module boundaries

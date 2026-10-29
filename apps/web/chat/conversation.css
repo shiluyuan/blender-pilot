@@ -29,7 +29,7 @@
 }
 .chat-composer-wrap {
   flex-shrink: 0;
-  padding-top: 10px;
+  padding-top: 8px;
 }
 .chat-composer-wrap .composer {
   position: relative;
@@ -37,10 +37,10 @@
 .chat-composer-wrap .composer textarea {
   display: block;
   resize: none;
-  height: 66px;
-  min-height: 66px;
+  height: 54px;
+  min-height: 54px;
   max-height: 190px;
-  padding: 11px 12px 6px;
+  padding: 8px 10px 4px;
   font-family: inherit;
 }
 .chat-composer-wrap .composer.dragging {
@@ -249,7 +249,7 @@
   margin-bottom: 0;
 }
 .chat-markdown p {
-  margin: 8px 0;
+  margin: 6px 0;
   white-space: pre-wrap;
 }
 .chat-markdown h1,
@@ -363,20 +363,21 @@
   max-height: 340px;
 }
 .chat-message-part {
-  margin: 10px 0 13px;
+  margin: 6px 0 8px;
 }
 .chat-message-part.commentary {
   color: var(--muted);
 }
 .chat-tool {
-  margin: 7px 0;
-  padding: 0 9px;
+  margin: 4px 0;
+  padding: 0 8px;
   border: 1px solid var(--soft-line);
   border-radius: 5px;
-  background: var(--raised);
+  background: transparent;
 }
 .chat-tool summary {
-  padding: 8px 0;
+  min-height: 28px;
+  padding: 5px 0;
 }
 .chat-tool summary > span {
   min-width: 0;
@@ -403,8 +404,8 @@
 .chat-plan {
   border: 1px solid var(--soft-line);
   border-radius: 5px;
-  padding: 8px 10px;
-  margin: 10px 0;
+  padding: 6px 8px;
+  margin: 6px 0;
   font-size: 12px;
 }
 .chat-plan summary {
@@ -421,7 +422,7 @@
   font-size: 12px;
   line-height: 1.7;
   color: var(--muted);
-  margin: 8px 0;
+  margin: 6px 0;
 }
 .chat-plan ol {
   padding: 0;
@@ -659,10 +660,10 @@
     gap: 5px;
   }
   .chat-timeline {
-    padding-inline: 14px;
+    padding-inline: 12px;
   }
   .chat-welcome {
-    padding-top: 28px;
+    padding-top: 18px;
   }
   .chat-welcome h2 {
     font-size: 18px;

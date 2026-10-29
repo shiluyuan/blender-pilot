@@ -1,5 +1,11 @@
 import { copyText } from "./clipboard";
-import { Children, isValidElement, useState, type ReactNode } from "react";
+import {
+  memo,
+  Children,
+  isValidElement,
+  useState,
+  type ReactNode,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
@@ -44,7 +50,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
     </div>
   );
 }
-export function Markdown({ text }: { text: string }) {
+export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
     <div className="chat-markdown">
       <ReactMarkdown
@@ -70,4 +76,4 @@ export function Markdown({ text }: { text: string }) {
       </ReactMarkdown>
     </div>
   );
-}
+});

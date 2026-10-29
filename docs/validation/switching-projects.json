@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "double submit sends one request",
+    "Escape cannot dismiss a pending submit",
+    "rename failure retains input and allows retry",
+    "activation failure keeps one existing project",
+    "rename updates list",
+    "rename survives reload",
+    "native-window shows screenshot UI without VNC"
+  ],
+  "uncaughtErrors": [],
+  "scope": "real API + SQL; fixture runner; no model/Blender calls"
+}

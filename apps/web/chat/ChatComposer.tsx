@@ -67,7 +67,7 @@ export function ChatComposer(props: {
     const node = props.inputRef.current;
     if (node) {
       node.style.height = "auto";
-      node.style.height = Math.min(190, Math.max(66, node.scrollHeight)) + "px";
+      node.style.height = Math.min(190, Math.max(54, node.scrollHeight)) + "px";
     }
   }, [props.draft]);
   return (

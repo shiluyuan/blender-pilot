@@ -3,6 +3,7 @@ import { Login } from "./auth/Login";
 import { PageHeading } from "./components/PageHeading";
 import { Empty } from "./components/Empty";
 import { Settings } from "./settings/Settings";
+import { useConversationState } from "./chat/useConversationState";
 import { ChatPanel } from "./chat/ChatPanel";
 import { ChatWelcome } from "./chat/ChatWelcome";
 import { Modal } from "./components/Modal";
@@ -101,8 +102,6 @@ function App() {
     [project, setProject] = useState<Project>(),
     [sessions, setSessions] = useState<Session[]>([]),
     [session, setSession] = useState<Session>(),
-    [runs, setRuns] = useState<Run[]>([]),
-    [events, setEvents] = useState<Record<string, PilotEvent[]>>({}),
     [assets, setAssets] = useState<Asset[]>([]),
     [assetTotal, setAssetTotal] = useState(0),
     [assetPage, setAssetPage] = useState(0),
@@ -110,6 +109,13 @@ function App() {
     [assetKind, setAssetKind] = useState("all"),
     [assetView, setAssetView] = useState("grid"),
     [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const { runs, events, setRuns, setEvents } = useConversationState(
+    session?.id,
+    auth === true,
+  );
+  const runsRef = useRef(runs);
+  runsRef.current = runs;
+  const pendingProject = useRef<string | undefined>(undefined);
   const {
     health,
     loading: healthLoading,
@@ -147,6 +153,7 @@ function App() {
     if (auth !== true) {
       projectRequest.current++;
       setOpening(undefined);
+      pendingProject.current = undefined;
     }
   }, [auth]);
   useEffect(() => {
@@ -172,7 +179,7 @@ function App() {
     sessionRef = useRef<string | undefined>(undefined);
   sessionRef.current = session?.id;
   const [streamStates, setStreamStates] = useState<Record<string, string>>({});
-  const notify = (s: string) => setToast(s);
+  const notify = useCallback((s: string) => setToast(s), []);
   const chat = useChatComposer({
     authenticated: auth === true,
     projectId: project?.id,
@@ -249,35 +256,43 @@ function App() {
       if (currentProject.current === project.id) setSnapshots(r);
     }
   }, [project?.id]);
-  const restoreSnapshot = async (snapshot: Snapshot) => {
-    if (currentProject.current !== snapshot.projectId || busy) return;
-    if (
-      !confirm(
-        `恢复「${snapshot.name}」？系统会先保存当前场景，再加载所选版本。`,
+  const restoreSnapshot = useCallback(
+    async (snapshot: Snapshot) => {
+      if (currentProject.current !== snapshot.projectId || busy) return;
+      if (
+        !confirm(
+          `恢复「${snapshot.name}」？系统会先保存当前场景，再加载所选版本。`,
+        )
       )
-    )
-      return;
-    setRestoringProject(snapshot.projectId);
-    try {
-      await post(`/snapshots/${snapshot.id}/restore`);
-      await loadSnapshots();
-      notify("已恢复，并保留恢复前备份");
-    } catch (error) {
-      notify(String(error));
-    } finally {
-      setRestoringProject((current) =>
-        current === snapshot.projectId ? undefined : current,
-      );
-    }
-  };
+        return;
+      setRestoringProject(snapshot.projectId);
+      try {
+        await post(`/snapshots/${snapshot.id}/restore`);
+        await loadSnapshots();
+        notify("已恢复，并保留恢复前备份");
+      } catch (error) {
+        notify(String(error));
+      } finally {
+        setRestoringProject((current) =>
+          current === snapshot.projectId ? undefined : current,
+        );
+      }
+    },
+    [busy, loadSnapshots, notify],
+  );
   const loadRuns = useCallback(async () => {
     if (!session) return;
     const id = session.id;
+    const baseline = new Map(runsRef.current.map((run) => [run.id, run]));
     const result = await api<Run[]>(`/sessions/${id}/runs`);
     if (sessionRef.current === id)
       setRuns((current) => {
         const byId = new Map(result.map((r) => [r.id, r]));
-        for (const run of current) byId.set(run.id, run);
+        // Preserve updates received while this refresh was in flight. Cached
+        // statuses otherwise yield to the fresh server receipt.
+        for (const run of current)
+          if (!byId.has(run.id) || baseline.get(run.id) !== run)
+            byId.set(run.id, run);
         return [...byId.values()].sort((a, b) =>
           a.createdAt.localeCompare(b.createdAt),
         );
@@ -285,18 +300,29 @@ function App() {
   }, [session?.id]);
   useEffect(() => {
     sessionRef.current = session?.id;
-    setRuns([]);
-    setEvents({});
-    if (session) void loadRuns();
-  }, [session]);
+    if (auth === true && session)
+      void loadRuns().catch((error) => notify(String(error)));
+  }, [session?.id, auth]);
   const chooseProject = async (p: Project, resumeSession?: string) => {
+    if (pendingProject.current === p.id) return;
+    if (
+      !pendingProject.current &&
+      currentProject.current === p.id &&
+      !resumeSession
+    )
+      return;
     const request = ++projectRequest.current;
+    pendingProject.current = p.id;
     setOpening(p.id);
     try {
-      await post(`/projects/${p.id}/activate`);
+      // Reading conversations does not depend on Blender starting. Only commit
+      // the new workspace after both succeed, preserving ownership on failure.
+      const [, available] = await Promise.all([
+        post(`/projects/${p.id}/activate`),
+        api<Session[]>(`/projects/${p.id}/sessions`),
+      ]);
       if (request !== projectRequest.current) return;
-      setOpenIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));
-      let ss = await api<Session[]>(`/projects/${p.id}/sessions`);
+      let ss = available;
       if (!ss.length) ss = [await post<Session>(`/projects/${p.id}/sessions`)];
       if (request !== projectRequest.current) return;
       let cached: { sessionId?: string } | undefined;
@@ -316,14 +342,15 @@ function App() {
       setSession(
         ss.find((s) => s.id === (resumeSession || cached?.sessionId)) || ss[0],
       );
-      setRuns([]);
-      setEvents({});
       setAssetPage(0);
       setSnapshots([]);
       localStorage.setItem("pilot-project", p.id);
       void loadHealth();
     } finally {
-      if (request === projectRequest.current) setOpening(undefined);
+      if (request === projectRequest.current) {
+        pendingProject.current = undefined;
+        setOpening(undefined);
+      }
     }
   };
   const closeProject = async (p: Project) => {
@@ -336,7 +363,6 @@ function App() {
       else {
         setProject(undefined);
         setSession(undefined);
-        setRuns([]);
         localStorage.removeItem("pilot-project");
       }
     }
@@ -882,7 +908,7 @@ function App() {
                         projectId={id}
                         busy={
                           id === project.id
-                            ? busy
+                            ? busy || !!opening
                             : !!health?.execution?.activeRuns?.some(
                                 (r: any) => r.projectId === id,
                               )
@@ -1447,9 +1473,7 @@ function App() {
                       events={events[run.id] || []}
                       lightbox={setLightbox}
                       busy={busy || !!opening}
-                      onRestoreSnapshot={(snapshot) =>
-                        void restoreSnapshot(snapshot)
-                      }
+                      onRestoreSnapshot={restoreSnapshot}
                     />
                   ))}
                 </ConversationTimeline>
