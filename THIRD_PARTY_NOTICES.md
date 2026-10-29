@@ -23,7 +23,7 @@ The UI's compact workbench layout is inspired by https://github.com/debpalash/Vo
 
 The chat protocol and interaction design also reference AionUi (Apache-2.0, https://github.com/iOfficeAI/AionUi), ComfyUI MCP Panel (MIT, https://github.com/artokun/comfyui-mcp-panel), and the user's Loom project (https://github.com/shiluyuan/loom). This is an independent implementation, not a source-code vendoring of these projects. Reviewed revisions and relevant design choices are documented in [chat-protocol.md](docs/chat-protocol.md).
 
-This notice is not a license grant for Blender Pilot's own code. Select a project license before distributing it as an open-source project. When redistributing container images, satisfy all bundled components' attribution and source-availability obligations.
+Blender Pilot's original code is licensed under the MIT License; see LICENSE. This does not relicense any upstream component. When redistributing container images, satisfy all bundled components' attribution and source-availability obligations.
 
 Workspace acceptance downloads (but does not redistribute) Khronos glTF-Sample-Assets `BoxTextured`, credited to Cesium under CC BY 4.0, with a separate Cesium logo trademark notice. See https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/BoxTextured. Visual reference source paths and commit are documented in [workspaces.md](docs/workspaces.md).
 

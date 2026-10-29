@@ -11,6 +11,7 @@ export type SystemHealth = {
     database?: { ok: boolean; error?: string };
     storage?: { ok: boolean; error?: string };
     error?: string;
+    mode?: string;
     maxStudios?: number;
     activeRuns?: Array<{ id: string; projectId: string; sessionId: string }>;
     studios?: Array<{

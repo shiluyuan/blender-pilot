@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "double submit sends one request",
+    "activation failure keeps one existing project",
+    "rename updates list",
+    "rename survives reload",
+    "native-window shows screenshot UI without VNC"
+  ],
+  "uncaughtErrors": [],
+  "scope": "real API + SQL; fixture runner; no model/Blender calls"
+}

@@ -41,7 +41,11 @@ export async function collectRunnerHealth(
           ? { error: "执行服务无法连接 PostgreSQL" }
           : {}),
     blender: studios.some((studio) => studio.status === "ready"),
-    mode: pool.external ? "external-desktop" : "project-pool",
+    mode: pool.external
+      ? "external-desktop"
+      : pool.nativeWindow
+        ? "native-window"
+        : "project-pool",
     maxStudios: pool.external ? 1 : pool.max,
     studios,
     activeRuns: activeRuns

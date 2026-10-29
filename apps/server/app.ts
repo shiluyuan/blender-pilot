@@ -432,19 +432,44 @@ export async function buildApp(options: AppOptions) {
   app.get("/api/projects", async () => store.list<Project>("project"));
   app.post("/api/projects", async (req) => {
     const input = z
-      .object({ name: z.string().trim().min(1).max(80) })
+      .object({
+        name: z.string().trim().min(1).max(80),
+        requestId: z.string().uuid().optional(),
+      })
       .parse(req.body);
-    const p: Project = {
-      id: randomUUID(),
-      name: input.name,
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    await mkdir(safePath(options.dataRoot, "projects", p.id), {
-      recursive: true,
+    const id = input.requestId || randomUUID();
+    return store.db.transaction(async (tx) => {
+      await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        "create-project:" + store.db.schema + ":" + id,
+      ]);
+      const receipt = await store.get<{ name: string; projectId: string }>(
+        "config",
+        "project-request:" + id,
+        tx,
+      );
+      if (receipt) {
+        if (receipt.name !== input.name)
+          throw fail("创建编号已用于其他名称", 409);
+        return store.get<Project>("project", receipt.projectId, tx);
+      }
+      const p: Project = {
+        id: randomUUID(),
+        name: input.name,
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      await mkdir(safePath(options.dataRoot, "projects", p.id), {
+        recursive: true,
+      });
+      await store.put("project", p.id, p, tx);
+      await store.put(
+        "config",
+        "project-request:" + id,
+        { name: input.name, projectId: p.id },
+        tx,
+      );
+      return p;
     });
-    await store.put("project", p.id, p);
-    return p;
   });
   app.patch("/api/projects/:id", async (req) => {
     const p = await project((req.params as any).id);

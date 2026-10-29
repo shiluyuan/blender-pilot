@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import RFB from "@novnc/novnc";
 import { Monitor, RefreshCw, Maximize2, MousePointer2 } from "lucide-react";
-import { checkAuthentication } from "./api";
+import { api, fileUrl, checkAuthentication } from "./api";
 export function Viewport({
   busy,
+  nativeWindow = false,
   projectId,
   onCapture,
 }: {
   busy: boolean;
+  nativeWindow?: boolean;
   projectId: string;
   onCapture: () => void;
 }) {
@@ -16,7 +18,7 @@ export function Viewport({
   const [status, setStatus] = useState("connecting"),
     [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (!host.current) return;
+    if (!host.current || nativeWindow) return;
     let disposed = false;
     const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/desktop?projectId=${encodeURIComponent(projectId)}`;
     const client = new RFB(host.current, url, { shared: true });
@@ -38,10 +40,74 @@ export function Viewport({
       client.disconnect();
       rfb.current = null;
     };
-  }, [attempt, projectId]);
+  }, [attempt, projectId, nativeWindow]);
   useEffect(() => {
     if (rfb.current) rfb.current.viewOnly = busy;
   }, [busy]);
+  const [preview, setPreview] = useState<string>();
+  const [previewError, setPreviewError] = useState("");
+  useEffect(() => {
+    if (!nativeWindow) return;
+    let disposed = false;
+    const refresh = async () => {
+      try {
+        const captures = await api<Array<{ id: string }>>(
+          `/projects/${projectId}/captures`,
+        );
+        if (!disposed) {
+          setPreview(captures[0]?.id);
+          setPreviewError("");
+        }
+      } catch {
+        if (!disposed) setPreviewError("截图列表暂时不可用");
+      }
+    };
+    setPreview(undefined);
+    void refresh();
+    const timer = setInterval(() => void refresh(), 5000);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  }, [nativeWindow, projectId]);
+  if (nativeWindow)
+    return (
+      <div className="viewport">
+        <div className="viewport-strip">
+          <span>本机 Blender · 独立窗口</span>
+          <button disabled={busy} onClick={onCapture}>
+            更新截图
+          </button>
+        </div>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "grid",
+            placeItems: "center",
+            overflow: "hidden",
+          }}
+        >
+          {preview ? (
+            <img
+              src={fileUrl("capture", preview)}
+              alt="最近的 Blender 场景截图"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+              }}
+            />
+          ) : (
+            <p>在本机 Blender 窗口操作，点击“更新截图”查看场景。</p>
+          )}
+        </div>
+        <div className="viewport-bottom">
+          <span>{previewError || "最近截图预览 · 非实时桌面"}</span>
+          <span>AI 通过 MCP 操作本机 Blender</span>
+        </div>
+      </div>
+    );
   return (
     <div className="viewport">
       <div className="viewport-strip">

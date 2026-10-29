@@ -42,6 +42,7 @@ export class StudioPool {
   pending = new Map<string, Promise<Studio>>();
   history: Jobs;
   external = process.env.PILOT_EXTERNAL_DESKTOP === "true";
+  nativeWindow = process.env.PILOT_DESKTOP_MODE === "native-window";
   max = Math.max(
     1,
     Math.min(16, Math.floor(Number(process.env.PILOT_MAX_STUDIOS)) || 3),
@@ -91,7 +92,9 @@ export class StudioPool {
     const tcpX = process.env.PILOT_X11_TCP === "true";
     const display = this.external
       ? process.env.DISPLAY || ":99"
-      : (tcpX ? "127.0.0.1:" : ":") + displayNumber;
+      : this.nativeWindow
+        ? process.env.DISPLAY || ""
+        : (tcpX ? "127.0.0.1:" : ":") + displayNumber;
     const blenderPort = this.external
       ? Number(process.env.BLENDER_PORT || 9876)
       : Number(process.env.PILOT_BLENDER_PORT_BASE || 9900) + slot;
@@ -200,10 +203,17 @@ export class StudioPool {
           // A Runner process crash may leave desktops behind. Never interpret
           // somebody else's display/MCP/VNC listener as our new child's readiness.
           const occupied = await Promise.all([
-            reachable(6000 + displayNumber),
-            reachable(6000 + displayNumber, `/tmp/.X11-unix/X${displayNumber}`),
+            ...(this.nativeWindow
+              ? []
+              : [
+                  reachable(6000 + displayNumber),
+                  reachable(
+                    6000 + displayNumber,
+                    `/tmp/.X11-unix/X${displayNumber}`,
+                  ),
+                ]),
             reachable(blenderPort),
-            reachable(vncPort),
+            ...(this.nativeWindow ? [] : [reachable(vncPort)]),
           ]);
           assertStarting();
           if (occupied.some(Boolean))
@@ -211,50 +221,54 @@ export class StudioPool {
               "项目桌面端口已被占用；请检查遗留实例并重启执行容器后重试",
               503,
             );
-          await launch("xvfb", process.env.XVFB_BIN || "Xvfb", [
-            `:${displayNumber}`,
-            "-screen",
-            "0",
-            process.env.PILOT_RESOLUTION || "1440x900x24",
-            "-ac",
-            ...(tcpX
-              ? ["-nolisten", "unix", "-listen", "tcp"]
-              : ["-nolisten", "tcp"]),
-          ]);
-          await wait(
-            6000 + displayNumber,
-            tcpX ? undefined : `/tmp/.X11-unix/X${displayNumber}`,
-          );
-          await launch("openbox", process.env.OPENBOX_BIN || "openbox", [
-            "--sm-disable",
-          ]);
+          if (!this.nativeWindow) {
+            await launch("xvfb", process.env.XVFB_BIN || "Xvfb", [
+              `:${displayNumber}`,
+              "-screen",
+              "0",
+              process.env.PILOT_RESOLUTION || "1440x900x24",
+              "-ac",
+              ...(tcpX
+                ? ["-nolisten", "unix", "-listen", "tcp"]
+                : ["-nolisten", "tcp"]),
+            ]);
+            await wait(
+              6000 + displayNumber,
+              tcpX ? undefined : `/tmp/.X11-unix/X${displayNumber}`,
+            );
+            await launch("openbox", process.env.OPENBOX_BIN || "openbox", [
+              "--sm-disable",
+            ]);
+          }
           const blender = await launch(
             "blender",
             process.env.BLENDER_BIN || "blender",
             [
               "--factory-startup",
               "-noaudio",
-              "--window-fullscreen",
+              ...(this.nativeWindow ? [] : ["--window-fullscreen"]),
               "--python",
               process.env.PILOT_BOOTSTRAP_PATH || "/opt/pilot/bootstrap.py",
             ],
           );
           await wait(blenderPort);
-          await launch("vnc", process.env.X11VNC_BIN || "x11vnc", [
-            "-display",
-            display,
-            "-forever",
-            "-shared",
-            "-nopw",
-            "-listen",
-            "127.0.0.1",
-            "-rfbport",
-            String(vncPort),
-            "-noxdamage",
-            "-noshm",
-            "-quiet",
-          ]);
-          await wait(vncPort);
+          if (!this.nativeWindow) {
+            await launch("vnc", process.env.X11VNC_BIN || "x11vnc", [
+              "-display",
+              display,
+              "-forever",
+              "-shared",
+              "-nopw",
+              "-listen",
+              "127.0.0.1",
+              "-rfbport",
+              String(vncPort),
+              "-noxdamage",
+              "-noshm",
+              "-quiet",
+            ]);
+            await wait(vncPort);
+          }
           // This read-only handshake precedes scene loading or saving. A
           // listener which raced our port preflight cannot receive mutations.
           const identity = await scene.upstream.json(

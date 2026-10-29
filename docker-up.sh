@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${1:-}" == "--native" ]]; then
+  shift
+  exec bash "$(dirname -- "${BASH_SOURCE[0]}")/local-up.sh" "$@"
+fi
 PILOT_REPO_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 if ! command -v python3 >/dev/null 2>&1; then
   printf '%s\n' 'Python 3 is required for deployment configuration. On Ubuntu: sudo apt-get install python3' >&2

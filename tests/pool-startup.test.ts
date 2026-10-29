@@ -220,3 +220,31 @@ test("shutdown intent during scene startup cannot transition the instance to rea
     await f.close();
   }
 });
+
+test("native window mode launches only owned Blender, shares pending open and releases its process", async () => {
+  const f = await fixture();
+  f.pool.nativeWindow = true;
+  try {
+    const [a, b] = await Promise.all([
+      f.pool.open("native-project"),
+      f.pool.open("native-project"),
+    ]);
+    assert.equal(a, b);
+    assert.equal(a.status, "ready");
+    assert.equal(a.children.length, 1);
+    assert.equal(f.mutations, 1);
+    assert.equal(
+      a.children[0].spawnargs.includes("--window-fullscreen"),
+      false,
+    );
+    await assert.rejects(readFile(path.join(f.root, "xvfb.json")));
+    await assert.rejects(readFile(path.join(f.root, "vnc.json")));
+    a.status = "closing";
+    await f.pool.stopProcesses(a);
+    assert.ok(
+      a.children.every((c) => c.exitCode !== null || c.signalCode !== null),
+    );
+  } finally {
+    await f.close();
+  }
+});

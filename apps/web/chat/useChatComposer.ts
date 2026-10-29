@@ -1,3 +1,4 @@
+import { requestId } from "../request-id";
 import {
   useEffect,
   useRef,
@@ -328,7 +329,7 @@ export function useChatComposer(options: {
     )
       return;
     const pending: ChatOutbox = {
-      clientRequestId: crypto.randomUUID(),
+      clientRequestId: requestId(),
       text: record.text,
       attachments: [...record.attachments],
       projectId,
@@ -444,7 +445,7 @@ export function useChatComposer(options: {
     }
     for (const file of listFiles) {
       const row: ChatUpload = {
-        id: crypto.randomUUID(),
+        id: requestId(),
         name: file.name,
         size: file.size,
         progress: 0,

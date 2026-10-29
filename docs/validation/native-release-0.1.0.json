@@ -1,0 +1,20 @@
+{
+  "version": "0.1.0",
+  "date": "2026-10-29",
+  "nodeTests": 119,
+  "pythonTests": 13,
+  "typecheck": "passed",
+  "build": "passed",
+  "browserChecks": 5,
+  "uncaughtBrowserErrors": 0,
+  "database": "explicit WASM TCP test substitute",
+  "runner": "fixture for browser tests; owned subprocess fixture for native-window lifecycle",
+  "notExecuted": [
+    "real Blender native launcher",
+    "native PostgreSQL",
+    "Docker daemon",
+    "physical macOS",
+    "physical Windows/WSL",
+    "external model calls"
+  ]
+}
