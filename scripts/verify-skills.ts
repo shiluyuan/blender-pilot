@@ -878,11 +878,13 @@ try {
       (await summary.innerText()).includes(label),
       "summary must show " + label,
     );
+  await summary.locator(".work-result-details > summary").click();
   await summary.locator(".work-inspection summary").click();
   await summary.getByText("可能悬空，请结合画面确认。").waitFor();
-  const summaryImages = summary.locator("img");
+  const summaryImages = summary.locator(".work-comparison img");
   assert.equal(await summaryImages.count(), 2);
   await summary
+    .locator(".work-result-preview")
     .getByRole("img", { name: "结果检查 · 正面", exact: true })
     .waitFor();
   assert.doesNotMatch(await summary.innerText(), /操作后 · 多角度检查/);
@@ -1025,12 +1027,13 @@ try {
   await partialSummary
     .getByRole("img", { name: "最新画面", exact: true })
     .waitFor();
-  assert.equal(await partialSummary.locator("img").count(), 2);
+  assert.equal(await partialSummary.locator("img").count(), 1);
   assert.doesNotMatch(await partialSummary.innerText(), /多角度检查|检查通过/);
   pass(
     "取消前只有操作前截图时不伪造前后对比；普通单张截图只标为最新画面，视角标签由实际 phase 决定",
   );
   await summary.waitFor();
+  await summary.locator(".work-result-details > summary").click();
   await summary.locator(".work-inspection summary").click();
   await page.getByRole("button", { name: "切换主题", exact: true }).click();
   await summary.scrollIntoViewIfNeeded();

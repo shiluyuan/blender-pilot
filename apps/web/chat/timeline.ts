@@ -11,6 +11,7 @@ export type ChatBlock =
       itemId: string;
       text: string;
       phase?: string;
+      turnId?: string;
       status: "streaming" | "completed";
     }
   | {
@@ -101,6 +102,7 @@ export function reduceTimeline(events: readonly PilotEvent[]): ChatBlock[] {
         kind: "message",
         id: `${key}:${event.seq}`,
         itemId,
+        ...(string(p.turnId) ? { turnId: string(p.turnId) } : {}),
         text: "",
         phase: string(p.phase) || undefined,
         status: "streaming",
@@ -110,6 +112,7 @@ export function reduceTimeline(events: readonly PilotEvent[]): ChatBlock[] {
       blocks.push(last);
     }
     if (string(p.phase)) last.phase = string(p.phase);
+    if (string(p.turnId)) last.turnId = string(p.turnId);
     if (completed) {
       // Completion is an authoritative snapshot, not another delta. Preserve
       // tool-separated boundaries when the snapshot extends the streamed prefix.
@@ -337,34 +340,4 @@ export function reduceTimeline(events: readonly PilotEvent[]): ChatBlock[] {
     (block) =>
       block.kind !== "message" || block.text || block.status === "streaming",
   );
-}
-
-export type ActivityBlock = {
-  kind: "activity";
-  id: string;
-  items: Array<Extract<ChatBlock, { kind: "tool" | "plan" }>>;
-};
-
-/** Group adjacent operational rows only. Images, notices and messages keep their order. */
-export function groupActivity(
-  blocks: readonly ChatBlock[],
-): Array<Exclude<ChatBlock, { kind: "tool" | "plan" }> | ActivityBlock> {
-  const result: Array<
-    Exclude<ChatBlock, { kind: "tool" | "plan" }> | ActivityBlock
-  > = [];
-  for (const block of blocks) {
-    if (block.kind !== "tool" && block.kind !== "plan") {
-      result.push(block);
-      continue;
-    }
-    const previous = result.at(-1);
-    if (previous?.kind === "activity") previous.items.push(block);
-    else
-      result.push({
-        kind: "activity",
-        id: "activity-" + block.id,
-        items: [block],
-      });
-  }
-  return result;
 }

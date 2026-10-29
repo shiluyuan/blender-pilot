@@ -63,7 +63,9 @@ export function normalizeCodexEvent(
           payload: {
             ...context,
             itemId: item.id,
-            phase: item.phase ?? "commentary",
+            // Missing phase is meaningful for compatible providers. Do not turn
+            // their final response into commentary at the protocol boundary.
+            ...(typeof item.phase === "string" ? { phase: item.phase } : {}),
             text: typeof item.text === "string" ? item.text : "",
           },
         },

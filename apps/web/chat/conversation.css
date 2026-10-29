@@ -852,3 +852,93 @@
   flex: 1;
   gap: 8px;
 }
+
+/* Replies lead; each turn owns one chronological, lazy execution disclosure. */
+.chat-turn-trace .chat-activity-toggle {
+  font-size: 12px;
+  min-height: 26px;
+}
+.chat-turn-trace .chat-activity-items {
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+.chat-turn-trace .chat-message-part .chat-markdown {
+  font-size: 13px;
+  color: var(--muted);
+}
+.chat-progress-preview {
+  margin: 2px 0 5px 19px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.chat-reply-empty {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.chat-reply .chat-markdown > :first-child {
+  margin-top: 0;
+}
+.chat-reply .chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+.chat-result-files {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.chat-result-files .artifact-link {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.chat-composer-wrap .composer {
+  padding: 6px;
+}
+.chat-composer-wrap .composer textarea {
+  padding: 4px 5px;
+}
+.chat-composer-wrap .composer-controls {
+  padding: 3px 0 0;
+  gap: 3px;
+}
+.chat-composer-wrap .composer-controls > .composer-model {
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 200px;
+  margin-left: 4px;
+}
+.chat-composer-wrap .chat-attachments,
+.chat-composer-wrap .chat-upload-list {
+  margin: 0 0 4px;
+  padding: 2px;
+}
+.chat-composer-wrap .chat-attachment {
+  padding: 3px 4px;
+  gap: 5px;
+}
+.chat-composer-wrap .chat-attachment img {
+  width: 28px;
+  height: 28px;
+}
+.chat-panel .composer-foot {
+  margin-top: 5px;
+  font-size: 10px;
+}
+.chat-panel .composer-foot .shortcut {
+  font-size: 10px;
+  margin: 0;
+}
+@container (max-width: 370px) {
+  .chat-panel .composer-foot > span:last-child {
+    display: inline;
+  }
+  .chat-composer-wrap .composer-controls > .composer-model {
+    max-width: 160px;
+  }
+}

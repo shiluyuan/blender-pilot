@@ -301,6 +301,26 @@ try {
   assert((await input.inputValue()).includes("\n"));
   pass("中文 IME 回车不误发送，Shift+Enter 保留换行");
 
+  const attachMenu = page.getByRole("button", {
+    name: "添加附件",
+    exact: true,
+  });
+  await attachMenu.click();
+  await page.getByRole("menuitem", { name: "上传图片或文档" }).waitFor();
+  await page.keyboard.press("ArrowDown");
+  assert(
+    await page
+      .getByRole("menuitem", { name: "引用项目资源" })
+      .evaluate((node) => node === document.activeElement),
+  );
+  await page.keyboard.press("Escape");
+  assert.equal(await attachMenu.getAttribute("aria-expanded"), "false");
+  assert(await attachMenu.evaluate((node) => node === document.activeElement));
+  await attachMenu.click();
+  await page.locator(".chat-header strong").click();
+  assert.equal(await attachMenu.getAttribute("aria-expanded"), "false");
+  pass("附件菜单支持方向键、Escape 焦点返回与点击外部关闭");
+
   let streamDropped = false;
   await page.route("**/api/runs/*/events*", async (route) => {
     if (streamDropped) return route.continue();
@@ -344,6 +364,13 @@ try {
     0,
     "collapsed group unmounts operation rows",
   );
+  assert.equal(await page.locator(".chat-turn-trace").count(), 1);
+  assert(
+    !(await page.locator(".chat-timeline").innerText()).includes(
+      "我先阅读参考说明",
+    ),
+  );
+  assert((await page.locator(".chat-reply").innerText()).includes("组合结果"));
   await activity.click();
   const timelineText = await page.locator(".chat-timeline").innerText();
   assert(
@@ -352,7 +379,7 @@ try {
   assert(timelineText.indexOf("读取场景") < timelineText.indexOf("组合结果"));
   assert.equal((timelineText.match(/我先阅读参考说明/g) || []).length, 1);
   pass(
-    "MD 上传自动引用；真实 API/SQL 保留正文并交给 Runner；Markdown/代码/表格与工具按事件顺序展示",
+    "MD 上传自动引用；真实 API/SQL 保留正文并交给 Runner；最终回复突出展示；完整执行过程按事件顺序保留",
   );
   assert(streamDropped, "first EventSource connection should have failed");
   await page.unroute("**/api/runs/*/events*");
@@ -386,7 +413,9 @@ try {
   );
   await activity.click();
   assert.equal(await activity.getAttribute("aria-expanded"), "false");
-  pass("完成后的计划与工具合并为单条操作记录，展开后事件顺序与完整详情保留");
+  pass(
+    "每轮仅一个执行过程入口；默认不渲染中间消息与工具，展开保留顺序与完整详情",
+  );
   await page.evaluate(() => document.fonts.ready);
   const cdp = await context.newCDPSession(page);
   await cdp.send("DOM.enable");
@@ -664,7 +693,12 @@ try {
   pass("未知回执刷新后自动查询原requestId并恢复，未产生重复执行");
 
   await page.reload();
-  await page.getByText("只属于 A 的延迟消息", { exact: true }).waitFor();
+  const replayedTurn = page.locator(`[data-run-id="${holdId}"]`);
+  await replayedTurn.locator(".chat-activity-toggle").click();
+  await replayedTurn
+    .getByText("只属于 A 的延迟消息", { exact: true })
+    .waitFor();
+  await replayedTurn.locator(".chat-activity-toggle").click();
   assert((await page.locator(".chat-timeline h3").count()) >= 2);
   pass("刷新后由 PostgreSQL/SSE 还原历史消息、工具与取消状态");
 

@@ -2,16 +2,10 @@ import { copyText } from "./clipboard";
 import { memo, useMemo, useState } from "react";
 import {
   AlertCircle,
-  ArrowDownToLine,
   Check,
-  CheckCircle2,
   Copy,
-  FileBox,
   Loader2,
-  Maximize2,
   Paperclip,
-  RotateCcw,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import type {
@@ -22,8 +16,10 @@ import type {
 import { terminal } from "../../../packages/contracts/index";
 import { date, fileUrl } from "../api";
 import { Markdown } from "./Markdown";
-import { ActivityGroup } from "./ActivityGroup";
-import { groupActivity, reduceTimeline, type ChatBlock } from "./timeline";
+import { reduceTimeline } from "./timeline";
+import { presentConversation } from "./presentation";
+import { TurnTrace } from "./TurnTrace";
+import { TraceBlock } from "./TraceBlock";
 import { WorkSummary } from "./WorkSummary";
 import {
   workPhaseLabels,
@@ -53,7 +49,7 @@ export const RunView = memo(function RunView({
   busy?: boolean;
 }) {
   const blocks = useMemo(() => reduceTimeline(events), [events]);
-  const displayBlocks = useMemo(() => groupActivity(blocks), [blocks]);
+  const conversation = useMemo(() => presentConversation(blocks), [blocks]);
   const [copied, setCopied] = useState(false);
   const finished = terminal.has(run.status);
   const phase = events.filter((e) => e.type === "work.phase").at(-1)?.payload
@@ -130,124 +126,47 @@ export const RunView = memo(function RunView({
             {labels[run.status]}
           </span>
         </div>
-        {displayBlocks.map((block) => {
-          if (block.kind === "message")
-            return block.text ? (
-              <div
-                key={block.id}
-                className={"chat-message-part " + (block.phase || "")}
-                data-item-id={block.itemId}
-              >
-                <Markdown text={block.text} />
-              </div>
-            ) : null;
-          if (block.kind === "activity")
-            return (
-              <ActivityGroup key={block.id} group={block} finished={finished} />
-            );
-          if (block.kind === "capture") {
-            const c = block.capture,
-              title =
-                c.phase === "before"
-                  ? "操作前场景"
-                  : c.phase.startsWith("final")
-                    ? "结果检查" +
-                      (c.phase.includes(":")
-                        ? " · " +
-                          ({
-                            front: "正面",
-                            right: "右侧",
-                            top: "俯视",
-                            isometric: "透视",
-                          }[c.phase.split(":")[1]] || "多角度")
-                        : "")
-                    : "当前场景";
-            return (
-              <button
-                type="button"
-                className={
-                  "chat-capture " +
-                  (c.phase.startsWith("final") ? "" : "compact")
-                }
-                key={block.id}
-                onClick={() =>
-                  lightbox({ src: fileUrl("capture", c.id), title })
-                }
-              >
-                <img
-                  src={fileUrl("capture", c.id)}
-                  alt={title}
-                  loading="lazy"
-                />
-                <span>
-                  <span>{title}</span>
-                  <Maximize2 size={12} />
-                </span>
-              </button>
-            );
-          }
-          if (block.kind === "snapshot") {
-            const snapshot = block.snapshot;
-            if (snapshot.projectId !== run.projectId) return null;
-            return (
-              <div className="chat-snapshot" key={block.id}>
-                <ShieldCheck size={14} />
-                <span>
-                  <strong>{snapshot.name || "场景恢复点"}</strong>
-                  <small>已保存 Blender 文件</small>
-                </span>
-                <a
-                  href={fileUrl("snapshot", snapshot.id)}
-                  title="下载恢复点"
-                  aria-label="下载恢复点"
-                >
-                  <ArrowDownToLine size={14} />
-                </a>
-                {onRestoreSnapshot && (
-                  <button
-                    type="button"
-                    disabled={busy || !finished}
-                    onClick={() => onRestoreSnapshot(snapshot)}
-                  >
-                    <RotateCcw size={12} />
-                    恢复
-                  </button>
-                )}
-              </div>
-            );
-          }
-          if (block.kind === "verification")
-            return (
-              <div
-                key={block.id}
-                className={"verification " + (block.passed ? "passed" : "")}
-              >
-                <CheckCircle2 size={13} />
-                <span>
-                  {block.passed ? "视觉检查通过" : "仍有待调整项"}
-                  <small>{block.observations}</small>
-                </span>
-              </div>
-            );
-          if (block.kind === "artifact")
-            return (
-              <a
-                key={block.id}
-                className="artifact-link"
-                href={fileUrl("artifact", String(block.artifact.id))}
-              >
-                <FileBox size={18} />
-                <span>{String(block.artifact.name || "下载产物")}</span>
-                <ArrowDownToLine size={14} />
-              </a>
-            );
-          return (
-            <div key={block.id} className={"chat-notice " + block.severity}>
-              <AlertCircle size={13} />
-              <span>{block.message}</span>
+        <TurnTrace
+          blocks={conversation.trace}
+          run={run}
+          busy={busy}
+          lightbox={lightbox}
+          onRestoreSnapshot={onRestoreSnapshot}
+        />
+        <div className="chat-reply" aria-label="助手回复">
+          {conversation.reply.map((block) => (
+            <div
+              key={block.id}
+              className="chat-message-part"
+              data-item-id={block.itemId}
+            >
+              <Markdown text={block.text} />
             </div>
-          );
-        })}
+          ))}
+          {finished && !conversation.reply.length && (
+            <p className="chat-reply-empty">
+              {run.status === "succeeded"
+                ? "本轮操作已完成，未收到最终文字回复。"
+                : run.status === "cancelled"
+                  ? "任务已停止，可以继续描述你的调整。"
+                  : "本轮未完成，请查看执行状态与过程记录。"}
+            </p>
+          )}
+        </div>
+        {!!conversation.artifacts.length && (
+          <div className="chat-result-files" aria-label="本轮文件">
+            {conversation.artifacts.map((block) => (
+              <TraceBlock
+                key={block.id}
+                block={block}
+                run={run}
+                finished={finished}
+                busy={busy}
+                lightbox={lightbox}
+              />
+            ))}
+          </div>
+        )}
         {finished && (
           <WorkSummary
             events={events}
@@ -275,20 +194,14 @@ export const RunView = memo(function RunView({
                   : "正在创作，操作后会自动截图检查…"}
           </div>
         )}
-        {finished && blocks.some((b) => b.kind === "message") && (
+        {finished && conversation.reply.length > 0 && (
           <div className="chat-turn-actions">
             <button
               type="button"
               aria-label="复制回复"
               onClick={() => {
                 void copyText(
-                  blocks
-                    .filter(
-                      (b): b is Extract<ChatBlock, { kind: "message" }> =>
-                        b.kind === "message",
-                    )
-                    .map((b) => b.text)
-                    .join("\n\n"),
+                  conversation.reply.map((b) => b.text).join("\n\n"),
                 )
                   .then(() => {
                     setCopied(true);

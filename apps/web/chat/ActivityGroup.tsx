@@ -6,9 +6,9 @@ import {
   ChevronRight,
   Loader2,
 } from "lucide-react";
-import type { ActivityBlock, ChatBlock } from "./timeline";
+import type { ChatBlock } from "./timeline";
 
-const names: Record<string, string> = {
+export const toolNames: Record<string, string> = {
   get_scene_info: "读取场景",
   execute_blender_code: "执行 Blender 操作",
   capture: "观察当前画面",
@@ -28,7 +28,7 @@ const names: Record<string, string> = {
 };
 const pretty = (value: unknown) =>
   typeof value === "string" ? value : JSON.stringify(value, null, 2);
-function ToolCard({
+export function ToolCard({
   block,
   finished,
 }: {
@@ -68,7 +68,7 @@ function ToolCard({
         ) : (
           <Check size={13} />
         )}
-        <span>{names[block.name] || block.name}</span>
+        <span>{toolNames[block.name] || block.name}</span>
         <small>
           {interrupted
             ? "未收到完成回执"
@@ -134,7 +134,7 @@ function ToolCard({
   );
 }
 
-function PlanRow({
+export function PlanRow({
   block,
   finished,
 }: {
@@ -166,76 +166,5 @@ function PlanRow({
         ))}
       </ol>
     </details>
-  );
-}
-
-/** Consecutive operational events share one disclosure without moving any messages. */
-export function ActivityGroup({
-  group,
-  finished,
-}: {
-  group: ActivityBlock;
-  finished: boolean;
-}) {
-  const [choice, setChoice] = useState<{ phase: string; open: boolean }>();
-  const tools = group.items.filter((item) => item.kind === "tool");
-  const needsAttention = tools.some(
-    (tool) =>
-      tool.status === "failed" || (finished && tool.status === "running"),
-  );
-  const phase = needsAttention
-    ? "attention"
-    : finished
-      ? "finished"
-      : "working";
-  const open =
-    choice?.phase === phase ? choice.open : !finished || needsAttention;
-  const completed = tools.filter((tool) => tool.status === "completed").length;
-  const plan = group.items.find((item) => item.kind === "plan");
-  const progress = plan
-    ? `${plan.steps.filter((step) => step.status === "completed").length}/${plan.steps.length}`
-    : "";
-  return (
-    <section
-      className={"chat-activity " + (needsAttention ? "attention" : "")}
-      aria-label="操作记录"
-    >
-      <button
-        type="button"
-        className="chat-activity-toggle"
-        aria-expanded={open}
-        aria-controls={group.id}
-        onClick={() => setChoice({ phase, open: !open })}
-      >
-        <ChevronRight size={12} className={open ? "expanded" : ""} />
-        {needsAttention ? (
-          <AlertCircle size={13} />
-        ) : !finished ? (
-          <Loader2 size={13} className="spin" />
-        ) : (
-          <Check size={13} />
-        )}
-        <span>
-          {needsAttention ? "操作需要检查" : !finished ? "正在执行" : "已完成"}
-          {tools.length
-            ? ` · ${finished ? completed : tools.length} 项操作`
-            : "创作计划"}
-        </span>
-        {plan && <small>计划 {progress}</small>}
-      </button>
-      <div className="chat-activity-items" id={group.id} hidden={!open}>
-        {open && (
-          <>
-            {group.items.map((item) =>
-              item.kind === "tool" ? (
-                <ToolCard key={item.id} block={item} finished={finished} />
-              ) : (
-                <PlanRow key={item.id} block={item} finished={finished} />
-              ),
-            )}
-          </>
-        )}
-      </div>
-    </section>
   );
 }

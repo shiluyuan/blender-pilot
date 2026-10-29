@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   CheckCircle2,
   AlertCircle,
@@ -27,6 +28,7 @@ export function WorkSummary({
   restore?: (s: Snapshot) => void;
   busy: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const event = events.filter((e) => e.type === "work.summary").at(-1);
   if (!event) return null;
   const s = event.payload;
@@ -73,33 +75,66 @@ export function WorkSummary({
           )}
         </span>
       </div>
-      {changes && (
-        <div className="work-change-list">
-          {(
-            [
-              ["created", "新增"],
-              ["modified", "修改"],
-              ["deleted", "移除"],
-            ] as const
-          ).map(([key, label]) => {
-            const values = Array.isArray(changes[key]) ? changes[key] : [];
-            return values.length ? (
-              <div key={key}>
-                <b>
-                  {label} {values.length}
-                </b>
-                <span>
-                  {values
-                    .slice(0, 8)
-                    .map((v) => (typeof v === "string" ? v : v.name))
-                    .join("、")}
-                  {values.length > 8 ? "…" : ""}
-                </span>
-              </div>
-            ) : null;
-          })}
+      <div className="work-result-overview">
+        {after[0] && (
+          <button
+            type="button"
+            className="work-result-preview"
+            onClick={() =>
+              lightbox({
+                src: fileUrl("capture", after[0].id),
+                title: afterLabel,
+              })
+            }
+          >
+            <img
+              src={fileUrl("capture", after[0].id)}
+              alt={afterLabel}
+              loading="lazy"
+            />
+            <span>
+              查看结果 <ArrowUpRight size={11} />
+            </span>
+          </button>
+        )}
+        <div className="work-result-metadata">
+          {changes && (
+            <div className="work-change-list">
+              {(
+                [
+                  ["created", "新增"],
+                  ["modified", "修改"],
+                  ["deleted", "移除"],
+                ] as const
+              ).map(([key, label]) => {
+                const values = Array.isArray(changes[key]) ? changes[key] : [];
+                return values.length ? (
+                  <div key={key}>
+                    <b>
+                      {label} {values.length}
+                    </b>
+                    <span>
+                      {values
+                        .slice(0, 8)
+                        .map((v) => (typeof v === "string" ? v : v.name))
+                        .join("、")}
+                      {values.length > 8 ? "…" : ""}
+                    </span>
+                  </div>
+                ) : null;
+              })}
+            </div>
+          )}
+          <div className="work-save-status">
+            <Save size={12} />
+            <span title={String(s.savedFile || "scene.blend")}>
+              {s.saved
+                ? `已保存：${String(s.savedFile || "scene.blend")}`
+                : "未确认本轮结果已保存"}
+            </span>
+          </div>
         </div>
-      )}
+      </div>
       {s.sceneChanged === true &&
         changes &&
         !["created", "modified", "deleted"].some(
@@ -109,73 +144,80 @@ export function WorkSummary({
             场景版本已变化，当前回执无法细分到对象；请结合画面与检查报告确认。
           </p>
         )}
-      {before?.projectId === projectId && after[0] && (
-        <div className="work-comparison">
-          {[
-            { capture: before, label: "操作前" },
-            { capture: after[0], label: afterLabel },
-          ].map(({ capture, label }) => (
-            <button
-              type="button"
-              key={capture.id}
-              onClick={() =>
-                lightbox({ src: fileUrl("capture", capture.id), title: label })
-              }
-            >
-              <img
-                src={fileUrl("capture", capture.id)}
-                alt={label}
-                loading="lazy"
-              />
-              <span>
-                {label}
-                <ArrowUpRight size={12} />
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
       {before?.projectId === projectId && !after.length && (
         <p className="work-remaining">
           本轮未取得操作后截图，无法显示前后对比。
         </p>
       )}
-      {inspection && (
-        <details className="work-inspection">
-          <summary>
-            结构检查 · {inspection.summary?.errorCount || 0} 项错误，
-            {inspection.summary?.warningCount || 0} 项提醒
-          </summary>
-          <p>机器检查辅助判断；穿插和悬空提示需要结合画面确认。</p>
-          {inspection.issues?.slice(0, 12).map((issue, i) => (
-            <div className={"work-issue " + issue.severity} key={i}>
-              <b>{issue.objects.join("、") || "场景"}</b>
-              <span>{issue.message}</span>
+      <details
+        className="work-result-details"
+        onToggle={(event) => setExpanded(event.currentTarget.open)}
+      >
+        <summary>对比、检查与恢复</summary>
+        {expanded && (
+          <>
+            {before?.projectId === projectId && after[0] && (
+              <div className="work-comparison">
+                {[
+                  { capture: before, label: "操作前" },
+                  { capture: after[0], label: afterLabel },
+                ].map(({ capture, label }) => (
+                  <button
+                    type="button"
+                    key={capture.id}
+                    onClick={() =>
+                      lightbox({
+                        src: fileUrl("capture", capture.id),
+                        title: label,
+                      })
+                    }
+                  >
+                    <img
+                      src={fileUrl("capture", capture.id)}
+                      alt={label}
+                      loading="lazy"
+                    />
+                    <span>
+                      {label}
+                      <ArrowUpRight size={12} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {inspection && (
+              <details className="work-inspection">
+                <summary>
+                  结构检查 · {inspection.summary?.errorCount || 0} 项错误，
+                  {inspection.summary?.warningCount || 0} 项提醒
+                </summary>
+                <p>机器检查辅助判断；穿插和悬空提示需要结合画面确认。</p>
+                {inspection.issues?.slice(0, 12).map((issue, i) => (
+                  <div className={"work-issue " + issue.severity} key={i}>
+                    <b>{issue.objects.join("、") || "场景"}</b>
+                    <span>{issue.message}</span>
+                  </div>
+                ))}
+                {!!inspection.limits?.objectsTruncated && (
+                  <p>对象数量超过检查上限，尚未覆盖整个场景。</p>
+                )}
+              </details>
+            )}
+            <div className="work-save">
+              {restore && snapshot?.projectId === projectId && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => restore(snapshot)}
+                >
+                  <RotateCcw size={12} />
+                  恢复到操作前
+                </button>
+              )}
             </div>
-          ))}
-          {!!inspection.limits?.objectsTruncated && (
-            <p>对象数量超过检查上限，尚未覆盖整个场景。</p>
-          )}
-        </details>
-      )}
-      <div className="work-save">
-        <span>
-          <Save size={13} />
-          {s.saved
-            ? `已保存：${String(s.savedFile || "scene.blend")}`
-            : "未确认本轮结果已保存"}
-        </span>
-        {restore && snapshot?.projectId === projectId && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => restore(snapshot)}
-          >
-            <RotateCcw size={12} />
-            恢复到操作前
-          </button>
+          </>
         )}
-      </div>
+      </details>
       {Array.isArray(s.remainingSteps) && s.remainingSteps.length > 0 && (
         <p className="work-remaining">
           未完成阶段：{s.remainingSteps.map((x: any) => x.step).join("、")}

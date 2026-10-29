@@ -43,10 +43,27 @@ export function ChatComposer(props: {
   onRetrySend: () => void;
   onMoveBack: () => void;
 }) {
+  const menuRoot = useRef<HTMLDivElement>(null);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
   const picker = useRef<HTMLInputElement>(null),
     composing = useRef(false);
   const [dragging, setDragging] = useState(false),
     [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (!menu) return;
+    menuRoot.current
+      ?.querySelector<HTMLButtonElement>('[role="menuitem"]')
+      ?.focus();
+    const dismissOutside = (event: Event) => {
+      if (!menuRoot.current?.contains(event.target as Node)) setMenu(false);
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("focusin", dismissOutside);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("focusin", dismissOutside);
+    };
+  }, [menu]);
   const referenceCount = props.attachments.length + props.uploads.length;
   useEffect(() => {
     if (props.disabled) {
@@ -71,7 +88,16 @@ export function ChatComposer(props: {
     }
   }, [props.draft]);
   return (
-    <div className="composer-wrap chat-composer-wrap">
+    <div
+      className="composer-wrap chat-composer-wrap"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && menu) {
+          setMenu(false);
+          menuTrigger.current?.focus();
+          event.stopPropagation();
+        }
+      }}
+    >
       {props.disabledReason && (
         <div className="run-status" role="status">
           <Loader2 size={13} className="spin" />
@@ -133,105 +159,6 @@ export function ChatComposer(props: {
           )}
         </div>
       )}
-      {props.attachments.length > 0 && (
-        <div className="attachments chat-attachments">
-          {props.attachments.map((a) => {
-            const image =
-              a.kind === "capture" ||
-              /^image\//.test(a.mime || "") ||
-              /\.(png|jpe?g|webp)$/i.test(a.name);
-            return (
-              <div key={a.id} className="chat-attachment" title={a.name}>
-                {image ? (
-                  <img
-                    src={
-                      a.kind === "library"
-                        ? `/api/library/${a.id}/file?preview=true`
-                        : fileUrl(
-                            a.kind === "capture" ? "capture" : "asset",
-                            a.id,
-                            true,
-                          )
-                    }
-                    alt={a.name}
-                  />
-                ) : (
-                  <FileText size={15} />
-                )}
-                <span>
-                  {a.name}
-                  {a.documentInfo?.truncated && (
-                    <small>
-                      正文将截断至{" "}
-                      {a.documentInfo.contextCharacters.toLocaleString()} 字符
-                    </small>
-                  )}
-                </span>
-                <button
-                  type="button"
-                  className="icon"
-                  aria-label="移除附件"
-                  disabled={props.disabled}
-                  title={"移除 " + a.name}
-                  onClick={() => props.onRemove(a.id)}
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {props.uploads.length > 0 && (
-        <div className="chat-upload-list">
-          {props.uploads.map((row) => (
-            <div
-              className={"chat-upload-row " + row.status}
-              key={row.id}
-              data-testid="chat-upload-row"
-            >
-              <div>
-                {row.status === "uploading" ? (
-                  <Loader2 size={13} className="spin" />
-                ) : (
-                  <AlertCircle size={13} />
-                )}
-                <span>
-                  {row.name}
-                  <small>
-                    {row.status === "uploading"
-                      ? `${bytes(row.size)} · ${row.progress}%`
-                      : row.error}
-                  </small>
-                </span>
-                {row.status === "failed" && (
-                  <button
-                    type="button"
-                    className="icon"
-                    aria-label={"重试上传 " + row.name}
-                    disabled={props.disabled}
-                    onClick={() => props.onRetryUpload(row.id)}
-                  >
-                    <RefreshCw size={13} />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="icon"
-                  aria-label={"取消上传 " + row.name}
-                  disabled={props.disabled}
-                  onClick={() => props.onRemoveUpload(row.id)}
-                >
-                  <X size={13} />
-                </button>
-              </div>
-              {row.status === "uploading" && (
-                <progress max={100} value={row.progress} />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
       <div
         className={"composer " + (dragging ? "dragging" : "")}
         onDragOver={(e) => {
@@ -248,6 +175,105 @@ export function ChatComposer(props: {
           if (!props.disabled) props.onFiles(e.dataTransfer.files);
         }}
       >
+        {props.attachments.length > 0 && (
+          <div className="attachments chat-attachments">
+            {props.attachments.map((a) => {
+              const image =
+                a.kind === "capture" ||
+                /^image\//.test(a.mime || "") ||
+                /\.(png|jpe?g|webp)$/i.test(a.name);
+              return (
+                <div key={a.id} className="chat-attachment" title={a.name}>
+                  {image ? (
+                    <img
+                      src={
+                        a.kind === "library"
+                          ? `/api/library/${a.id}/file?preview=true`
+                          : fileUrl(
+                              a.kind === "capture" ? "capture" : "asset",
+                              a.id,
+                              true,
+                            )
+                      }
+                      alt={a.name}
+                    />
+                  ) : (
+                    <FileText size={15} />
+                  )}
+                  <span>
+                    {a.name}
+                    {a.documentInfo?.truncated && (
+                      <small>
+                        正文将截断至{" "}
+                        {a.documentInfo.contextCharacters.toLocaleString()} 字符
+                      </small>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label="移除附件"
+                    disabled={props.disabled}
+                    title={"移除 " + a.name}
+                    onClick={() => props.onRemove(a.id)}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {props.uploads.length > 0 && (
+          <div className="chat-upload-list">
+            {props.uploads.map((row) => (
+              <div
+                className={"chat-upload-row " + row.status}
+                key={row.id}
+                data-testid="chat-upload-row"
+              >
+                <div>
+                  {row.status === "uploading" ? (
+                    <Loader2 size={13} className="spin" />
+                  ) : (
+                    <AlertCircle size={13} />
+                  )}
+                  <span>
+                    {row.name}
+                    <small>
+                      {row.status === "uploading"
+                        ? `${bytes(row.size)} · ${row.progress}%`
+                        : row.error}
+                    </small>
+                  </span>
+                  {row.status === "failed" && (
+                    <button
+                      type="button"
+                      className="icon"
+                      aria-label={"重试上传 " + row.name}
+                      disabled={props.disabled}
+                      onClick={() => props.onRetryUpload(row.id)}
+                    >
+                      <RefreshCw size={13} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label={"取消上传 " + row.name}
+                    disabled={props.disabled}
+                    onClick={() => props.onRemoveUpload(row.id)}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                {row.status === "uploading" && (
+                  <progress max={100} value={row.progress} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         <textarea
           ref={props.inputRef}
           aria-label="消息输入"
@@ -285,19 +311,49 @@ export function ChatComposer(props: {
           }}
         />
         <div className="composer-controls">
-          <div className="chat-attach-menu">
+          <div className="chat-attach-menu" ref={menuRoot}>
             <button
               type="button"
               className="icon"
               title="添加附件"
+              ref={menuTrigger}
               aria-label="添加附件"
+              aria-expanded={menu}
+              aria-haspopup="menu"
               disabled={props.disabled}
               onClick={() => setMenu((v) => !v)}
             >
               <Plus size={17} />
             </button>
             {menu && (
-              <div role="menu">
+              <div
+                role="menu"
+                onKeyDown={(event) => {
+                  if (
+                    !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
+                  )
+                    return;
+                  event.preventDefault();
+                  const items = Array.from(
+                    event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                      '[role="menuitem"]',
+                    ),
+                  );
+                  const index = items.indexOf(
+                    document.activeElement as HTMLButtonElement,
+                  );
+                  const next =
+                    event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? items.length - 1
+                        : (index +
+                            (event.key === "ArrowDown" ? 1 : -1) +
+                            items.length) %
+                          items.length;
+                  items[next]?.focus();
+                }}
+              >
                 <button
                   type="button"
                   role="menuitem"
@@ -335,8 +391,13 @@ export function ChatComposer(props: {
           >
             <Camera size={17} />
           </button>
+          <span
+            className="composer-model"
+            title={props.model || "请先配置模型"}
+          >
+            {props.model || "请先配置模型"}
+          </span>
           <span className="grow" />
-          <span className="shortcut">Enter 发送 · Shift ↵ 换行</span>
           <button
             type="button"
             className="send-button"
@@ -377,19 +438,11 @@ export function ChatComposer(props: {
       )}
       <div className="composer-foot">
         <span>
-          <span className="dot" />
-          <span
-            className="composer-model"
-            title={props.model || "请先配置模型"}
-          >
-            {props.model || "请先配置模型"}
-          </span>
-        </span>
-        <span>
           {referenceCount
             ? `${referenceCount}/12 个引用`
             : "图片 · 文档 · 素材"}
         </span>
+        <span className="shortcut">Enter 发送 · Shift ↵ 换行</span>
       </div>
       <input
         ref={picker}

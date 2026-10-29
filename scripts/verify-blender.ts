@@ -312,6 +312,7 @@ try {
   let liveReport: Awaited<ReturnType<typeof verifyRealModel>> | undefined;
   let templateReport:
     Awaited<ReturnType<typeof verifyTemplateRealModel>> | undefined;
+  let conversationFontAudit: unknown[] = [];
   let browserReport:
     | {
         passed: boolean;
@@ -701,6 +702,44 @@ try {
       return false;
     });
     await page.evaluate(() => document.fonts.ready);
+    const fontSession = await page.context().newCDPSession(page);
+    await fontSession.send("DOM.enable");
+    await fontSession.send("CSS.enable");
+    const fontDom = await fontSession.send("DOM.getDocument");
+    for (const selector of [".chat-header strong", ".chat-reply p"]) {
+      if (!(await page.locator(selector).count())) continue;
+      const { nodeId } = await fontSession.send("DOM.querySelector", {
+        nodeId: fontDom.root.nodeId,
+        selector,
+      });
+      const { fonts } = await fontSession.send("CSS.getPlatformFontsForNode", {
+        nodeId,
+      });
+      assert(
+        fonts.length &&
+          !fonts.some((font: { familyName: string }) =>
+            /times|serif/i.test(font.familyName),
+          ),
+        "native workbench must render actual sans fonts",
+      );
+      conversationFontAudit.push({ selector, fonts });
+    }
+    await fontSession.detach();
+    if (!liveSettings && !skipCodex) {
+      const firstTurn = page.locator(".conversation-turn").first();
+      await firstTurn
+        .locator(".chat-reply")
+        .getByText(/已创建 Pilot_Verified_Sphere/)
+        .waitFor();
+      assert.equal(
+        await firstTurn
+          .locator(".chat-activity-toggle")
+          .getAttribute("aria-expanded"),
+        "false",
+      );
+      assert.equal(await firstTurn.locator(".chat-capture").count(), 0);
+      assert.equal(await firstTurn.locator(".work-result-preview").count(), 1);
+    }
     await page.mouse.move(10, 10);
     // Show the successful creative turn in the README hero; cancellation and
     // missing-verification cases remain covered by the preceding assertions.
@@ -896,6 +935,7 @@ try {
         library: libraryReport,
         templates: templateReport,
         browser: browserReport,
+        conversationFontAudit,
         skills: skillReport,
         quality: qualityReport,
         checks: [

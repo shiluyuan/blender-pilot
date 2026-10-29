@@ -58,7 +58,7 @@ await writeFile(
       model: report.model,
       mode: report.mode,
       database: report.databaseValidation,
-      report: "../../validation/compact-native.json",
+      report: "../../validation/reply-native.json",
       images,
     },
     null,
