@@ -1,13 +1,14 @@
+import { Mark } from "./components/Mark";
+import { Login } from "./auth/Login";
+import { PageHeading } from "./components/PageHeading";
+import { Empty } from "./components/Empty";
+import { Settings } from "./settings/Settings";
+import { ChatPanel } from "./chat/ChatPanel";
+import { ChatWelcome } from "./chat/ChatWelcome";
 import { Modal } from "./components/Modal";
 import { ProjectDialog } from "./projects/ProjectDialog";
 import { requestId } from "./request-id";
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  type ReactNode,
-} from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Box,
@@ -19,8 +20,6 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Plus,
-  ArrowUp,
-  Square,
   Paperclip,
   Camera,
   Check,
@@ -38,27 +37,13 @@ import {
   RotateCcw,
   X,
   Loader2,
-  Link,
-  KeyRound,
-  Terminal,
-  CheckCircle2,
   AlertCircle,
-  Send,
-  Maximize2,
   Grid2X2,
   List,
   MoreHorizontal,
-  ArrowLeft,
-  LogOut,
   Save,
   Sparkles,
   MessageSquare,
-  Command,
-  Server,
-  RefreshCw,
-  SlidersHorizontal,
-  ExternalLink,
-  Copy,
 } from "lucide-react";
 import type {
   Project,
@@ -94,6 +79,7 @@ import { documentMime } from "../../packages/contracts/attachments";
 import { useSystemHealth } from "./useSystemHealth";
 import { SystemStatus, workspaceHealth } from "./SystemStatus";
 import "./styles.css";
+import "./chat/conversation.css";
 const labels: Record<string, string> = {
   queued: "等待执行",
   running: "执行中",
@@ -103,90 +89,6 @@ const labels: Record<string, string> = {
   cancelled: "已停止",
   interrupted: "需要检查",
 };
-function Mark() {
-  return (
-    <svg viewBox="0 0 28 28" width="26" height="26" aria-hidden="true">
-      <path
-        d="M5 7h12l7 7-7 7H5l8-7z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <circle cx="16" cy="14" r="2.5" fill="currentColor" />
-    </svg>
-  );
-}
-function Login({ onLogin, notice }: { onLogin: () => void; notice?: string }) {
-  const [password, setPassword] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  return (
-    <div className="login-screen">
-      <div className="login-box">
-        <div className="brand">
-          <Mark /> blender pilot<span className="version">STUDIO</span>
-        </div>
-        <div className="eyebrow">YOUR PRIVATE CREATIVE SPACE</div>
-        <h1>让想法，进入三维。</h1>
-        <p>
-          登录你的 Blender 工作台。
-          <br />
-          用对话创作，让每一步都看得见。
-        </p>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            try {
-              await post("/auth/login", { password });
-              onLogin();
-            } catch (e) {
-              setError(String(e));
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {notice && (
-            <p className="login-notice" role="status">
-              {notice}
-            </p>
-          )}
-          <label>
-            工作台访问密码
-            <input
-              autoFocus
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="部署时设置的 PILOT_PASSWORD"
-              required
-            />
-          </label>
-          {error && <div className="error">{error}</div>}
-          <button className="primary full" disabled={busy}>
-            {busy ? (
-              <Loader2 className="spin" size={16} />
-            ) : (
-              <ArrowUp size={16} />
-            )}
-            进入工作台
-          </button>
-        </form>
-        <small>自托管 · 项目与资源保存在你的服务器</small>
-      </div>
-      <div className="login-art">
-        <div className="orbit one" />
-        <div className="orbit two" />
-        <div className="orbit three" />
-        <Box size={130} strokeWidth={0.6} />
-        <span>CREATE IN CONVERSATION.</span>
-      </div>
-    </div>
-  );
-}
 function App() {
   const [auth, setAuth] = useState<boolean | null>(null),
     [page, setPage] = useState("studio"),
@@ -224,9 +126,6 @@ function App() {
   );
   const [authExpired, setAuthExpired] = useState(false);
   const [panel, setPanel] = useState(true),
-    [panelWidth, setPanelWidth] = useState(
-      Number(localStorage.getItem("pilot-panel-width")) || 400,
-    ),
     [theme, setTheme] = useState(localStorage.getItem("pilot-theme") || "dark"),
     [toast, setToast] = useState(""),
     [modal, setModal] = useState<
@@ -630,22 +529,6 @@ function App() {
     await loadAssets();
     notify("上传处理结束，可在资源库引用或导入");
   };
-  const resize = (event: React.PointerEvent) => {
-    const start = event.clientX,
-      width = panelWidth;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const move = (e: PointerEvent) =>
-      setPanelWidth(Math.max(340, Math.min(640, width + start - e.clientX)));
-    const end = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-  };
-  useEffect(() => {
-    localStorage.setItem("pilot-panel-width", String(panelWidth));
-  }, [panelWidth]);
   if (auth === null)
     return (
       <div className="boot">
@@ -1527,67 +1410,16 @@ function App() {
           </main>
           {page === "studio" && panel && (
             <>
-              <div
-                className="resize-handle"
-                role="separator"
-                aria-label="调整助手宽度"
-                aria-orientation="vertical"
-                tabIndex={0}
-                onPointerDown={resize}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowLeft")
-                    setPanelWidth((w) => Math.min(w + 20, 640));
-                  if (e.key === "ArrowRight")
-                    setPanelWidth((w) => Math.max(w - 20, 340));
-                }}
-              />
-              <aside className="chat-panel" style={{ width: panelWidth }}>
-                <div className="chat-header">
-                  <div>
-                    <Sparkles size={16} />
-                    <strong>创作助手</strong>
-                    <span className="badge small">CODEX</span>
-                  </div>
-                  <div>
-                    <button
-                      className="icon"
-                      title="对话历史"
-                      onClick={() => setModal("sessions")}
-                    >
-                      <Clock3 size={15} />
-                    </button>
-                    <button
-                      className="icon"
-                      title="新建对话"
-                      disabled={!project}
-                      onClick={() => void action(newSession)}
-                    >
-                      <Plus size={17} />
-                    </button>
-                    <button
-                      className="icon"
-                      title="收起助手"
-                      onClick={() => setPanel(false)}
-                    >
-                      <PanelRightClose size={16} />
-                    </button>
-                  </div>
-                </div>
-                <div className="chat-context">
-                  <span
-                    className={
-                      "dot " +
-                      (active && streamStates[active.id] === "reconnecting"
-                        ? ""
-                        : "green")
-                    }
-                  />
-                  {active && streamStates[active.id] === "reconnecting"
-                    ? "正在重连，恢复消息中…"
-                    : "自动截图已开启"}
-                  <span className="grow" />
-                  <span>{session?.title || "新对话"}</span>
-                </div>
+              <ChatPanel
+                sessionTitle={session?.title || "新对话"}
+                reconnecting={
+                  !!active && streamStates[active.id] === "reconnecting"
+                }
+                canCreate={!!project && !opening}
+                onHistory={() => setModal("sessions")}
+                onNew={() => void action(newSession)}
+                onClose={() => setPanel(false)}
+              >
                 <ConversationTimeline
                   sessionId={session?.id}
                   version={
@@ -1600,48 +1432,13 @@ function App() {
                   }
                 >
                   {!runs.length && (
-                    <div className="chat-welcome">
-                      <div className="assistant-emblem">
-                        <Mark />
-                      </div>
-                      <h2>一起，把场景做好。</h2>
-                      <p>
-                        描述你想创建或调整的内容。
-                        <br />
-                        我会观察场景，执行修改，再截图检查。
-                      </p>
-                      <div className="suggestions">
-                        {[
-                          "创建一个有柔和灯光的产品展示台",
-                          "检查当前场景的构图和材质",
-                          "把选中的对象改成磨砂金属",
-                        ].map((s, i) => (
-                          <button
-                            key={s}
-                            onClick={() => {
-                              setDraft(s);
-                              draftRef.current?.focus();
-                            }}
-                          >
-                            <span>{["01", "02", "03"][i]}</span>
-                            {s}
-                            <ChevronRight size={14} />
-                          </button>
-                        ))}
-                      </div>
-                      <div className="welcome-tip">
-                        <Image size={16} />
-                        <span>添加参考图，让空间、人物与风格更明确。</span>
-                      </div>
-                      <button
-                        className="chat-template-entry"
-                        onClick={() => setPage("templates")}
-                      >
-                        <Grid2X2 size={14} />
-                        从模板与素材组合开始
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
+                    <ChatWelcome
+                      onSuggestion={(text) => {
+                        setDraft(text);
+                        draftRef.current?.focus();
+                      }}
+                      onTemplates={() => setPage("templates")}
+                    />
                   )}
                   {runs.map((run) => (
                     <RunView
@@ -1687,7 +1484,7 @@ function App() {
                   onRetrySend={() => void chat.retry()}
                   onMoveBack={chat.moveBack}
                 />
-              </aside>
+              </ChatPanel>
             </>
           )}
         </div>
@@ -1981,264 +1778,6 @@ function App() {
           </div>
         </Modal>
       )}
-    </div>
-  );
-}
-function PageHeading({
-  eyebrow,
-  title,
-  description,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="page-heading">
-      <div>
-        <div className="eyebrow">{eyebrow}</div>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
-      {action}
-    </div>
-  );
-}
-function Empty({
-  icon,
-  title,
-  text,
-}: {
-  icon: ReactNode;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="empty">
-      {icon}
-      <h3>{title}</h3>
-      <p>{text}</p>
-    </div>
-  );
-}
-function Settings({
-  onSaved,
-  notify,
-}: {
-  onSaved: () => void;
-  notify: (s: string) => void;
-}) {
-  const [form, setForm] = useState({
-      baseUrl: "",
-      model: "",
-      apiKey: "",
-      effort: "medium",
-      hasKey: false,
-    }),
-    [busy, setBusy] = useState(false),
-    [result, setResult] = useState("");
-  useEffect(() => {
-    api("/settings")
-      .then((s) => setForm({ ...s, apiKey: "" }))
-      .catch((e) => notify(String(e)));
-  }, []);
-  const save = async () => {
-    const r = await api("/settings", {
-      method: "PUT",
-      body: JSON.stringify({
-        baseUrl: form.baseUrl,
-        model: form.model,
-        effort: form.effort,
-        ...(form.apiKey ? { apiKey: form.apiKey } : {}),
-      }),
-    });
-    setForm({ ...r, apiKey: "" });
-    onSaved();
-  };
-  return (
-    <div className="page-content settings-page">
-      <PageHeading
-        eyebrow="WORKSPACE SETTINGS"
-        title="模型与连接"
-        description="连接你的模型服务。配置仅保存在服务器，Key 不会回传到浏览器。"
-      />
-      <div className="settings-layout">
-        <div className="settings-nav">
-          <span className="active">
-            <Command size={16} />
-            Codex 模型
-          </span>
-          <span>
-            <Camera size={16} />
-            自动视觉检查
-          </span>
-          <span>
-            <Server size={16} />
-            执行环境
-          </span>
-        </div>
-        <div className="settings-main">
-          <div className="settings-title">
-            <div className="engine-icon">
-              <Command size={24} />
-            </div>
-            <div>
-              <h2>Codex</h2>
-              <p>原生 Agent 内核 · Responses API</p>
-            </div>
-            <span className="badge">首版引擎</span>
-          </div>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setBusy(true);
-              try {
-                await save();
-                notify("模型配置已保存，下次任务生效");
-              } catch (e) {
-                notify(String(e));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <label>
-              Base URL
-              <div className="input-with-icon">
-                <Link size={15} />
-                <input
-                  type="url"
-                  required
-                  value={form.baseUrl}
-                  onChange={(e) =>
-                    setForm({ ...form, baseUrl: e.target.value })
-                  }
-                  placeholder="https://your-provider.example/v1"
-                />
-              </div>
-              <small>
-                填写服务商提供的 API 根地址。按服务商要求保留 /v1，不要填写
-                /responses。
-              </small>
-            </label>
-            <label>
-              API Key
-              <div className="input-with-icon">
-                <KeyRound size={15} />
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={form.apiKey}
-                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                  placeholder={
-                    form.hasKey
-                      ? "已保存 · 留空保留现有 Key"
-                      : "输入你的 API Key"
-                  }
-                  required={!form.hasKey}
-                />
-              </div>
-              <small>
-                {form.hasKey
-                  ? "密钥已加密保存。支持自定义中转站 Key，不限制前缀。"
-                  : "密钥以加密形式保存在持久卷中。"}
-              </small>
-            </label>
-            <div className="form-row">
-              <label>
-                模型名称
-                <input
-                  required
-                  value={form.model}
-                  onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="服务商提供的准确模型 ID"
-                />
-              </label>
-              <label>
-                推理强度
-                <select
-                  value={form.effort}
-                  onChange={(e) => setForm({ ...form, effort: e.target.value })}
-                >
-                  <option value="low">低</option>
-                  <option value="medium">中</option>
-                  <option value="high">高</option>
-                </select>
-              </label>
-            </div>
-            <div className="form-actions">
-              <button className="primary" disabled={busy}>
-                {busy ? (
-                  <Loader2 className="spin" size={14} />
-                ) : (
-                  <Check size={14} />
-                )}
-                保存配置
-              </button>
-              <button
-                type="button"
-                disabled={busy || !form.model || !form.baseUrl}
-                onClick={async () => {
-                  setBusy(true);
-                  setResult("");
-                  try {
-                    await save();
-                    const r = await post("/settings/test");
-                    setResult(r.message);
-                  } catch (e) {
-                    setResult(String(e));
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                <Activity size={14} />
-                保存并测试连接
-              </button>
-            </div>
-            {result && <div className="test-result">{result}</div>}
-          </form>
-          <div className="settings-section">
-            <h3>
-              <Camera size={16} />
-              自动截图与视觉检查<span className="badge">默认开启</span>
-            </h3>
-            <p>
-              操作前、关键修改后、完成前自动取图。图片会发送至当前模型服务，用于理解场景与检查结果。
-            </p>
-            <div className="settings-facts">
-              <span>
-                最多修正<strong>2 轮</strong>
-              </span>
-              <span>
-                每轮截图预算<strong>8 张</strong>
-              </span>
-              <span>
-                预览分辨率<strong>≤ 1600 px</strong>
-              </span>
-            </div>
-            <small>
-              模型接口需支持图像输入、工具调用和 Responses
-              流式协议。连接测试通过后，仍需用真实创作任务验证。
-            </small>
-          </div>
-          <div className="settings-section">
-            <h3>
-              <Server size={16} />
-              执行环境
-            </h3>
-            <p>
-              Blender、MCP 与 Codex 运行在服务器。工作台经同源 WebSocket
-              显示桌面；不需要本机安装 Blender。
-            </p>
-            <small>
-              修改模型配置对新任务生效；现有会话会保留。更换服务商后若不兼容，可创建新对话。
-            </small>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

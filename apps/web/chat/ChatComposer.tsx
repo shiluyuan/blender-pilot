@@ -378,7 +378,12 @@ export function ChatComposer(props: {
       <div className="composer-foot">
         <span>
           <span className="dot" />
-          {props.model || "请先配置模型"}
+          <span
+            className="composer-model"
+            title={props.model || "请先配置模型"}
+          >
+            {props.model || "请先配置模型"}
+          </span>
         </span>
         <span>
           {referenceCount

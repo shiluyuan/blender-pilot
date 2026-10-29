@@ -643,6 +643,32 @@ try {
     name: "调整助手宽度",
     exact: true,
   });
+  // Verify both keyboard and real pointer interaction, including interrupted drag.
+  await separator.focus();
+  await separator.press("Home");
+  assert.equal(await separator.getAttribute("aria-valuenow"), "340");
+  await separator.press("End");
+  assert.equal(await separator.getAttribute("aria-valuenow"), "640");
+  await separator.press("ArrowRight");
+  assert.equal(await separator.getAttribute("aria-valuenow"), "620");
+  const handle = (await separator.boundingBox())!;
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2 + 80, handle.y + 100, {
+    steps: 4,
+  });
+  assert.equal(await separator.getAttribute("aria-valuenow"), "540");
+  await separator.dispatchEvent("pointercancel", { pointerId: 1 });
+  await page.mouse.move(handle.x + handle.width / 2 + 120, handle.y + 100);
+  assert.equal(
+    await separator.getAttribute("aria-valuenow"),
+    "540",
+    "cancelled drag must stop changing width",
+  );
+  await page.mouse.up();
+  await separator.dblclick();
+  assert.equal(await separator.getAttribute("aria-valuenow"), "400");
+  pass("助手宽度支持键盘边界、真实拖拽、取消拖拽及双击重置，ARIA 数值同步");
   await separator.focus();
   for (let i = 0; i < 20; i++) await separator.press("ArrowRight");
   await wait(
@@ -730,6 +756,83 @@ try {
     .locator(".chat-panel")
     .screenshot({ path: path.join(output, "chat-narrow.png") });
 
+  assert.equal(
+    await separator.getAttribute("aria-valuenow"),
+    "340",
+    "width survives panel unmount",
+  );
+  await separator.press("ArrowLeft");
+  await page.reload();
+  await input.waitFor();
+  await wait(
+    async () => !(await input.isDisabled()),
+    "workspace after width persistence reload",
+  );
+  assert.equal(await separator.getAttribute("aria-valuenow"), "360");
+  assert.equal(await input.inputValue(), "收起后应完整保留的未发送草稿");
+  for (const [stored, expected] of [
+    ["NaN", "400"],
+    ["9999", "640"],
+    ["-8", "400"],
+  ]) {
+    await page.evaluate(
+      (value) => localStorage.setItem("pilot-panel-width", value),
+      stored,
+    );
+    await page.reload();
+    await input.waitFor();
+    assert.equal(await separator.getAttribute("aria-valuenow"), expected);
+  }
+  pass("侧栏宽度刷新后保留，非法和越界持久值自动恢复到有效范围");
+  await page
+    .getByRole("heading", { name: "长内容压力样本", exact: true })
+    .waitFor();
+  const typography = await page.locator(".chat-panel").evaluate((panel) =>
+    Object.fromEntries(
+      [
+        ["body", ".chat-markdown p"],
+        ["title", ".chat-markdown h3"],
+        ["input", "textarea"],
+        ["label", ".assistant-label strong"],
+      ].map(([name, selector]) => [
+        name,
+        parseFloat(getComputedStyle(panel.querySelector(selector)!).fontSize),
+      ]),
+    ),
+  );
+  assert.equal(typography.body, 14);
+  assert.equal(typography.input, 14);
+  assert.equal(typography.label, 13);
+  assert(
+    typography.title > typography.body,
+    "heading hierarchy must exceed body text",
+  );
+  pass("正文与输入区 14px、身份标签 13px，消息标题保持清晰字号层级");
+  for (const width of [900, 768, 375]) {
+    await page.setViewportSize({ width, height: width === 375 ? 667 : 900 });
+    const fit = await page.locator(".chat-panel").evaluate((panel) => {
+      const rect = panel.getBoundingClientRect();
+      const input = panel.querySelector("textarea")!.getBoundingClientRect();
+      return {
+        right: rect.right,
+        left: rect.left,
+        overflow: panel.scrollWidth - panel.clientWidth,
+        inputRight: input.right,
+      };
+    });
+    assert(
+      fit.left >= 0 &&
+        fit.right <= width + 1 &&
+        fit.inputRight <= width + 1 &&
+        fit.overflow <= 1,
+      JSON.stringify({ width, ...fit }),
+    );
+    await page
+      .locator(".chat-panel")
+      .screenshot({ path: path.join(output, `chat-responsive-${width}.png`) });
+  }
+  pass("900/768/375px 窗口内助手与输入区完整可见，无侧栏横向溢出");
+
   assert.deepEqual(
     uncaught,
     [],
@@ -752,12 +855,16 @@ try {
     submissions: submissions.length,
     uncaughtBrowserErrors: uncaught,
     fontAudit,
+    typography,
     layoutAudit,
     screenshots: [
       "chat-dark.png",
       "chat-light.png",
       "chat-errors.png",
       "chat-narrow.png",
+      "chat-responsive-900.png",
+      "chat-responsive-768.png",
+      "chat-responsive-375.png",
     ],
   };
   await writeFile(
