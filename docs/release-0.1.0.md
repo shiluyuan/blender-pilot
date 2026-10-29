@@ -13,11 +13,20 @@ Source verification date: 2026-10-29. This is the initial version, not a blanket
 ## Executed checks
 
 - TypeScript typecheck and production build passed. The existing Vite bundle-size advisory remains (~823 KB uncompressed main JS); it is not a build failure.
-- Complete Node regression suite: **119 passed, zero failures**. This includes request replay after application restart, rename persistence, conflicting request rejection, HTTP-compatible UUID generation and native-window process ownership.
-- Python deployment tests: 13 passed, including existing executable discovery with spaces and actionable missing-Blender errors.
+- Complete Node regression suite: **126 passed, zero failures**. This includes request replay after application restart, rename persistence, conflicting request rejection, HTTP-compatible UUID generation and native-window process ownership.
+- Python deployment tests: 16 passed, including existing executable discovery with spaces and actionable missing-Blender errors.
 - Native-window lifecycle fixture: starts only its owned Blender substitute process, preserves the instance handshake, coalesces duplicate opens, and reaps that process. This is process-control validation, not a real Blender render.
 - Chromium + real Fastify/SQL-driver browser regression: double form submission sends one request; activation failure leaves one created project; rename updates the UI and survives refresh; native-window mode shows screenshot controls without attempting VNC. Zero uncaught browser errors. Runner responses are explicit fixtures.
 - Shell syntax, native help delegation, Python compilation and whitespace checks passed.
+
+## Follow-up validation
+
+- Chat: 19 browser checks, including sidebar resizing/persistence, typography, session isolation and receipt recovery.
+- Interface/system status: 16 browser checks.
+- Project UI: 7 browser checks.
+- Skills/workflow UI: 18 browser checks; public npx downloads are explicit local fixtures.
+- These suites reported zero uncaught browser errors. They were run in the recorded frontend iterations, not repeated live-model acceptance at tag publication.
+- Source reports: [code quality](code-quality-review.md), [sidebar](sidebar-quality-review.md), and [screenshot manifest](screenshots/latest/manifest.json).
 
 ## Boundaries
 
@@ -25,7 +34,7 @@ The SQL tests explicitly used PostgreSQL WASM over TCP in this restricted cloud 
 
 Before a production release claim, run `./local-up.sh --setup` and `--check` on each target OS, create/open two projects, rename/reload, import an asset, execute an authorized real-model task with screenshots, save/restart/reopen, and verify clean process teardown. For Docker deployments run the documented production acceptance procedure against the actual target.
 
-The README gallery retains the neutral real application captures from the previous acceptance build. It does not claim to show this iteration's new controls. Browser fixture screenshots are diagnostic evidence, not promotional real-Blender renders.
+The bilingual README gallery was refreshed on 2026-10-29 with 16 current frontend screenshots, including the refactored sidebar and project rename controls. Captures use explicit fixture data and do not claim live Blender/model execution. See [capture provenance](screenshots/latest/README.md).
 
 ## Reproduce
 
