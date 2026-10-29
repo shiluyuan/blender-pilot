@@ -28,3 +28,5 @@ Blender Pilot's original code is licensed under the MIT License; see LICENSE. Th
 Workspace acceptance downloads (but does not redistribute) Khronos glTF-Sample-Assets `BoxTextured`, credited to Cesium under CC BY 4.0, with a separate Cesium logo trademark notice. See https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/BoxTextured. Visual reference source paths and commit are documented in [workspaces.md](docs/workspaces.md).
 
 `@electric-sql/pglite-socket` 0.2.14 is a development-only SQL protocol test dependency (Apache-2.0). It is pruned from production images.
+
+Browser builds include `/third-party/README.txt`, the project license, this notice, and the exact installed noVNC source with its upstream license files. `npm run build` copies these without modifying the upstream source. When publishing built images, retain these files and the upstream binary/package notices; the source repository itself does not publish a prebuilt Blender binary.

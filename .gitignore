@@ -2,6 +2,8 @@ node_modules/
 dist/
 .data/
 .env
+.env.*
+!.env.example
 *.log
 test-results/
 playwright-report/
@@ -14,3 +16,9 @@ postgres-data/
 *.deb
 
 .local-runtime/
+
+# Local credential stores and editor/runtime state
+.codex/
+.claude/
+*.pem
+*.key

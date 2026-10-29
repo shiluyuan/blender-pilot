@@ -19,7 +19,7 @@
 
 Blender Pilot is a self-hosted creative workspace built around **Blender, Codex, and MCP**. Describe what you want, attach references, reuse assets, and inspect the result. Each project keeps its own scene and conversations; a shared asset library connects your work.
 
-**v0.1.0 is the initial release.** APIs and deployment options may evolve. The supported agent integration is Codex; Claude integration is planned. See [validation and limitations](docs/release-0.1.0.md) before deploying.
+**v0.1.0 is an early preview / initial release.** APIs and deployment options may evolve. The supported agent integration is Codex; Claude integration is planned. See [validation and limitations](docs/release-0.1.0.md) before deploying.
 
 ## Why Blender Pilot?
 

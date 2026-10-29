@@ -6,7 +6,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY apps ./apps
 COPY packages ./packages
-COPY tsconfig*.json vite.config.ts ./
+COPY tsconfig*.json vite.config.ts LICENSE THIRD_PARTY_NOTICES.md ./
+COPY scripts/build-notices.mjs ./scripts/build-notices.mjs
 RUN npm run build && npm prune --omit=dev
 RUN npm install --prefix /opt/codex --omit=dev --no-audit --no-fund @openai/codex@0.164.0
 

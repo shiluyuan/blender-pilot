@@ -8,7 +8,7 @@
     "dev": "node --import tsx --watch apps/server/index.ts",
     "runner": "node --import tsx apps/runner/index.ts",
     "web": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build && tsc -p tsconfig.server.json",
+    "build": "tsc --noEmit && vite build && node scripts/build-notices.mjs && tsc -p tsconfig.server.json",
     "start": "node dist/server/apps/server/index.js",
     "start:runner": "node dist/server/apps/runner/index.js",
     "typecheck": "tsc --noEmit",

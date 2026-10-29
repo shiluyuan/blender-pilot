@@ -10,3 +10,11 @@ playwright-report
 artifacts
 references
 *.log
+
+.local-runtime
+data
+postgres-data
+.codex
+.claude
+*.pem
+*.key
